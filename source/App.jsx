@@ -16,8 +16,8 @@ const SIDEBAR_GROUPS = [
 ];
 
 const moduleMeta = {
-  Dashboard: ['Operational command center', 'Know what expires. Know what it costs not to act. Act on time.'],
-  'Attention Center': ['Operational issue center', 'Resolve critical renewals, ownership gaps, missing evidence and approval blockers before they become financial or operational risk.'],
+  Dashboard: ['Operational command center', 'What needs attention today?'],
+  'Attention Center': ['Alerts and escalations', 'Resolve urgent risk in one queue.'],
   Search: ['Global record search', 'Find companies, renewals, documents and owners.'],
   'Companies / Clients': ['Client operating model', 'Companies, contacts, exposure and ownership.'],
   'Assets & Renewals': ['Asset & renewal worklist', 'Manage tracked assets, licenses, contracts, warranties, SaaS subscriptions and certificates by urgency, value and ownership.'],
@@ -88,7 +88,7 @@ const tasks = [
 
 const reports = [
   ['Renewal Exposure by Client', 'Executive summary', 'Finance and operations', 'María Chen', 'Weekly', 'Ready'],
-  ['Critical Expirations Board Pack', 'Risk report', 'Leadership', 'Luis Mora', 'Monthly', 'Draft'],
+  ['Critical Assets & Renewals Board Pack', 'Risk report', 'Leadership', 'Luis Mora', 'Monthly', 'Draft'],
   ['Data Completeness Review', 'Governance report', 'Administrators', 'Elena Ruiz', 'Biweekly', 'Needs review']
 ];
 
@@ -98,49 +98,69 @@ const importRows = [
   ['Warranty batch upload', 'dell_assets.csv', '146 rows', '3 serial conflicts', 'Validation failed']
 ];
 
-const settingsGroups = [
-  { title: 'Workspace', tone: 'Workspace identity and tenant behavior.', items: [
-    ['Company profile', 'Legal name, workspace details and tenant ownership.', 'Complete'],
-    ['Branding', 'Logo, accent color and login experience.', 'Draft'],
-    ['Localization', 'Language, timezone, number formats and currency defaults.', 'Active'],
-    ['Workspace mode', 'Internal company or integrator/MSP operating mode.', 'Integrator mode']
+const settingsAdminGroups = [
+  { id: 'company', label: 'Company', title: 'Company', description: 'Workspace identity, tenant branding and regional defaults.', items: [
+    ['Workspace profile', 'Legal name, workspace ownership and company details.', 'Complete', 'Open'],
+    ['Branding', 'Logo, accent color and tenant-facing identity assets.', 'Ready', 'Manage'],
+    ['Localization', 'Language, timezone, number formats and currency defaults.', 'Active', 'Edit']
   ]},
-  { title: 'Access', tone: 'Identity, permissions and account protection.', items: [
-    ['Users', 'Invite, suspend and assign workspace members.', '42 active'],
-    ['Roles & permissions', 'Role templates and module-level access rules.', '8 roles'],
-    ['Security', 'Session policies, password rules and device controls.', 'Healthy'],
-    ['SSO / MFA', 'Single sign-on, MFA enforcement and recovery settings.', 'MFA enforced']
+  { id: 'access', label: 'Access', title: 'Access', description: 'Users, roles and security controls for the workspace.', items: [
+    ['Users', 'Invite, suspend and review workspace members.', '42 active', 'Manage'],
+    ['Roles & permissions', 'Role templates and module-level access rules.', '8 roles', 'Review'],
+    ['Security', 'Session policies, password rules and device controls.', 'Healthy', 'Configure'],
+    ['SSO / MFA', 'Single sign-on, MFA enforcement and recovery settings.', 'MFA enforced', 'Edit']
   ]},
-  { title: 'Data Management', tone: 'Catalogs, templates and dynamic forms that power every managed record.', important: true, items: [
-    ['Categories', 'Record categories and required-field rules by type.', '10 active'],
-    ['Custom fields', 'Tenant-specific fields by module, category and workflow.', '27 fields'],
-    ['Vendors / Providers', 'Provider catalog with duplicate prevention and ownership.', '186 records'],
-    ['Brands / Manufacturers', 'Brand catalog linked to products, assets and warranties.', '74 records'],
-    ['Products & SKUs', 'Product templates, SKUs, quantities and renewal defaults.', '412 SKUs'],
-    ['Service levels', 'SLA tiers for services, support contracts and escalations.', '6 levels'],
-    ['Templates', 'Reusable category templates for forms, alerts and documents.', '14 templates'],
-    ['Tags', 'Governed tags for reporting, filtering and segmentation.', '32 tags'],
-    ['Optional modules', 'Enable Warranties, Services and Assets when needed.', '3 available']
+  { id: 'data', label: 'Data', title: 'Data', description: 'Catalogs, fields and record structures used across managed assets.', items: [
+    ['Categories', 'Record categories and required-field rules by type.', '10 active', 'Manage'],
+    ['Custom fields', 'Tenant-specific fields by module, category and workflow.', '27 fields', 'Configure'],
+    ['Vendors / Providers', 'Provider catalog with duplicate prevention and ownership.', '186 records', 'Open'],
+    ['Brands / Manufacturers', 'Brand catalog linked to products, assets and warranties.', '74 records', 'Open'],
+    ['Products & SKUs', 'Product templates, SKUs, quantities and renewal defaults.', '412 SKUs', 'Review'],
+    ['Tags', 'Governed tags for reporting, filtering and segmentation.', '32 tags', 'Manage']
   ]},
-  { title: 'Automation', tone: 'Rules that turn dates and risk into action.', items: [
-    ['Notification rules', 'When owners, approvers and executives receive updates.', '18 rules'],
-    ['Escalation policies', 'Escalate overdue, critical and ownerless records.', '5 policies'],
-    ['Approval workflows', 'Finance, legal and technical approval chains.', '4 workflows'],
-    ['Default alert policies', 'Category defaults for certificates, licenses and contracts.', 'By category']
+  { id: 'automation', label: 'Automation', title: 'Automation', description: 'Rules that turn dates, risk and missing data into accountable action.', items: [
+    ['Notification rules', 'When owners, approvers and executives receive updates.', '18 rules', 'Manage'],
+    ['Escalation policies', 'Escalate overdue, critical and ownerless records.', '5 policies', 'Review'],
+    ['Approval workflows', 'Finance, legal and technical approval chains.', '4 workflows', 'Configure'],
+    ['Default alert policies', 'Category defaults for certificates, licenses and contracts.', 'By category', 'Edit']
   ]},
-  { title: 'Governance', tone: 'Evidence, history and lifecycle controls.', items: [
-    ['Audit log', 'Immutable activity history for records and settings.', 'On'],
-    ['Import history', 'Past imports, mapping decisions and validation outcomes.', '23 imports'],
-    ['Data retention', 'Archive, deletion and evidence-retention policies.', '7 years'],
-    ['Export history', 'Track generated exports for compliance review.', '12 exports']
+  { id: 'ai-operator', label: 'AI Operator', title: 'AI Operator', description: 'Assistant availability, permissions, approvals and operator behavior.', items: [
+    ['Assistant availability', 'Enable Opriva AI Assistant for approved workspace users.', 'Enabled', 'Review'],
+    ['AI permissions', 'Allowed AI actions, drafts and approval boundaries.', 'Approval-first', 'Review'],
+    ['Approval rules', 'Review requirements and workspace data scope.', 'Required', 'Review'],
+    ['Operator behavior', 'Living-agent motion, cursor following and helper messages.', 'Balanced', 'Review']
+  ]},
+  { id: 'governance', label: 'Governance', title: 'Governance', description: 'Auditability, import history, retention and controlled exports.', items: [
+    ['Audit log', 'Immutable activity history for records and settings.', 'On', 'Open'],
+    ['Import history', 'Past imports, mapping decisions and validation outcomes.', '23 imports', 'Open'],
+    ['Data retention', 'Archive, deletion and evidence-retention policies.', '7 years', 'Configure'],
+    ['Export history', 'Track generated exports for compliance review.', '12 exports', 'Open']
+  ]},
+  { id: 'integrations', label: 'Integrations', title: 'Integrations', description: 'API access, webhooks and external system connections.', items: [
+    ['API keys', 'Generate and revoke API keys for external integrations.', '2 active', 'Manage'],
+    ['Webhooks', 'Configure outbound event hooks to external systems.', '1 active', 'Configure'],
+    ['Email connectors', 'SMTP or email service for notifications and follow-ups.', 'Configured', 'Edit'],
+    ['External systems', 'PSA, ITSM and third-party platform integrations.', '0 connected', 'Browse']
   ]}
+];
+
+const MODULE_LIST = [
+  ['Assets & Renewals',       'Renewal calendar and expiration tracking.'],
+  ['Licenses',          'Software and SaaS license management.'],
+  ['Contracts',         'Commercial agreements and obligations.'],
+  ['Documents',         'Record document vault and evidence management.'],
+  ['Tasks',             'Operational work queue and follow-up tracking.'],
+  ['Reports',           'Executive and governance reporting.'],
+  ['Data Import',       'Spreadsheet onboarding and bulk record import.'],
+  ['Vendors / Providers', 'Vendor catalog and supplier management.'],
+  ['Assets / Hardware', 'Hardware asset tracking and warranty management.'],
 ];
 
 
 const AI_CONTEXTS = {
   Dashboard: {
     role: 'Executive prioritization assistant',
-    metadata: 'Context: 418 records · 74 open tasks · 41 missing documents',
+    metadata: 'Context: 418 expirations · 74 open tasks · 41 missing documents',
     suggestions: ['What needs attention today?', 'Generate executive brief', 'Create tasks for critical items', 'Explain renewal exposure'],
     result: 'I found 12 critical renewals. 3 are missing owners, 4 are missing documents and 2 expire in less than 15 days.',
     findings: ['Critical exposure is concentrated in Banisi and Grupo Regency.', 'Owner gaps are blocking certificate and warranty work.', 'Finance approval is needed before two vendor renewals can move.'],
@@ -149,13 +169,13 @@ const AI_CONTEXTS = {
   },
   'Attention Center': { role: 'Triage assistant', metadata: 'Context: 9 critical alerts · 18 escalations · 14 missing owners', suggestions: ['Group alerts by urgency', 'Suggest owners', 'Create resolution tasks', 'Draft escalation message'], result: 'I grouped open alerts into certificate risk, missing evidence and approval blockers so teams can resolve the highest-impact work first.', findings: ['3 alerts require same-day action.', '5 alerts can be assigned to existing client owners.', 'Evidence requests should be batched by company.'], actions: ['Create resolution tasks', 'Assign owners', 'Draft escalation', 'Open related records'], sources: ['Alert rules', 'Owner history', 'Risk score', 'Client records'] },
   Search: { role: 'Natural language search assistant', metadata: 'Context: global records · documents · owners · saved views', suggestions: ['Find records without owners', 'Show renewals in 30 days', 'Find missing documents', 'Explain search results'], result: 'I can turn plain language into structured searches and explain why each result matters operationally.', findings: ['Search can include owners, documents and renewal windows.', 'Results are grouped by record type.', 'Sensitive actions remain review-first.'], actions: ['Run search', 'Save view', 'Open records', 'Export summary'], sources: ['Global index', 'Documents', 'Owners', 'Saved views'] },
-  'Companies / Clients': { role: 'Client intelligence assistant', metadata: 'Context: 128 companies · $1.8M exposure · 312 contacts', suggestions: ['Summarize client exposure', 'Prepare meeting brief', 'Show upcoming renewals', 'Draft follow-up email'], result: 'Banisi has $486K exposure, 7 renewals in 60 days and two document gaps that should be discussed before the next account meeting.', findings: ['Trend Micro renewal is the largest near-term item.', 'Gold Support Contract is missing signed evidence.', 'Paola Medina is the primary technical contact.'], actions: ['Prepare meeting brief', 'Draft follow-up email', 'Open related records', 'Create tasks'], sources: ['Company records', 'Contacts', 'Contracts', 'Expirations'] },
-  Expirations: { role: 'Renewal risk assistant', metadata: 'Context: 418 expirations · 36 due in 30 days · 14 missing owners', suggestions: ['Find critical expirations', 'Detect missing actions', 'Recommend next steps', 'Create renewal tasks'], result: 'The next renewal wave has 12 high-risk items; the fastest improvement is assigning missing owners and requesting required documents today.', findings: ['Two records expire in less than 15 days.', 'Ownerless records are mostly certificate and warranty items.', 'Documents block 4 renewal approvals.'], actions: ['Create renewal tasks', 'Assign owners', 'Draft vendor emails', 'Review before applying'], sources: ['Expiration dates', 'Risk scores', 'Owner fields', 'Document rules'] },
+  'Companies / Clients': { role: 'Client intelligence assistant', metadata: 'Context: 128 companies · $1.8M exposure · 312 contacts', suggestions: ['Summarize client exposure', 'Prepare meeting brief', 'Show upcoming renewals', 'Draft follow-up email'], result: 'Banisi has $486K exposure, 7 renewals in 60 days and two document gaps that should be discussed before the next account meeting.', findings: ['Trend Micro renewal is the largest near-term item.', 'Gold Support Contract is missing signed evidence.', 'Paola Medina is the primary technical contact.'], actions: ['Prepare meeting brief', 'Draft follow-up email', 'Open related records', 'Create tasks'], sources: ['Company records', 'Contacts', 'Contracts', 'Assets & Renewals'] },
+  'Assets & Renewals': { role: 'Renewal risk assistant', metadata: 'Context: 418 expirations · 36 due in 30 days · 14 missing owners', suggestions: ['Find critical expirations', 'Detect missing actions', 'Recommend next steps', 'Create renewal tasks'], result: 'The next renewal wave has 12 high-risk items; the fastest improvement is assigning missing owners and requesting required documents today.', findings: ['Two records expire in less than 15 days.', 'Ownerless records are mostly certificate and warranty items.', 'Documents block 4 renewal approvals.'], actions: ['Create renewal tasks', 'Assign owners', 'Draft vendor emails', 'Review before applying'], sources: ['Expiration dates', 'Risk scores', 'Owner fields', 'Document rules'] },
   Licenses: { role: 'License renewal assistant', metadata: 'Context: 184 licenses · 29 renewals · $742K annual spend', suggestions: ['Analyze renewal exposure by brand', 'Find licenses missing documents', 'Draft vendor follow-up', 'Generate renewal forecast'], result: 'License exposure is led by Microsoft and Trend Micro, with three renewals missing supporting quotes.', findings: ['Microsoft true-up needs approval.', 'Trend Micro quote is versioned but not approved.', 'Veeam usage should be reviewed before renewal.'], actions: ['Generate forecast', 'Draft vendor follow-up', 'Request documents', 'Create approval task'], sources: ['License table', 'Brands', 'Spend data', 'Documents'] },
   Contracts: { role: 'Contract review assistant', metadata: 'Context: 96 contracts · 12 notice periods · 7 legal reviews', suggestions: ['Summarize contract', 'Extract key dates', 'Detect auto-renewal risks', 'Create legal review task'], result: 'I found three contracts in notice windows. One auto-renewal lacks legal review and should be escalated before the renewal deadline.', findings: ['Managed Network Agreement auto-renews soon.', 'Gold Support Contract is missing the signed PDF.', 'Legal review is pending for two agreements.'], actions: ['Create legal review task', 'Extract dates', 'Draft counterparty email', 'Open related records'], sources: ['Contract metadata', 'Notice periods', 'Documents', 'Tasks'] },
   Documents: { role: 'Document intelligence assistant', metadata: 'Context: 624 documents · 41 missing required files · 23 restricted files', suggestions: ['Summarize document', 'Extract dates', 'Link to related record', 'Identify missing evidence'], result: 'The most important document gap is the signed Gold Support Contract because it blocks renewal approval and governance evidence.', findings: ['One quote has newer version available.', 'Required evidence is missing on 4 high-risk records.', 'Restricted documents should remain approval-gated.'], actions: ['Request evidence', 'Link records', 'Extract dates', 'Upload replacement'], sources: ['Document vault', 'Required-document rules', 'Linked records', 'Access policy'] },
   Tasks: { role: 'Work planning assistant', metadata: 'Context: 74 open tasks · 11 overdue · 18 blocked', suggestions: ['Prioritize my tasks', 'Create tasks from alerts', 'Find overdue work', 'Suggest next actions'], result: 'Your highest-impact work today is resolving the SSL owner gap, approving warranty coverage and requesting the Banisi signed contract.', findings: ['Two critical tasks are overdue.', 'Blocked work is mostly missing approvals.', 'Owner workload is uneven across the team.'], actions: ['Prioritize queue', 'Assign task', 'Create tasks from alerts', 'Draft updates'], sources: ['Task board', 'Alerts', 'Due dates', 'Owner workload'] },
-  Reports: { role: 'Report builder assistant', metadata: 'Context: 12 templates · 8 scheduled reports · 31 recent exports', suggestions: ['Generate executive summary', 'Build renewal exposure report', 'Explain trends', 'Schedule report'], result: 'I can generate a concise executive renewal brief using exposure, critical items, owner gaps and open approval blockers.', findings: ['Leadership needs exposure and next actions, not raw tables.', 'Governance report should include document completeness.', 'Trends show certificate risk rising.'], actions: ['Generate report', 'Schedule report', 'Export summary', 'Review sources'], sources: ['Reports', 'Expirations', 'Tasks', 'Documents'] },
+  Reports: { role: 'Report builder assistant', metadata: 'Context: 12 templates · 8 scheduled reports · 31 recent exports', suggestions: ['Generate executive summary', 'Build renewal exposure report', 'Explain trends', 'Schedule report'], result: 'I can generate a concise executive renewal brief using exposure, critical items, owner gaps and open approval blockers.', findings: ['Leadership needs exposure and next actions, not raw tables.', 'Governance report should include document completeness.', 'Trends show certificate risk rising.'], actions: ['Generate report', 'Schedule report', 'Export summary', 'Review sources'], sources: ['Reports', 'Assets & Renewals', 'Tasks', 'Documents'] },
   'Data Import': { role: 'Data cleanup assistant', metadata: 'Context: 3 imports · 14 duplicates · 7 missing owners', suggestions: ['Map columns', 'Detect duplicates', 'Fix formats', 'Suggest missing owners'], result: 'The import can be improved by mapping Expiration Date, merging 12 duplicate vendors and assigning owners based on company history.', findings: ['One sheet has invalid date formats.', 'Trend Micro duplicates an existing vendor.', 'Seven rows need owners before confirmation.'], actions: ['Review mapping', 'Merge duplicates', 'Apply owner suggestions', 'Confirm import'], sources: ['Import preview', 'Catalog records', 'Validation rules', 'Owner history'] },
   Settings: { role: 'Configuration assistant', metadata: 'Context: 18 alert rules · 27 custom fields · 14 templates', suggestions: ['Recommend alert policy', 'Suggest required fields', 'Create category template', 'Configure onboarding checklist'], result: 'Your workspace is configured well, but license and certificate categories should require owner, renewal date and evidence before records can become active.', findings: ['Approval before AI actions is enabled.', 'Data access is workspace scoped.', 'Two categories have weak required-field rules.'], actions: ['Update policy', 'Create template', 'Review AI settings', 'Open audit log'], sources: ['Settings', 'Data Management', 'Automation rules', 'Governance policy'] }
 };
@@ -202,46 +222,26 @@ function StatCards(){
 }
 
 function Dashboard(){
-  const priorityRows = [
-    ['Dell Support Contract', 'Dell', 'May 26, 2026', '12 days', '$42,800', 'Unassigned', 'Assign owner'],
-    ['Microsoft 365 Renewal', 'Microsoft', 'Jun 1, 2026', '18 days', '$31,200', 'Ana Ruiz', 'Prepare renewal'],
-    ['Fortinet Warranty', 'Fortinet', 'Jun 7, 2026', '24 days', '$18,600', 'Luis Mora', 'Request quote'],
-    ['SSL Wildcard Certificate', 'DigiCert', 'May 23, 2026', '9 days', '$3,200', 'Unassigned', 'Prepare renewal'],
-    ['Adobe Creative Cloud', 'Adobe', 'Jun 11, 2026', '28 days', '$9,800', 'Carlos Vega', 'Review usage']
+  const queueRows = [
+    ['Dell Support Contract','Contract','Dell','May 26, 2026','12 days','$42,800','Unassigned','Assign owner'],
+    ['Microsoft 365 Renewal','License','Microsoft','Jun 1, 2026','18 days','$31,200','Ana Ruiz','Prepare renewal'],
+    ['Fortinet Warranty','Warranty','Fortinet','Jun 7, 2026','24 days','$18,600','Luis Mora','Request quote'],
+    ['SSL Wildcard Certificate','Certificate','DigiCert','May 23, 2026','9 days','$3,200','Unassigned','Prepare renewal'],
+    ['Adobe Creative Cloud','SaaS','Adobe','Jun 11, 2026','28 days','$9,800','Carlos Vega','Review usage']
   ];
-
+  const cards = [
+    ['90-day exposure','$284,000','47 managed records','High exposure'],
+    ['30-day critical expirations','12','3 above $25,000 impact','Urgent'],
+    ['Missing owners','18','14% of active portfolio','Needs assignment'],
+    ['Pending actions','9','Emails, tasks and documents','Review']
+  ];
   return <main className="content">
-    <ScreenHeader active="Dashboard">
-      <button>Import records</button>
-      <button className="primary">Review exposure</button>
-    </ScreenHeader>
-
+    <ScreenHeader active="Dashboard" subtitle="Know what expires. Know what it costs not to act. Act on time."><button>Import records</button><button className="primary">Review exposure</button></ScreenHeader>
     <section className="statsGrid" aria-label="Financial exposure summary">
-      {[
-        ['90-day exposure', '$284,000', '47 managed records', 'High exposure', 'high'],
-        ['30-day critical expirations', '12', '3 above $25,000 impact', 'Urgent', 'critical'],
-        ['Missing owners', '18', '14% of active portfolio', 'Needs assignment', 'medium'],
-        ['Pending actions', '9', 'Emails, tasks and documents', 'Review', 'medium']
-      ].map(([label, value, note, badge, tone]) => <article className="statCard" key={label}><span>{label}</span><strong>{value}</strong><p>{note}</p><Badge tone={tone}>{badge}</Badge></article>)}
+      {cards.map(([label,value,note,badge]) => <article className="statCard" key={label}><span>{label}</span><strong>{value}</strong><p>{note}</p><Badge>{badge}</Badge></article>)}
     </section>
-
-    <section className="panel aiRiskPanel">
-      <div className="panelTitle"><h2>AI Risk Summary</h2><span>Financial exposure command center</span></div>
-      <div className="aiRiskContent">
-        <p>This week, 12 records enter a critical renewal window. The highest impact item is the Dell Support Contract for $42,800, expiring in 12 days without an assigned owner. Recommended action: assign an owner and prepare the renewal email today.</p>
-        <div className="inlineActions"><button>Review critical items</button><button>Assign owners</button><button>Prepare vendor email</button></div>
-      </div>
-    </section>
-
-    <section className="panel">
-      <div className="panelTitle"><h2>Priority action queue</h2><span>Records prioritized by urgency, financial value and ownership gaps.</span></div>
-      <div className="tableWrap mvpTable"><table>
-        <thead><tr><th>Record</th><th>Vendor</th><th>Expiry date</th><th>Days left</th><th>Value</th><th>Owner</th><th>Recommended action</th></tr></thead>
-        <tbody>{priorityRows.map(([record, vendor, expiry, days, value, owner, action]) => <tr key={record}>
-          <td className="recordCell">{record}</td><td>{vendor}</td><td>{expiry}</td><td>{days}</td><td>{value}</td><td>{owner === 'Unassigned' ? <Badge tone="medium">Unassigned</Badge> : owner}</td><td><Badge tone="low">{action}</Badge></td>
-        </tr>)}</tbody>
-      </table></div>
-    </section>
+    <section className="panel aiRiskPanel"><div className="panelTitle"><h2>AI Risk Summary</h2><span>Financial exposure command center</span></div><div className="aiRiskContent"><p>This week, 12 records enter a critical renewal window. The highest impact item is the Dell Support Contract for $42,800, expiring in 12 days without an assigned owner. Recommended action: assign an owner and prepare the renewal email today.</p><div className="inlineActions"><button>Review critical items</button><button>Assign owners</button><button>Prepare vendor email</button></div></div></section>
+    <section className="panel"><div className="panelTitle"><h2>Priority action queue</h2><span>Records prioritized by urgency, financial value and ownership gaps.</span></div><div className="tableWrap mvpTable"><table><thead><tr><th>Record</th><th>Vendor</th><th>Expiry date</th><th>Days left</th><th>Value</th><th>Owner</th><th>Recommended action</th></tr></thead><tbody>{queueRows.map((row,i) => <tr key={row[0]}><td className="recordCell">{row[0]}</td><td>{row[2]}</td><td>{row[3]}</td><td>{row[4]}</td><td>{row[5]}</td><td>{row[6] === 'Unassigned' ? <Badge tone="medium">Unassigned</Badge> : row[6]}</td><td><button className="rowAction">{row[7]}</button></td></tr>)}</tbody></table></div></section>
   </main>;
 }
 
@@ -252,55 +252,34 @@ function AttentionCenter(){
     ['Renewal quote not requested','Microsoft 365 Renewal','Microsoft','$31,200','Jun 1, 2026','Ana Ruiz','Prepare vendor email','High'],
     ['Warranty expires in 24 days','Fortinet Warranty','Fortinet','$18,600','Jun 7, 2026','Luis Mora','Request quote','High']
   ];
-
-  return <main className="content">
-    <ScreenHeader active="Attention Center">
-      <button>Assign owners</button>
-      <button className="primary">Create task</button>
-    </ScreenHeader>
-
-    <section className="statsGrid" aria-label="Attention center summary">
-      {[
-        ['Critical issues', '12', '$84,600 exposed in 30 days', 'Urgent', 'critical'],
-        ['Missing owners', '18', '14% of active portfolio', 'Assign', 'low'],
-        ['Missing evidence', '7', 'Contracts or documents required', 'Evidence needed', 'low'],
-        ['Pending approvals', '9', 'AI drafts and tasks waiting', 'Review', 'medium']
-      ].map(([label, value, note, badge, tone]) => <article className="statCard" key={label}><span>{label}</span><strong>{value}</strong><p>{note}</p><Badge tone={tone}>{badge}</Badge></article>)}
-    </section>
-
-    <div className="aiInsightBar" aria-label="Attention Center AI insight">
-      <div className="aiInsightBarLeft"><span className="aiInsightBarLabel">AI insight</span><p className="aiInsightBarText">Opriva found 12 critical renewal issues. Assigning 5 missing owners and requesting 7 documents would reduce the fastest operational risk.</p></div>
-      <div className="aiInsightBarActions"><button>Assign owners</button><button>Request documents</button><button>Create tasks</button></div>
-    </div>
-
-    <section className="panel">
-      <div className="panelTitle"><h2>Attention workflow</h2><span>Saved views, issue grouping and bulk operations</span></div>
-      <div className="tabs"><button className="active">Critical</button><button>Escalations</button><button>Missing owners</button><button>Missing evidence</button><button>Pending approvals</button></div>
-      <div className="toolbar"><input placeholder="Filter issues, records, vendors or owners…"/><button>Saved view: Critical this week</button><button>Severity</button><button>Owner</button><button>Bulk actions</button></div>
-      <div className="tableWrap mvpTable"><table>
-        <thead><tr><th>Issue / Record</th><th>Vendor</th><th>Impact</th><th>Due</th><th>Owner</th><th>Recommended action</th><th>Status</th></tr></thead>
-        <tbody>{issueRows.map(([issue, record, vendor, impact, due, owner, action, status]) => <tr key={record}>
-          <td className="issueRecord"><span>{issue}</span><strong>{record}</strong></td><td>{vendor}</td><td>{impact}</td><td>{due}</td><td>{owner === 'Unassigned' ? <Badge tone="medium">Unassigned</Badge> : owner}</td><td><Badge tone="low">{action}</Badge></td><td><Badge tone={status === 'Critical' ? 'critical' : 'high'}>{status}</Badge></td>
-        </tr>)}</tbody>
-      </table></div>
-    </section>
-
-    <section className="panel">
-      <div className="panelTitle"><h2>Issue groups</h2><span>Grouped by financial impact, urgency and blocker type.</span></div>
-      <Table actions={false} columns={['Group','Count','Business impact','Primary owner','Action']} rows={[['Critical renewals without owner','5','$61,400 exposed','Luis Mora','Assign owners'],['Missing evidence','7','Contracts or documents required','Nadia Brooks','Request documents'],['Pending approvals','9','AI drafts waiting review','María Chen','Review approvals']]} />
-    </section>
+  const cards = [
+    ['Critical issues','12','$84,600 exposed in 30 days','Urgent'],
+    ['Missing owners','18','14% of active portfolio','Assign'],
+    ['Missing evidence','7','Contracts or documents required','Evidence needed'],
+    ['Pending approvals','9','AI drafts and tasks waiting','Review']
+  ];
+  return <main className="content attentionPage">
+    <ScreenHeader active="Attention Center" subtitle="Resolve critical renewals, ownership gaps, missing evidence and approval blockers before they become financial or operational risk."><button>Assign owners</button><button className="primary">Create task</button></ScreenHeader>
+    <section className="statsGrid" aria-label="Attention summary">{cards.map(([label,value,note,badge]) => <article className="statCard" key={label}><span>{label}</span><strong>{value}</strong><p>{note}</p><Badge>{badge}</Badge></article>)}</section>
+    <div className="aiInsightBar"><div className="aiInsightBarLeft"><span className="aiInsightBarLabel">AI Insight</span><p className="aiInsightBarText">Opriva found 12 critical renewal issues. Assigning 5 missing owners and requesting 7 documents would reduce the fastest operational risk.</p></div><div className="aiInsightBarActions"><button>Assign owners</button><button>Request documents</button><button>Create tasks</button></div></div>
+    <section className="panel attentionWorkflow"><div className="panelTitle"><h2>Attention workflow</h2><span>Saved views, issue grouping and bulk operations</span></div><div className="tabs"><button className="active">Critical</button><button>Escalations</button><button>Missing owners</button><button>Missing evidence</button><button>Pending approvals</button></div><div className="toolbar"><input placeholder="Filter issues, records, vendors or owners..."/><button>Saved view: Critical this week</button><button>Severity</button><button>Owner</button><button>Bulk actions</button></div><div className="tableWrap mvpTable"><table><thead><tr><th>Issue / Record</th><th>Vendor</th><th>Impact</th><th>Due</th><th>Owner</th><th>Recommended action</th><th>Status</th></tr></thead><tbody>{issueRows.map(row => <tr key={row[1]}><td className="issueRecord"><span>{row[0]}</span><strong>{row[1]}</strong></td><td>{row[2]}</td><td>{row[3]}</td><td>{row[4]}</td><td>{row[5] === 'Unassigned' ? <Badge tone="medium">Unassigned</Badge> : row[5]}</td><td><button className="rowAction">{row[6]}</button></td><td><Badge>{row[7]}</Badge></td></tr>)}</tbody></table></div></section>
+    <section className="panel"><div className="panelTitle"><h2>Issue groups</h2><span>Grouped by financial impact, urgency and blocker type.</span></div><Table columns={['Group','Count','Business impact','Primary owner','Action']} rows={[["Critical renewals without owner",'5','$61,400 exposed','Luis Mora','Assign owners'],['Missing evidence','7','Contracts or documents required','Nadia Brooks','Request documents'],['Pending approvals','9','AI drafts waiting review','María Chen','Review approvals']]}/></section>
   </main>;
 }
 
 function SearchScreen(){
   const results = [['License','Trend Micro Vision One Credits','Banisi','Expires May 2, 2026 · High risk'],['Contract','Gold Support Contract','Banisi','Signed PDF missing · notice period open'],['Owner','María Chen','7 active renewals','2 approvals pending'],['Document','Trend Micro Renewal Quote.pdf','Version 2','Linked to license renewal']];
-  return <main className="content"><ScreenHeader active="Search" subtitle="Fast global search for records, documents, owners, expirations and operational questions."/><section className="searchHero"><input aria-label="Search Opriva" placeholder="Ask: which high-risk renewals need documents this month?"/><button className="primary">Search</button></section><section className="panel"><div className="panelTitle"><h2>Search scope</h2><span>Natural language queries with structured filters</span></div><div className="tabs"><button className="active">All</button><button>Records</button><button>Documents</button><button>Owners</button><button>Expirations</button></div><div className="toolbar"><button>Recent: Banisi renewals</button><button>Recent: missing signed contracts</button><button>Suggested: certificates expiring in 30 days</button></div></section><section className="panel"><div className="panelTitle"><h2>Grouped results</h2><span>Best matches across operational objects</span></div><Table columns={['Type','Result','Context','Why it matters']} rows={results}/></section></main>;
+  return <main className="content"><ScreenHeader active="Search" subtitle="Fast global search for records, documents, owners, expirations and operational questions."/><section className="searchHero"><input aria-label="Search Opriva" placeholder="Ask: which high-risk renewals need documents this month?"/><button className="primary">Search</button></section><section className="panel"><div className="panelTitle"><h2>Search scope</h2><span>Natural language queries with structured filters</span></div><div className="tabs"><button className="active">All</button><button>Records</button><button>Documents</button><button>Owners</button><button>Assets & Renewals</button></div><div className="toolbar"><button>Recent: Banisi renewals</button><button>Recent: missing signed contracts</button><button>Suggested: certificates expiring in 30 days</button></div></section><section className="panel"><div className="panelTitle"><h2>Grouped results</h2><span>Best matches across operational objects</span></div><Table columns={['Type','Result','Context','Why it matters']} rows={results}/></section></main>;
 }
 
 function CompaniesScreen(){
   const [tab, setTab] = React.useState('Companies');
-  const companyRecords = [['Expirations','Trend Micro renewal','May 2, 2026','High','María Chen'],['Licenses','Vision One Credits','1,200 credits','High','María Chen'],['Contracts','Gold Support Contract','Notice due Mar 18','High','Nadia Brooks'],['Tasks','Request signed quote','Due Friday','Open','María Chen']];
-  return <main className="content"><ScreenHeader active="Companies / Clients" subtitle="Company detail remains the workspace for contacts, expirations, licenses, contracts, documents and tasks."><button>Configure columns</button><button className="primary">Add company</button></ScreenHeader><div className="tabs" role="tablist"><button className={tab==='Companies'?'active':''} onClick={()=>setTab('Companies')}>Companies</button><button className={tab==='Contacts'?'active':''} onClick={()=>setTab('Contacts')}>Contacts</button><button>Exposure</button><button>Documents</button></div><section className="panel"><div className="toolbar"><input placeholder="Search companies, contacts or domains…"/><button>Saved view: High exposure</button><button>Filters</button><button>Columns</button></div>{tab==='Contacts' ? <><div className="panelTitle"><h2>Key contacts</h2><span>Technical, commercial and legal owners per client</span></div><Table columns={['Contact','Company','Role','Email','Contact type','Responsibility']} rows={contacts}/></> : <><div className="panelTitle"><h2>Companies and clients</h2><span>Exposure, next dates and owner accountability</span></div><Table columns={['Company','Segment','Main contact','Opriva owner','Managed records','Renewal pressure','Exposure','Risk']} rows={companies}/></>}</section><section className="panel"><div className="panelTitle"><h2>Banisi workspace preview</h2><span>Related records stay connected to the client context</span></div><Table columns={['Area','Record','Timing','Risk / status','Owner']} rows={companyRecords}/></section></main>;
+  const companyRecords = [['Assets & Renewals','Trend Micro renewal','May 2, 2026','High','María Chen'],['Licenses','Vision One Credits','1,200 credits','High','María Chen'],['Contracts','Gold Support Contract','Notice due Mar 18','High','Nadia Brooks'],['Tasks','Request signed quote','Due Friday','Open','María Chen']];
+  return <main className="content"><ScreenHeader active="Companies / Clients" subtitle="Company detail remains the workspace for contacts, renewals, licenses, contracts, documents and tasks."><button>Configure columns</button><button className="primary">Add company</button></ScreenHeader><div className="tabs" role="tablist"><button className={tab==='Companies'?'active':''} onClick={()=>setTab('Companies')}>Companies</button><button className={tab==='Contacts'?'active':''} onClick={()=>setTab('Contacts')}>Contacts</button><button>Exposure</button><button>Documents</button></div><section className="panel"><div className="toolbar"><input placeholder="Search companies, contacts or domains…"/><button>Saved view: High exposure</button><button>Filters</button><button>Columns</button></div>{tab==='Contacts' ? <><div className="panelTitle"><h2>Key contacts</h2><span>Technical, commercial and legal owners per client</span></div><Table columns={['Contact','Company','Role','Email','Contact type','Responsibility']} rows={contacts}/></> : <><div className="panelTitle"><h2>Companies and clients</h2><span>Exposure, next dates and owner accountability</span></div><Table columns={['Company','Segment','Main contact','Opriva owner','Managed records','Renewal pressure','Exposure','Risk']} rows={companies}/></>}</section><section className="panel"><div className="panelTitle"><h2>Banisi workspace preview</h2><span>Related records stay connected to the client context</span></div><Table columns={['Area','Record','Timing','Risk / status','Owner']} rows={companyRecords}/></section></main>;
+}
+
+function ListScreen({ active, columns, rows, note }){
+  return <main className="content"><ScreenHeader active={active} subtitle={note}/><section className="panel"><div className="panelTitle"><h2>{active} records</h2><span>Sample rows use meaningful business values for the module.</span></div><Table columns={columns} rows={rows}/></section></main>;
 }
 
 function AssetsRenewalsScreen(){
@@ -313,41 +292,25 @@ function AssetsRenewalsScreen(){
     ['HPE Server Warranty','Warranty','HPE','Jul 18, 2026','65 days','$22,400','Maria Chen','Medium','Schedule review'],
     ['Veeam Backup Renewal','License','Veeam','Aug 4, 2026','82 days','$14,900','Diego Paredes','Low','Monitor']
   ];
-
   return <main className="content">
-    <ScreenHeader active="Assets & Renewals">
-      <button>Import records</button>
-      <button>Configure columns</button>
-      <button className="primary">New record</button>
-    </ScreenHeader>
-
-    <div className="tabs"><button className="active">All</button><button>Critical</button><button>30 days</button><button>60 days</button><button>Missing owner</button><button>Expired</button></div>
-    <div className="toolbar"><input placeholder="Filter by record, vendor, owner, type or status…"/><button>Saved view: Operational risk</button><button>Type</button><button>Owner</button><button>Vendor</button><button>Status</button></div>
-
-    <div className="aiInsightBar" aria-label="Assets & Renewals AI insight">
-      <div className="aiInsightBarLeft"><span className="aiInsightBarLabel">AI insight</span><p className="aiInsightBarText">Opriva found 12 records entering a critical renewal window and 18 records without an assigned owner. Start by assigning owners to high-value records expiring in the next 30 days.</p></div>
-      <div className="aiInsightBarActions"><button>Assign owners</button><button>Review critical</button><button>Prepare emails</button></div>
-    </div>
-
-    <section className="panel">
-      <div className="panelTitle"><h2>Renewal worklist</h2><span>All tracked records prioritized by expiry date, financial exposure and ownership gaps.</span></div>
-      <div className="tableWrap mvpTable"><table>
-        <thead><tr><th>Record</th><th>Type</th><th>Vendor</th><th>Expiry date</th><th>Days left</th><th>Value</th><th>Owner</th><th>Status</th><th>Recommended action</th></tr></thead>
-        <tbody>{rows.map(([record, type, vendor, expiry, days, value, owner, status, action]) => <tr key={record}>
-          <td className="recordCell">{record}</td><td>{type}</td><td>{vendor}</td><td>{expiry}</td><td>{days}</td><td>{value}</td><td>{owner === 'Unassigned' ? <Badge tone="medium">Unassigned</Badge> : owner}</td><td><Badge tone={status === 'Critical' ? 'critical' : status === 'High' ? 'high' : status === 'Medium' ? 'medium' : 'low'}>{status}</Badge></td><td><Badge tone="low">{action}</Badge></td>
-        </tr>)}</tbody>
-      </table></div>
-    </section>
+    <ScreenHeader active="Assets & Renewals" subtitle="Manage tracked assets, licenses, contracts, warranties, SaaS subscriptions and certificates by urgency, value and ownership."><button>Import records</button><button>Configure columns</button><button className="primary">New record</button></ScreenHeader>
+    <div className="aiInsightBar"><div className="aiInsightBarLeft"><span className="aiInsightBarLabel">AI Insight</span><p className="aiInsightBarText">Opriva found 12 records entering a critical renewal window and 18 records without an assigned owner. Start by assigning owners to high-value records expiring in the next 30 days.</p></div><div className="aiInsightBarActions"><button>Assign owners</button><button>Review critical</button><button>Prepare emails</button></div></div>
+    <section className="panel"><div className="tabs"><button className="active">All</button><button>Critical</button><button>30 days</button><button>60 days</button><button>Missing owner</button><button>Expired</button></div><div className="toolbar"><input placeholder="Filter by record, vendor, owner, type or status..."/><button>Saved view: Operational risk</button><button>Type</button><button>Owner</button><button>Vendor</button><button>Status</button></div><div className="panelTitle"><h2>Renewal worklist</h2><span>All tracked records prioritized by expiry date, financial exposure and ownership gaps.</span></div><div className="tableWrap mvpTable"><table><thead><tr><th>Record</th><th>Type</th><th>Vendor</th><th>Expiry date</th><th>Days left</th><th>Value</th><th>Owner</th><th>Status</th><th>Recommended action</th></tr></thead><tbody>{rows.map(row => <tr key={row[0]}><td className="recordCell">{row[0]}</td><td>{row[1]}</td><td>{row[2]}</td><td>{row[3]}</td><td>{row[4]}</td><td>{row[5]}</td><td>{row[6] === 'Unassigned' ? <Badge tone="medium">Unassigned</Badge> : row[6]}</td><td><Badge>{row[7]}</Badge></td><td><button className="rowAction">{row[8]}</button></td></tr>)}</tbody></table></div></section>
   </main>;
-}
-
-function ListScreen({ active, columns, rows, note }){
-  return <main className="content"><ScreenHeader active={active} subtitle={note}/><section className="panel"><div className="panelTitle"><h2>{active} records</h2><span>Sample rows use meaningful business values for the module.</span></div><Table columns={columns} rows={rows}/></section></main>;
 }
 
 function OperationalList({ active, columns, rows, note, tabs=['All','Critical','30 days','Overdue','Missing owner'], ai='Opriva AI can summarize blockers, owners and next actions for this queue.' }){
   const safeRows = Array.isArray(rows) ? rows : [];
-  return <main className="content"><ScreenHeader active={active} subtitle={note}><button>Bulk actions</button><button>Configure columns</button><button className="primary">New record</button></ScreenHeader><section className="split"><article className="panel wide"><div className="tabs">{tabs.map((tab,i)=><button key={tab} className={i===0?'active':''}>{tab}</button>)}</div><div className="toolbar"><input placeholder={`Filter ${active.toLowerCase()} by company, owner, vendor or risk…`}/><button>Saved view: Operational risk</button><button>Advanced filters</button><button>AI summary</button></div><div className="panelTitle"><h2>{active} worklist</h2><span>{ai}</span></div><Table columns={columns} rows={safeRows}/></article><AiInsightCard active={active}/></section></main>;
+  return <main className="content">
+    <ScreenHeader active={active} subtitle={note}><button>Bulk actions</button><button>Configure columns</button><button className="primary">New record</button></ScreenHeader>
+    <AiInsightBar active={active}/>
+    <section className="panel worklistPanel">
+      <div className="tabs">{tabs.map((tab,i)=><button key={tab} className={i===0?'active':''}>{tab}</button>)}</div>
+      <div className="toolbar"><input placeholder={`Filter ${active.toLowerCase()} by company, owner, vendor or risk…`}/><button>Saved view: Operational risk</button><button>Advanced filters</button><button>AI summary</button></div>
+      <div className="panelTitle"><h2>{active} worklist</h2><span>{ai}</span></div>
+      <Table columns={columns} rows={safeRows}/>
+    </section>
+  </main>;
 }
 
 function ContractsScreen(){
@@ -374,11 +337,155 @@ function DataImportScreen(){
   return <main className="content"><ScreenHeader active="Data Import" subtitle="A full import workflow from file upload through validation, duplicate detection and confirmation."><button>Download template</button><button className="primary">Start import</button></ScreenHeader><section className="panel"><div className="panelTitle"><h2>Import history</h2><span>Landing page with recent jobs and operational status</span></div><Table columns={['Import','File','Rows','Duplicate prevention','Status']} rows={importRows}/></section><section className="panel"><div className="panelTitle"><h2>Import wizard</h2><span>Guided steps prevent bad data before records are created</span></div><div className="wizardSteps">{steps.map((step,i)=><div className={cx('wizardStep',i<3&&'done',i===3&&'active')} key={step}><strong>{i+1}</strong><span>{step}</span></div>)}</div><Table columns={['Validation area','Finding','AI suggestion','Action']} rows={[["Column mapping",'Expiration Date matched with 94% confidence','Map to expiration_date','Review mapping'],['Duplicates','12 vendors resemble existing catalog entries','Use Trend Micro existing vendor','Merge suggestions'],['Required fields','7 license rows missing owner','Assign María Chen based on company history','Apply suggestion']]}/><div className="miniState loadingState" role="status"><span className="spinner"/>Import processing: validating 1,248 rows before confirmation.</div><ErrorState title="Failed import" message="The uploaded workbook contains an invalid file format in one sheet. Retry with CSV/XLSX or open help." /><ValidationPanel /></section></main>;
 }
 
+function SettingsHealthBar(){
+  return <div className="settingsHealthBar" role="status" aria-label="Configuration health">
+    <span className="settingsHealthDot" aria-hidden="true" />
+    <span className="settingsHealthText"><strong>Configuration health: 71%</strong> &nbsp;·&nbsp; 2 required-field gaps found</span>
+    <button type="button" className="settingsHealthBtn">Review setup</button>
+  </div>;
+}
+
 function Settings(){
   const [query, setQuery] = React.useState('');
+  const [openedGroupId, setOpenedGroupId] = React.useState(null);
+  const [workspaceMode, setWorkspaceMode] = React.useState('MSP / Integrator');
+  const [modules, setModules] = React.useState({
+    'Assets & Renewals': true, 'Licenses': true, 'Contracts': true,
+    'Documents': true, 'Tasks': true, 'Reports': true,
+    'Data Import': true, 'Vendors / Providers': true, 'Assets / Hardware': false
+  });
+  const toggleModule = function(name){ setModules(function(prev){ var next = {}; Object.keys(prev).forEach(function(k){ next[k] = prev[k]; }); next[name] = !prev[name]; return next; }); };
   const normalized = query.trim().toLowerCase();
-  const visible = settingsGroups.map(group => ({...group, items: group.items.filter(item => !normalized || item.join(' ').toLowerCase().includes(normalized) || group.title.toLowerCase().includes(normalized))})).filter(group => group.items.length);
-  return <main className="content settingsPage"><ScreenHeader active="Settings" subtitle="A professional tenant administration hub for workspace, access, data, automation and governance."/><section className="settingsSearch"><div><strong>Settings hub</strong><span>Search across access, catalogs, templates, workflows and governance controls.</span></div><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search settings…" aria-label="Search settings"/></section><section className="settingsLayout"><aside className="settingsNav" aria-label="Settings sections">{settingsGroups.map(g => <a key={g.title} href={'#'+g.title.replace(/\s+/g,'-')}>{g.title}</a>)}</aside><div className="settingsGroups">{visible.map(group => <section className={cx('settingsGroup', group.important && 'important')} id={group.title.replace(/\s+/g,'-')} key={group.title}><div className="settingsGroupHeader"><div><h2>{group.title}</h2><p>{group.tone}</p></div>{group.important && <Badge tone="medium">Controls dynamic forms</Badge>}</div><div className="settingsGrid">{group.items.map(([name, desc, status]) => <button className="settingItem" key={name}><div><strong>{name}</strong><span>{desc}</span></div>{status && <em>{status}</em>}</button>)}</div>{group.title === 'Data Management' && <div className="moduleEnablement"><div><h3>Optional module enablement</h3><p>Keep the MVP sidebar simple. Enable Warranties, Services and Assets when the tenant actually manages those records.</p></div><div className="modulePills"><Badge tone="low">Warranties available</Badge><Badge tone="low">Services available</Badge><Badge tone="low">Assets available</Badge></div></div>}</section>)}</div><AiSettingsPanel/><AiInsightCard active="Settings"/></section></main>;
+  const filteredGroups = settingsAdminGroups.map(function(group){
+    return {
+      id: group.id, label: group.label, description: group.description,
+      items: group.items.filter(function(item){
+        return !normalized || (group.label + ' ' + item[0] + ' ' + item[1]).toLowerCase().includes(normalized);
+      })
+    };
+  }).filter(function(group){
+    return !normalized || group.items.length > 0 || group.label.toLowerCase().includes(normalized);
+  });
+  const openedGroup = openedGroupId ? settingsAdminGroups.find(function(g){ return g.id === openedGroupId; }) : null;
+
+  return <main className="content settingsPage settingsDirectoryPage">
+    <ScreenHeader active="Settings" subtitle="Manage workspace, access, data, automation, AI and governance." />
+    {!openedGroup && <div className="settingsHub">
+      <div className="settingsHubRow">
+        <SettingsHealthBar />
+        <input
+          className="settingsSearchInput"
+          value={query}
+          onChange={function(e){ setQuery(e.target.value); }}
+          placeholder="Search settings..."
+          aria-label="Search settings"
+        />
+      </div>
+      {filteredGroups.length === 0
+        ? <p className="settingsNoResults">No matching settings found.</p>
+        : <div className="settingsGroupGrid">
+            {filteredGroups.map(function(group){
+              return <article className="settingsDirectoryGroup" key={group.id}>
+                <h3 className="settingsGroupLabel">{group.label}</h3>
+                <ul className="settingsItemList" role="list">
+                  {group.items.map(function(item){
+                    var name = item[0];
+                    return <li key={name}>
+                      <button type="button" className="settingsItemLink" onClick={function(){ setOpenedGroupId(group.id); }}>
+                        {name}
+                      </button>
+                    </li>;
+                  })}
+                </ul>
+              </article>;
+            })}
+          </div>
+      }
+    </div>}
+    {openedGroup && <div className="settingsDetailWorkspace" aria-live="polite">
+      <button className="settingsBackButton" type="button" onClick={function(){ setOpenedGroupId(null); }}>← Back to Settings</button>
+      {openedGroup.id === 'ai-operator'
+        ? <AiSettingsPanel />
+        : <SettingsGroupPanel
+            group={openedGroup}
+            workspaceMode={workspaceMode}
+            setWorkspaceMode={setWorkspaceMode}
+            modules={modules}
+            toggleModule={toggleModule}
+          />
+      }
+    </div>}
+  </main>;
+}
+
+function SettingsGroupPanel({ group, workspaceMode, setWorkspaceMode, modules, toggleModule }){
+  var isCompany = group.id === 'company';
+  var items = Array.isArray(group.items) ? group.items : [];
+  return <div className="settingsDetailPanel settingsFocusedPanel">
+    <div className="settingsDetailHeader">
+      <span className="eyebrow">{group.label}</span>
+      <h2>{group.label}</h2>
+      <p>{group.description}</p>
+    </div>
+    {isCompany && <div className="settingsDetailSection">
+      <p className="settingsSectionLabel">Workspace mode</p>
+      <p className="settingsWorkspaceModeDesc">Controls entity labels, sidebar modules and operating model across the workspace.</p>
+      <div className="workspaceModeSegment" role="group" aria-label="Select workspace mode">
+        {['MSP / Integrator', 'Internal IT', 'Hybrid'].map(function(mode){
+          return <button key={mode} type="button"
+            className={workspaceMode === mode ? 'active' : ''}
+            onClick={function(){ setWorkspaceMode(mode); }}
+          >{mode}</button>;
+        })}
+      </div>
+    </div>}
+    <div className="settingsDetailSection">
+      <p className="settingsSectionLabel">{isCompany ? 'Workspace settings' : 'Settings'}</p>
+      <div className="settingsRows">
+        {items.map(function(item){
+          var name = item[0]; var desc = item[1]; var status = item[2]; var action = item[3];
+          return <SettingsRow key={name} title={name} description={desc} status={status} action={action || 'Manage'} />;
+        })}
+      </div>
+    </div>
+    {isCompany && <div className="settingsDetailSection">
+      <p className="settingsSectionLabel">Module enablement</p>
+      <p className="settingsWorkspaceModeDesc">Enable or disable modules for this workspace. Disabled modules are hidden from all users.</p>
+      <div className="settingsModuleGrid">
+        {MODULE_LIST.map(function(entry){
+          var name = entry[0]; var desc = entry[1];
+          var isOn = modules[name] !== false;
+          return <div key={name} className="settingsModuleRow">
+            <div className="settingsModuleMeta">
+              <strong className="settingsModuleName">{name}</strong>
+              <span className="settingsModuleDesc">{desc}</span>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={isOn}
+              aria-label={name + ': ' + (isOn ? 'enabled' : 'disabled')}
+              className={cx('switchControl', isOn && 'isOn')}
+              onClick={function(){ toggleModule(name); }}
+            ><span /></button>
+          </div>;
+        })}
+      </div>
+    </div>}
+  </div>;
+}
+
+function SettingsRow({ title, description, status, action }){
+  return <div className="adminSettingRow">
+    <div className="adminSettingCopy">
+      <strong>{title}</strong>
+      <span>{description}</span>
+    </div>
+    <div className="adminSettingControl">
+      <em>{status}</em>
+      <button type="button">{action || 'Manage'}</button>
+    </div>
+  </div>;
 }
 
 
@@ -393,8 +500,8 @@ const CONTEXTUAL_MICRO_MESSAGES = {
     { text: 'I can map columns and detect duplicates for you.', action: 'Map columns' },
     { text: 'Upload your Excel and I’ll help organize the data.', action: 'Start import' }
   ],
-  Expirations: [
-    { text: 'I can help you create a new expiration.', action: 'Create' },
+  'Assets & Renewals': [
+    { text: 'I can help you create a new tracked record.', action: 'Create' },
     { text: 'Want me to find critical renewals?', action: 'Find risks' },
     { text: 'I can check which records are missing owners.', action: 'Check owners' }
   ],
@@ -464,6 +571,20 @@ function AiInsightCard({ active }){
   </aside>;
 }
 
+function AiInsightBar({ active }){
+  const context = getAiContext(active);
+  const safeActions = Array.isArray(context.actions) ? context.actions.slice(0, 2) : [];
+  return <div className="aiInsightBar" aria-label={`${active} AI insight`}>
+    <div className="aiInsightBarLeft">
+      <span className="aiInsightBarLabel">AI insight</span>
+      <p className="aiInsightBarText">{context.result || 'Opriva AI can summarize risks, missing data and next actions for this screen.'}</p>
+    </div>
+    <div className="aiInsightBarActions">
+      {safeActions.map(action => <button key={action}>{action}</button>)}
+    </div>
+  </div>;
+}
+
 function AiOutput({ active }){
   const context = getAiContext(active);
   const findings = Array.isArray(context.findings) ? context.findings.slice(0,2) : [];
@@ -488,8 +609,59 @@ function AiWorkflowWorkspace({ active }){
 }
 
 function AiSettingsPanel(){
-  const settings = [['Enable AI assistant','On'],['Allow AI to create tasks','Requires approval'],['Allow AI to draft emails','On'],['Allow AI to summarize documents','On'],['Require approval before actions','On'],['Data access scope','Workspace records only'],['AI usage limits','1,000 actions / month']];
-  return <section className="aiSettingsPanel" aria-label="AI settings"><div><h3>AI Settings</h3><p>Keep Opriva AI helpful, controlled and approval-first.</p></div><div className="settingsGrid">{settings.map(([name,status]) => <button className="settingItem" key={name}><div><strong>{name}</strong><span>Configured for safe operational assistance.</span></div><em>{status}</em></button>)}</div></section>;
+  const allowedActions = [
+    ['Create tasks','Allow Opriva AI to prepare task suggestions for user approval.','Requires approval','toggle',true],
+    ['Draft emails','Allow Opriva AI to draft follow-up messages without sending them automatically.','Draft only','toggle',true],
+    ['Summarize documents','Allow Opriva AI to summarize uploaded files and extract key dates.','Enabled','toggle',true],
+    ['Generate reports','Allow Opriva AI to prepare executive and operational summaries.','Enabled','toggle',true]
+  ];
+  const safety = [
+    ['Require approval before actions','AI-created tasks, reports or drafts must be reviewed before being applied.','Required','toggle',true],
+    ['Data access scope','Limit AI responses to records inside the current workspace.','Workspace records only','scope',true]
+  ];
+  const operator = [
+    ['Living AI Operator','Allows the floating Opriva AI Operator to feel present with subtle animation.','Enabled','toggle',true],
+    ['Eye follows cursor','Allows the green focus point to softly follow the cursor.','Enabled','toggle',true],
+    ['Contextual helper messages','Shows short helpful messages based on the current screen.','Balanced','toggle',true],
+    ['Activity level','Controls how proactive the assistant feels.','Balanced','segment',true]
+  ];
+  return <section className="aiSettingsPanel aiGovernancePanel" id="AI-Operator" aria-labelledby="ai-settings-title">
+    <aside className="aiSettingsSummary">
+      <span className="eyebrow">AI & Operator</span>
+      <h2 id="ai-settings-title">AI Settings</h2>
+      <p>Keep Opriva AI helpful, controlled and approval-first.</p>
+      <div className="aiSafetyNote"><strong>Approval-first assistant</strong><span>Opriva AI can prepare work, summarize records and guide users while keeping final decisions with your team.</span></div>
+    </aside>
+    <div className="aiSettingsMain">
+      <div className="aiSettingSection">
+        <h3>Assistant availability</h3>
+        <AiSettingRow title="Enable Opriva AI Assistant" description="Allows users to ask questions, summarize records and receive operational guidance." status="Enabled" enabled />
+      </div>
+      <div className="aiSettingSection">
+        <h3>Allowed actions</h3>
+        <div className="aiSettingStack">{allowedActions.map(([title, description, status, type, enabled]) => <AiSettingRow key={title} title={title} description={description} status={status} enabled={enabled} type={type} />)}</div>
+      </div>
+      <div className="aiSettingSection">
+        <h3>Approval and safety</h3>
+        <div className="aiSettingStack">{safety.map(([title, description, status, type, enabled]) => <AiSettingRow key={title} title={title} description={description} status={status} enabled={enabled} type={type} />)}</div>
+      </div>
+      <div className="aiSettingSection">
+        <h3>AI Operator behavior</h3>
+        <div className="aiSettingStack">{operator.map(([title, description, status, type, enabled]) => <AiSettingRow key={title} title={title} description={description} status={status} enabled={enabled} type={type} />)}</div>
+      </div>
+      <article className="aiInsightReadable">
+        <div><span className="eyebrow">AI Insight</span><p>“Your workspace is configured safely. License and certificate categories should require owner, renewal date and evidence before records become active.”</p></div>
+        <button type="button">Review policy</button>
+      </article>
+    </div>
+  </section>;
+}
+
+function AiSettingRow({ title, description, status, enabled = false, type = 'toggle' }){
+  return <div className="aiSettingRow">
+    <div className="aiSettingCopy"><strong>{title}</strong><span>{description}</span></div>
+    <div className="aiSettingControl"><em>{status}</em>{type === 'scope' ? <button className="scopePill" type="button">Workspace records only</button> : type === 'segment' ? <div className="activitySegment" role="group" aria-label="Activity level"><button type="button">Quiet</button><button className="active" type="button">Balanced</button><button type="button">Proactive</button></div> : <button className={cx('switchControl', enabled && 'isOn')} type="button" role="switch" aria-checked={enabled} aria-label={`${title}: ${enabled ? 'enabled' : 'disabled'}`}><span /></button>}</div>
+  </div>;
 }
 
 function prefersReducedMotion(){
@@ -521,7 +693,7 @@ function FloatingAgentButton({ active, isOpen, onClick, settings }){
   const reduced = Boolean(settings.reduceMotion || prefersReducedMotion());
   const living = settings.livingAgent && !settings.muteAssistant && !reduced;
   const activity = settings.activityLevel || 'Balanced';
-  const assistiveScreens = ['Dashboard', 'Attention Center', 'Expirations', 'Tasks', 'Data Import'];
+  const assistiveScreens = ['Dashboard', 'Attention Center', 'Assets & Renewals', 'Tasks', 'Data Import'];
   const isTyping = () => {
     const el = document.activeElement;
     return Boolean(el && ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName));
@@ -614,7 +786,7 @@ function AgentBehaviorControls({ settings, onChange }){
 
 function AiDrawer({ active, onClose, settings, onSettingChange }){
   const context = getAiContext(active);
-  const metadata = String(context.metadata || '418 records · 74 open tasks · 41 missing documents').replace(/^Context:\s*/, '');
+  const metadata = String(context.metadata || '418 expirations · 74 open tasks · 41 missing documents').replace(/^Context:\s*/, '');
   const suggestions = ['What needs attention today?', 'Find missing owners', 'Draft follow-up email'];
   return <aside className="aiDrawer" aria-label="Opriva AI assistant">
     <header><div><span>Opriva AI</span><h2>Context: {active}</h2></div><button aria-label="Close Opriva AI assistant" onClick={onClose}>×</button></header>
@@ -632,29 +804,313 @@ const aiStyles = `.floatingAgentBtn{position:fixed;right:24px;bottom:24px;z-inde
 
 const livingAgentStyles = `.floatingAgentWrap{position:fixed;right:24px;bottom:24px;z-index:90;transition:transform .85s cubic-bezier(.2,.8,.2,1);pointer-events:none}.floatingAgentWrap .floatingAgentBtn{position:relative;right:auto;bottom:auto;z-index:91;width:56px;height:56px;border-radius:18px;pointer-events:auto;overflow:visible}.floatingAgentBtn.living{animation:agentFloat 5.8s ease-in-out infinite}.floatingAgentBtn.assistive{box-shadow:0 18px 42px rgba(13,148,136,.18),0 0 0 1px rgba(13,148,136,.10)}.floatingAgentBtn.working .agentOrbit{animation:agentThink 1.2s linear infinite}.floatingAgentBtn.muted{box-shadow:0 10px 24px rgba(11,31,58,.10);opacity:.92}.logo-assistive .agentDot{background:#0D9488;box-shadow:0 0 0 6px rgba(13,148,136,.12)}.logo-curious .agentOrbit{transform:rotate(-12deg);border-color:#2563EB;border-right-color:transparent}.logo-working .agentDot{background:#0B1F3A}.agentNudge{position:absolute;right:68px;bottom:7px;max-width:220px;background:#fff;color:#334155;border:1px solid #E2E8F0;border-radius:14px;padding:9px 11px;font-size:12px;font-weight:750;box-shadow:0 14px 34px rgba(11,31,58,.12);pointer-events:none;white-space:nowrap;animation:nudgeIn .22s ease-out}.agentNudge.assistive{color:#0F766E;border-color:#BFEFE6;background:#F8FFFD}.agentControls{border-top:1px solid #EEF2F7;padding-top:10px}.agentControls summary{cursor:pointer;font-size:12px;font-weight:850;color:#526174}.agentControls label{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:9px 0;font-size:12px;color:#526174}.agentControls input{accent-color:#2563EB}.toastStack{right:24px;bottom:98px;z-index:85}.aiDrawer{z-index:88}.aiDrawer .agentControls{margin-top:2px}@keyframes agentFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}@keyframes nudgeIn{from{opacity:0;transform:translateX(5px)}to{opacity:1;transform:translateX(0)}}@keyframes agentThink{to{transform:rotate(336deg)}}@media(max-width:720px){.floatingAgentWrap{right:18px;bottom:18px}.agentNudge{display:none}}@media(prefers-reduced-motion:reduce){.floatingAgentWrap,.floatingAgentBtn.living,.agentNudge,.floatingAgentBtn.working .agentOrbit{animation:none!important;transition:none!important;transform:none!important}}`;
 
+
+/* --- Opriva visual upgrades preserved from the newer version, without touching page routing --- */
+function OprivaProductMark(){
+  return <span className="brandMark oprivaProductMark" aria-hidden="true">
+    <svg viewBox="0 0 32 32" focusable="false">
+      <path className="oprivaOpenContour" d="M22.9 8.1A11.3 11.3 0 1 0 23 23.8" />
+      <circle className="oprivaFocusDot" cx="24.5" cy="16" r="2.65" />
+    </svg>
+  </span>;
+}
+
+function SidebarShell({ active, onSelect }){
+  return <aside className="sidebar">
+    <div className="brand" aria-label="Opriva product identity">
+      <OprivaProductMark />
+      <span className="brandCopy"><strong>Opriva</strong><span>IT Asset & Renewal Intelligence</span></span>
+    </div>
+    <nav>
+      {SIDEBAR_GROUPS.map(group => <div className="navGroup" key={group.label}>
+        <p>{group.label}</p>
+        {group.items.map(item => <button key={item} className={active === item ? 'active' : ''} onClick={() => onSelect(item)} type="button">{item}</button>)}
+      </div>)}
+    </nav>
+  </aside>;
+}
+
+function TopbarShell({ active, onSearch, onAlerts }){
+  return <header className="topbar">
+    <button className="tenantLockup" type="button" aria-label="Open workspace menu">
+      <span className="tenantLogo">B</span>
+      <div><strong>Banisi Workspace</strong><span>{active || 'Dashboard'}</span></div>
+    </button>
+    <label className="globalSearch"><span aria-hidden="true">⌘K</span><input onFocus={onSearch} placeholder="Search records, renewals, documents..." aria-label="Global Search" /></label>
+    <div className="topActions"><button type="button" onClick={onAlerts} aria-label="Open alerts">9 alerts</button><span className="avatar">MC</span></div>
+  </header>;
+}
+
+function OprivaAgentMark({ eyeFollowsCursor = true, blinkSignal = 0 }){
+  const iconRef = React.useRef(null);
+  const contourRef = React.useRef(null);
+  const dotRef = React.useRef(null);
+  const rafRef = React.useRef(null);
+  const idleTimerRef = React.useRef(null);
+  const blinkTimerRef = React.useRef(null);
+  const motionRef = React.useRef({ x: 24.5, y: 16, angle: 0, targetAngle: 0, blink: 1, blinkTarget: 1, active: false });
+
+  React.useEffect(() => {
+    const center = 16;
+    const radius = 8.45;
+    const restAngle = 0;
+    const ease = 0.12;
+    const blinkEase = 0.34;
+    const reduced = Boolean(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+    const setTargetFromAngle = angle => {
+      const motion = motionRef.current;
+      motion.targetAngle = angle;
+      motion.active = true;
+      window.clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = window.setTimeout(() => {
+        motion.active = false;
+        motion.targetAngle = restAngle;
+      }, 900);
+    };
+
+    const handleMouseMove = event => {
+      if (!eyeFollowsCursor || reduced || !iconRef.current) return;
+      const rect = iconRef.current.getBoundingClientRect();
+      const iconCenterX = rect.left + rect.width / 2;
+      const iconCenterY = rect.top + rect.height / 2;
+      setTargetFromAngle(Math.atan2(event.clientY - iconCenterY, event.clientX - iconCenterX));
+    };
+
+    const returnToRest = () => {
+      const motion = motionRef.current;
+      motion.active = false;
+      motion.targetAngle = restAngle;
+    };
+
+    const animate = () => {
+      const motion = motionRef.current;
+      const desiredAngle = eyeFollowsCursor && motion.active ? motion.targetAngle : restAngle;
+      let delta = desiredAngle - motion.angle;
+      delta = Math.atan2(Math.sin(delta), Math.cos(delta));
+      motion.angle += delta * ease;
+      motion.blink += (motion.blinkTarget - motion.blink) * blinkEase;
+
+      const targetX = center + Math.cos(motion.angle) * radius;
+      const targetY = center + Math.sin(motion.angle) * radius;
+      motion.x += (targetX - motion.x) * ease;
+      motion.y += (targetY - motion.y) * ease;
+
+      if (dotRef.current) {
+        dotRef.current.setAttribute('cx', motion.x.toFixed(2));
+        dotRef.current.setAttribute('cy', motion.y.toFixed(2));
+      }
+      if (contourRef.current) {
+        const degrees = motion.angle * 180 / Math.PI;
+        const scaleY = Math.max(0.2, motion.blink);
+        const centerOffset = 16 * (1 - scaleY);
+        contourRef.current.setAttribute('transform', `rotate(${degrees.toFixed(2)} 16 16) translate(0 ${centerOffset.toFixed(2)}) scale(1 ${scaleY.toFixed(3)})`);
+      }
+      rafRef.current = window.requestAnimationFrame(animate);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove, { passive: true });
+    window.addEventListener('mouseleave', returnToRest);
+    window.addEventListener('blur', returnToRest);
+    rafRef.current = window.requestAnimationFrame(animate);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseleave', returnToRest);
+      window.removeEventListener('blur', returnToRest);
+      window.clearTimeout(idleTimerRef.current);
+      window.clearTimeout(blinkTimerRef.current);
+      window.cancelAnimationFrame(rafRef.current);
+    };
+  }, [eyeFollowsCursor]);
+
+  const triggerBlink = () => {
+    const motion = motionRef.current;
+    motion.blinkTarget = 0.22;
+    window.clearTimeout(blinkTimerRef.current);
+    blinkTimerRef.current = window.setTimeout(() => { motion.blinkTarget = 1; }, 160);
+  };
+
+  React.useEffect(() => { if (blinkSignal > 0) triggerBlink(); }, [blinkSignal]);
+
+  return <span className="agentMark" aria-hidden="true" ref={iconRef} onMouseEnter={triggerBlink}>
+    <svg viewBox="0 0 32 32" className="agentMarkSvg" focusable="false">
+      <g ref={contourRef}><path className="agentContour" d="M22.9 8.1A11.3 11.3 0 1 0 23 23.8" /></g>
+      <circle ref={dotRef} className="agentFocusDot" cx="24.5" cy="16" r="2.7" />
+    </svg>
+  </span>;
+}
+
+function FloatingOprivaAgentButton({ isOpen, onClick, eyeFollowsCursor }){
+  const [idleNudgeVisible, setIdleNudgeVisible] = React.useState(false);
+  const [blinkSignal, setBlinkSignal] = React.useState(0);
+  const inactivityTimerRef = React.useRef(null);
+
+  React.useEffect(() => {
+    const resetInactivity = () => {
+      setIdleNudgeVisible(false);
+      window.clearTimeout(inactivityTimerRef.current);
+      inactivityTimerRef.current = window.setTimeout(() => {
+        setIdleNudgeVisible(true);
+        setBlinkSignal(value => value + 1);
+      }, 8000);
+    };
+    resetInactivity();
+    window.addEventListener('mousemove', resetInactivity, { passive: true });
+    window.addEventListener('keydown', resetInactivity);
+    window.addEventListener('pointerdown', resetInactivity, { passive: true });
+    return () => {
+      window.clearTimeout(inactivityTimerRef.current);
+      window.removeEventListener('mousemove', resetInactivity);
+      window.removeEventListener('keydown', resetInactivity);
+      window.removeEventListener('pointerdown', resetInactivity);
+    };
+  }, []);
+
+  return <div className="agentWrap">
+    <span className={cx('agentTip', idleNudgeVisible && 'isVisible')} role="status">I’m here if you want help prioritizing renewals.</span>
+    <button className="agentButton" onClick={onClick} aria-label="Open Opriva AI Assistant" title="Open Opriva AI" type="button">
+      <OprivaAgentMark open={isOpen} eyeFollowsCursor={eyeFollowsCursor} blinkSignal={blinkSignal} />
+    </button>
+  </div>;
+}
+
+function OprivaDrawer({ active, onClose, eyeFollowsCursor, setEyeFollowsCursor }){
+  const suggestions = ['What needs attention today?', 'Find missing owners', 'Draft follow-up email'];
+  return <aside className="aiDrawer" aria-label="Opriva AI drawer">
+    <div className="drawerHeader"><div><h2>Opriva AI</h2><p>Context: {active}</p></div><button onClick={onClose} type="button" aria-label="Close Opriva AI">×</button></div>
+    <p className="drawerText">Ask about renewals, risks, missing data or next actions.</p>
+    <input className="drawerInput" placeholder="Ask Opriva AI..." aria-label="Ask Opriva AI" />
+    <div className="suggestions">{suggestions.map(item => <button key={item} type="button">{item}</button>)}</div>
+    <div className="agentSettings" aria-label="Opriva AI Operator settings"><label><input type="checkbox" checked={eyeFollowsCursor} onChange={event => setEyeFollowsCursor(event.target.checked)} /><span>Eye follows cursor</span></label></div>
+    <p className="meta">418 expirations · 74 open tasks · 41 missing documents</p>
+  </aside>;
+}
+
 function App(){
   const [active, setActive] = React.useState('Dashboard');
   const [aiOpen, setAiOpen] = React.useState(false);
-  const [agentSettings, setAgentSettings] = React.useState({
-    livingAgent: Boolean(TWEAK_DEFAULTS.livingAgent),
-    allowCursorFollow: Boolean(TWEAK_DEFAULTS.allowCursorFollow),
-    proactiveSuggestions: Boolean(TWEAK_DEFAULTS.proactiveSuggestions),
-    reduceMotion: Boolean(TWEAK_DEFAULTS.reduceMotion),
-    muteAssistant: Boolean(TWEAK_DEFAULTS.muteAssistant)
-  });
-  const updateAgentSetting = (key, value) => setAgentSettings(current => ({ ...current, [key]: value }));
+  const [eyeFollowsCursor, setEyeFollowsCursor] = React.useState(true);
   const route = active === 'Search' ? <SearchScreen/> : active === 'Dashboard' ? <Dashboard/> : active === 'Attention Center' ? <AttentionCenter/> : active === 'Companies / Clients' ? <CompaniesScreen/> : active === 'Settings' ? <Settings/> : active === 'Assets & Renewals' ? <AssetsRenewalsScreen/> : active === 'Licenses' ? <OperationalList active="Licenses" note="Brand, product, SKU, quantity, usage, renewal status and document links stay visible." tabs={['All','High risk','Under-used','Missing document','Renewal due']} columns={['License','Brand','Company','Quantity','Renewal','Amount','Owner','Risk']} rows={licenses}/> : active === 'Contracts' ? <ContractsScreen/> : active === 'Documents' ? <DocumentsScreen/> : active === 'Tasks' ? <TasksScreen/> : active === 'Reports' ? <ReportsScreen/> : active === 'Data Import' ? <DataImportScreen/> : <Dashboard/>;
-  return <div className="app"><style>{styles + aiStyles + livingAgentStyles}</style><aside className="sidebar"><div className="brand"><div className="mark">OP</div><div><strong>OPRIVA</strong><span>Opriva Workspace</span></div></div><nav>{SIDEBAR_GROUPS.map(group => <div className="navGroup" key={group.label}><p>{group.label}</p>{group.items.map(item => <button key={item} className={active===item?'active':''} onClick={()=>setActive(item)}>{item}</button>)}</div>)}</nav></aside><section className="workspace"><header className="topbar"><button className="topSearch" onClick={()=>setActive('Search')}>Search records…</button><button className="alertBtn" onClick={()=>setActive('Attention Center')}>9 alerts</button><Avatar name="María Chen"/></header>{route}</section><FloatingAgentButton active={active} isOpen={aiOpen} settings={agentSettings} onClick={()=>setAiOpen(true)}/>{aiOpen && <AiDrawer active={active} settings={agentSettings} onSettingChange={updateAgentSetting} onClose={()=>setAiOpen(false)}/>}<ToastStack /></div>;
+  return <div className="app">
+    <style>{styles + aiStyles + livingAgentStyles + oprivaUpgradeStyles + aiSettingsFixStyles + settingsAdminOverrideStyles + settingsDirectoryOverrideStyles + mvpRecoveryStyles}</style>
+    <SidebarShell active={active} onSelect={setActive} />
+    <section className="workspace"><TopbarShell active={active} onSearch={() => setActive('Search')} onAlerts={() => setActive('Attention Center')} />{route}</section>
+    <FloatingOprivaAgentButton isOpen={aiOpen} onClick={() => setAiOpen(true)} eyeFollowsCursor={eyeFollowsCursor} />
+    {aiOpen && <OprivaDrawer active={active} onClose={() => setAiOpen(false)} eyeFollowsCursor={eyeFollowsCursor} setEyeFollowsCursor={setEyeFollowsCursor} />}
+    <ToastStack />
+  </div>;
 }
 
-const styles = `
-:root{--accent:var(--ocd-tweak-accent-color,#2563EB);--density:var(--ocd-tweak-panel-density,1);--risk:var(--ocd-tweak-risk-emphasis,1);--navy:#0B1F3A;--bg:#F7F9FC;--card:#FFFFFF;--text:#111827;--muted:#6B7280;--border:#E5E7EB;--teal:#0D9488}*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--text)}button,input{font:inherit}button{border:1px solid var(--border);background:#fff;color:#243247;border-radius:10px;padding:9px 12px;font-weight:700;cursor:pointer}button:hover{border-color:#D6DEE9;background:#FAFCFF;box-shadow:0 1px 4px rgba(15,35,65,.025)}.app{min-height:100vh;display:grid;grid-template-columns:264px 1fr}.sidebar{background:var(--navy);color:#DDE8F7;padding:18px 14px;display:flex;flex-direction:column;gap:22px}.brand{display:flex;gap:12px;align-items:center;padding:8px 8px 14px;border-bottom:1px solid rgba(255,255,255,.12)}.mark{width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#2DD4BF,#2563EB);display:grid;place-items:center;color:white;font-weight:900}.brand strong{display:block;letter-spacing:.14em;font-size:13px}.brand span{display:block;color:#8EA2BC;font-size:12px;margin-top:2px}.navGroup{display:grid;gap:5px;margin-bottom:18px}.navGroup p{margin:0 8px 6px;color:#8EA2BC;font-size:11px;text-transform:uppercase;letter-spacing:.14em;font-weight:850}.navGroup button{width:100%;text-align:left;background:transparent;border-color:transparent;color:#C9D6E6;border-radius:10px;padding:9px 10px;font-size:14px}.navGroup button:hover{background:rgba(255,255,255,.055);color:#F8FAFC;border-color:transparent}.navGroup button.active{background:rgba(255,255,255,.085);color:#fff;border-color:rgba(255,255,255,.055)}.workspace{min-width:0;display:flex;flex-direction:column}.topbar{height:64px;background:rgba(255,255,255,.86);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:0 22px;position:sticky;top:0;z-index:10}.topbar div:first-child{margin-right:auto}.topbar span{display:block;color:var(--muted);font-size:12px}.topbar strong{font-size:14px}.topSearch{min-width:260px;text-align:left;color:#6B7280;background:#F8FAFC}.alertBtn{background:#FFF7ED;border-color:#FED7AA;color:#9A3412}.aiBtn{background:#F7FAFF;border-color:#D8E6FB;color:#1E4FB8}.avatar{width:32px;height:32px;border-radius:999px;background:#EAF2FF;color:#1D4ED8;display:inline-grid;place-items:center;font-size:12px;font-weight:900}.content{padding:28px;display:grid;gap:18px}.screenHeader{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}.screenHeader p{margin:0 0 6px;color:var(--teal);text-transform:uppercase;font-size:11px;letter-spacing:.14em;font-weight:900}.screenHeader h1{margin:0;color:#0F2138;font-size:clamp(26px,3vw,38px);letter-spacing:-.045em}.screenHeader span{display:block;margin-top:6px;color:#66758A;max-width:720px}.headerActions{display:flex;gap:10px}.primary{background:var(--accent);border-color:var(--accent);color:#fff}.statsGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.statCard,.panel,.settingsSearch,.settingsGroup{background:var(--card);border:1px solid var(--border);border-radius:18px;box-shadow:0 12px 30px rgba(15,35,65,.045)}.statCard{padding:18px}.statCard span{color:#66758A;font-size:13px}.statCard strong{display:block;margin:8px 0 3px;font-size:28px;letter-spacing:-.04em;color:#10223B}.statCard p{margin:0;color:#7B8797;font-size:13px}.split{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(280px,.7fr);gap:16px}.panel{padding:calc(var(--density)*18px);min-width:0}.panelTitle{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;margin-bottom:14px}.panelTitle h2{margin:0;color:#132033;font-size:17px}.panelTitle span{color:#75849A;font-size:13px}.tableWrap{overflow:auto;border:1px solid #EEF2F7;border-radius:14px}table{width:100%;border-collapse:collapse;min-width:760px;background:white}th,td{text-align:left;padding:13px 14px;border-bottom:1px solid #EEF2F7;font-size:13.5px;vertical-align:middle}th{background:#FAFCFF;color:#66758A;font-size:11px;text-transform:uppercase;letter-spacing:.1em}tr:last-child td{border-bottom:0}.badge{display:inline-flex;align-items:center;white-space:nowrap;border-radius:999px;padding:4px 8px;font-size:12px;font-weight:800;border:1px solid #DDE6F1;color:#40516A;background:#F8FAFC}.badge.critical{background:#FEF2F2;color:#B91C1C;border-color:#FECACA;box-shadow:0 0 0 calc((var(--risk) - 1)*2px) rgba(220,38,38,.12)}.badge.high{background:#FFF7ED;color:#C2410C;border-color:#FED7AA}.badge.medium{background:#FEFCE8;color:#A16207;border-color:#FDE68A}.badge.low{background:#F0FDF4;color:#15803D;border-color:#BBF7D0}.insight{line-height:1.55;color:#40516A}.searchHero,.settingsSearch{display:flex;gap:12px;align-items:center;padding:14px}.searchHero input,.settingsSearch input{width:100%;border:1px solid #DDE6F1;border-radius:12px;padding:12px 13px;outline:0;background:#FAFCFF}.tabs{display:flex;gap:8px;border-bottom:1px solid var(--border);padding-bottom:10px}.tabs button{background:transparent}.tabs .active{background:#F7FAFF;border-color:#D8E6FB;color:#1E4FB8}.settingsPage{gap:20px}.settingsSearch{justify-content:space-between}.settingsSearch strong{display:block;color:#10223B}.settingsSearch span{display:block;color:#66758A;font-size:13px;margin-top:3px}.settingsSearch input{max-width:360px}.settingsLayout{display:grid;grid-template-columns:220px 1fr;gap:18px;align-items:start}.settingsNav{position:sticky;top:84px;background:#fff;border:1px solid var(--border);border-radius:16px;padding:10px;display:grid;gap:4px}.settingsNav a{text-decoration:none;color:#526174;padding:9px 10px;border-radius:10px;font-weight:750;font-size:14px}.settingsNav a:hover{background:#F8FAFC;color:#0F2138}.settingsGroups{display:grid;gap:18px}.settingsGroup{padding:20px}.settingsGroup.important{border-color:#A7F3D0;box-shadow:0 14px 36px rgba(13,148,136,.08)}.settingsGroupHeader{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:14px}.settingsGroup h2{margin:0;color:#10223B;font-size:20px;letter-spacing:-.025em}.settingsGroup p{margin:5px 0 0;color:#66758A;line-height:1.45}.settingsGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.settingItem{height:auto;min-height:86px;display:flex;justify-content:space-between;align-items:flex-start;gap:14px;text-align:left;border-radius:14px;padding:14px;background:#fff}.settingItem strong{display:block;color:#132033}.settingItem span{display:block;margin-top:5px;color:#66758A;font-weight:500;line-height:1.35}.settingItem em{font-style:normal;color:#526174;background:#F8FAFC;border:1px solid #EEF2F7;border-radius:999px;padding:4px 8px;font-size:12px;white-space:nowrap}.moduleEnablement{margin-top:12px;border:1px dashed #99F6E4;background:#F0FDFA;border-radius:14px;padding:14px;display:flex;justify-content:space-between;gap:16px;align-items:center}.moduleEnablement h3{margin:0;color:#134E4A;font-size:15px}.moduleEnablement p{margin:4px 0 0;color:#0F766E;font-size:13px}.modulePills{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}.aiDrawer{position:fixed;right:14px;top:78px;bottom:14px;width:min(380px,calc(100vw - 28px));background:white;border:1px solid #DDE6F1;border-radius:20px;box-shadow:0 24px 80px rgba(11,31,58,.22);z-index:40;padding:18px;display:grid;align-content:start;gap:14px}.aiDrawer header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.aiDrawer header span{font-size:11px;text-transform:uppercase;letter-spacing:.14em;font-weight:900;color:#0D9488}.aiDrawer h2{margin:4px 0 0}.aiDrawer p{margin:0;color:#526174;line-height:1.5}.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 14px}.toolbar input{min-width:min(360px,100%);flex:1;border:1px solid #DDE6F1;border-radius:12px;padding:11px 12px;background:#FAFCFF;outline:0}.actionStack{display:grid;gap:10px}.actionStack button{text-align:left}.kanban{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.kanbanCol{border:1px solid #EEF2F7;background:#FAFCFF;border-radius:16px;padding:12px;display:grid;gap:10px;align-content:start}.kanbanCol h3{margin:0;font-size:13px;color:#526174;text-transform:uppercase;letter-spacing:.08em}.taskCard{background:white;border:1px solid #E7EDF5;border-radius:14px;padding:12px;display:grid;gap:8px}.taskCard strong{font-size:14px;color:#132033}.taskCard span{color:#66758A;font-size:12px}.wizardSteps{display:grid;grid-template-columns:repeat(9,minmax(96px,1fr));gap:8px;overflow:auto;padding-bottom:4px;margin-bottom:14px}.wizardStep{border:1px solid #E7EDF5;background:#fff;border-radius:14px;padding:10px;display:grid;gap:6px;min-height:76px}.wizardStep strong{width:24px;height:24px;border-radius:999px;display:grid;place-items:center;background:#EEF2F7;color:#526174;font-size:12px}.wizardStep span{font-size:12px;font-weight:800;color:#526174}.wizardStep.done strong{background:#DCFCE7;color:#15803D}.wizardStep.active{border-color:#BFDBFE;background:#EFF6FF}.wizardStep.active strong{background:#2563EB;color:white}a:focus-visible,button:focus-visible,input:focus-visible,.settingItem:focus-visible,.wizardStep:focus-visible{outline:2px solid rgba(37,99,235,.18);outline-offset:2px;box-shadow:none}button:active{transform:translateY(1px)}button:disabled,button[aria-disabled="true"]{cursor:not-allowed;opacity:.52;background:#F3F6FA;color:#8A97A8;border-color:#E1E8F0;box-shadow:none;transform:none}.statCard,.panel,.settingItem,.taskCard,.wizardStep,.settingsNav a,.actionStack button{transition:border-color .16s ease,box-shadow .16s ease,background .16s ease,transform .16s ease}.statCard:hover,.panel:hover,.settingItem:hover,.taskCard:hover,.wizardStep:hover,.actionStack button:hover{border-color:#E0E7F0;box-shadow:0 4px 14px rgba(15,35,65,.035);transform:none;background:#fff}tbody tr{transition:background .14s ease}tbody tr:hover td{background:#FAFBFD}.selectedRow td{background:#F8FBFF!important}.selectedRow td:first-child{box-shadow:inset 2px 0 0 #DBEAFE}.rowAction{padding:6px 9px;font-size:12px;border-radius:8px;background:#F8FAFC}.rowAction:hover{background:#F3F6FA;border-color:#E1E8F0;color:#334155}.rowAction:focus-visible{background:#F8FBFF;border-color:#C9D7EA;color:#1E4FB8}.stateBox{border:1px solid #DDE6F1;border-radius:14px;background:#FAFCFF;padding:14px;display:grid;gap:8px;color:#40516A}.stateBox strong{color:#132033}.stateBox span{font-size:13px;line-height:1.45}.emptyState{background:#F8FAFC}.errorState{background:#FFF7F7;border-color:#FECACA}.errorState strong{color:#B91C1C}.errorState div{display:flex;gap:8px;flex-wrap:wrap}.ghostBtn{background:transparent}.skeletonRow td{background:#fff}.skeletonLine{display:block;width:100%;max-width:180px;height:12px;border-radius:999px;background:linear-gradient(90deg,#EEF2F7,#F8FAFC,#EEF2F7);background-size:200% 100%;animation:pulse 1.2s ease-in-out infinite}.miniState{display:flex;align-items:center;gap:9px;border:1px solid #DDE6F1;background:#F8FAFC;border-radius:12px;padding:10px 12px;color:#526174;font-size:13px}.loadingState{border-color:#BFDBFE;background:#EFF6FF;color:#1D4ED8}.spinner{width:14px;height:14px;border-radius:50%;border:2px solid rgba(37,99,235,.24);border-top-color:#2563EB;animation:spin .8s linear infinite}.validationPanel{border:1px solid #FDE68A;background:#FFFBEB;border-radius:16px;padding:14px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}.validationPanel div{background:#fff;border:1px solid #FDE68A;border-radius:12px;padding:10px}.validationPanel strong{display:block;color:#92400E;font-size:13px}.validationPanel span{display:block;color:#785E1E;font-size:12px;margin-top:3px}.toastStack{position:fixed;right:24px;bottom:96px;display:grid;gap:8px;z-index:75;pointer-events:none}.toast{background:#0B1F3A;color:white;border:1px solid rgba(255,255,255,.12);box-shadow:0 16px 40px rgba(11,31,58,.22);border-radius:12px;padding:10px 12px;font-size:13px;font-weight:750;animation:toastOut 4s ease forwards}.errorToast{background:#7F1D1D}@keyframes toastOut{0%,78%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(8px)}}@keyframes pulse{0%{background-position:200% 0}100%{background-position:-200% 0}}@keyframes spin{to{transform:rotate(360deg)}}@media(max-width:1050px){.app{grid-template-columns:1fr}.sidebar{position:static}.statsGrid,.split,.settingsLayout,.settingsGrid{grid-template-columns:1fr}.topbar{flex-wrap:wrap;height:auto;padding:12px}.topSearch{min-width:0;flex:1}.content{padding:20px}.settingsNav{position:static}.screenHeader{display:grid}}@media(max-width:720px){.sidebar nav{display:grid;grid-template-columns:1fr 1fr;gap:8px}.navGroup{margin:0}.statsGrid{grid-template-columns:1fr}.settingsSearch,.moduleEnablement{display:grid}.settingsSearch input{max-width:none}table{min-width:680px}}
+const aiSettingsFixStyles = `
+.aiGovernancePanel{grid-column:1 / -1;display:grid;grid-template-columns:minmax(220px,300px) minmax(0,1fr);gap:22px;padding:22px;background:#fff;border:1px solid var(--border);border-radius:20px;box-shadow:0 12px 30px rgba(15,35,65,.045);align-items:start}.aiSettingsSummary{position:sticky;top:92px;display:grid;gap:12px;padding:2px 4px}.aiSettingsSummary h2{margin:0;color:#0B1F3A;font-size:24px;letter-spacing:-.03em}.aiSettingsSummary p{margin:0;color:#475569;line-height:1.55}.aiSafetyNote{border:1px solid #DDEFEA;background:#F6FEFC;border-radius:16px;padding:14px;display:grid;gap:5px}.aiSafetyNote strong{color:#0F3D39;font-size:14px}.aiSafetyNote span{color:#55706E;font-size:13px;line-height:1.45}.aiSettingsMain{display:grid;gap:16px;min-width:0}.aiSettingSection{border:1px solid #E6ECF3;background:#FBFCFE;border-radius:18px;padding:16px;display:grid;gap:12px}.aiSettingSection h3{margin:0;color:#132033;font-size:14px;letter-spacing:.01em}.aiSettingGrid{display:grid;grid-template-columns:repeat(2,minmax(280px,1fr));gap:10px}.aiSettingRow{min-width:0;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px;align-items:center;border:1px solid #E4EBF3;background:#fff;border-radius:14px;padding:14px 14px 14px 16px}.aiSettingCopy{min-width:0;display:grid;gap:5px}.aiSettingCopy strong{color:#10223B;font-size:14px;line-height:1.25}.aiSettingCopy span{color:#66758A;font-size:13px;line-height:1.45;max-width:56ch}.aiSettingControl{display:flex;align-items:center;justify-content:flex-end;gap:10px;min-width:max-content}.aiSettingControl em{font-style:normal;white-space:nowrap;border:1px solid #CDEDE5;background:#F0FDFA;color:#0F766E;border-radius:999px;padding:5px 9px;font-size:12px;font-weight:800}.switchControl{width:42px;height:24px;border-radius:999px;border:1px solid #CFE6E1;background:#E6F7F3;padding:2px;display:inline-flex;align-items:center;justify-content:flex-end;box-shadow:none}.switchControl span{width:18px;height:18px;border-radius:50%;background:#0D9488;display:block;box-shadow:0 1px 4px rgba(13,148,136,.24)}.switchControl:not(.isOn){justify-content:flex-start;background:#F1F5F9;border-color:#CBD5E1}.switchControl:not(.isOn) span{background:#94A3B8}.scopePill{height:30px;border-radius:999px;border-color:#DDEFEA;background:#F8FFFD;color:#0F766E;padding:0 10px;font-size:12px;white-space:nowrap}.aiInsightReadable{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:center;border:1px solid #DDEFEA;background:linear-gradient(180deg,#FFFFFF,#F8FEFC);border-radius:18px;padding:16px}.aiInsightReadable p{margin:6px 0 0;color:#334155;line-height:1.55}.aiInsightReadable button{white-space:nowrap;border-color:#CDEDE5;color:#0F766E;background:#fff}.eyebrow{color:#0D9488;text-transform:uppercase;letter-spacing:.13em;font-size:11px;font-weight:900}@media(max-width:1180px){.aiGovernancePanel{grid-template-columns:1fr}.aiSettingsSummary{position:static}.aiSettingGrid{grid-template-columns:1fr}}@media(max-width:720px){.aiSettingRow,.aiInsightReadable{grid-template-columns:1fr}.aiSettingControl{justify-content:space-between;min-width:0}.aiSettingControl em{white-space:normal}.scopePill{white-space:normal;height:auto;min-height:30px}}
 `;
 
 
+const settingsAdminOverrideStyles = `
+  .settingsPage{gap:18px;padding-bottom:40px}.settingsAdminShell{display:grid;grid-template-columns:minmax(260px,292px) minmax(0,1fr);gap:22px;align-items:start}.settingsAdminNav{position:sticky;top:88px;max-height:calc(100vh - 112px);overflow:auto;background:#fff;border:1px solid var(--border);border-radius:20px;padding:14px;box-shadow:0 12px 30px rgba(15,35,65,.045);align-self:start}.settingsAdminSearch{display:grid;gap:7px;margin-bottom:14px}.settingsAdminSearch span{font-size:11px;text-transform:uppercase;letter-spacing:.12em;font-weight:900;color:#64748B}.settingsAdminSearch input{width:100%;border:1px solid #DDE6F1;border-radius:12px;background:#FAFCFF;padding:11px 12px;outline:0;color:#10223B}.settingsAdminSearch input:focus{border-color:#2563EB;box-shadow:0 0 0 3px rgba(37,99,235,.1)}.settingsNavGroups{display:grid;gap:16px}.settingsNavGroup{display:grid;gap:4px}.settingsNavGroup p{margin:0 0 3px;color:#0B1F3A;font-size:12px;font-weight:850;letter-spacing:.02em}.settingsNavGroup button{width:100%;text-align:left;border:0;background:transparent;color:#64748B;border-radius:10px;padding:8px 10px;font-size:13px;font-weight:700;box-shadow:none}.settingsNavGroup button:hover{background:#F8FAFC;color:#10223B}.settingsNavGroup button.active{background:#EDF7F6;color:#0F766E;box-shadow:inset 3px 0 0 #0D9488}.settingsNoResults{margin:0;color:#64748B;font-size:13px;line-height:1.45}.settingsAdminContent{min-width:0;display:block}.settingsDetailPanel{background:#fff;border:1px solid var(--border);border-radius:22px;padding:22px;box-shadow:0 12px 30px rgba(15,35,65,.045);min-width:0}.settingsDetailHeader{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;padding-bottom:18px;border-bottom:1px solid #EEF2F7}.settingsDetailHeader h2{margin:4px 0 0;color:#0B1F3A;font-size:26px;letter-spacing:-.035em}.settingsDetailHeader p{margin:7px 0 0;color:#64748B;line-height:1.55;max-width:680px}.settingsRows{display:grid;gap:10px;margin-top:16px}.adminSettingRow,.aiSettingRow{min-width:0;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px;align-items:center;border:1px solid #E4EBF3;background:#fff;border-radius:15px;padding:15px 15px 15px 17px}.adminSettingRow:hover,.aiSettingRow:hover{border-color:#DCE6F1;background:#FCFDFE}.adminSettingCopy,.aiSettingCopy{min-width:0;display:grid;gap:5px}.adminSettingCopy strong,.aiSettingCopy strong{color:#10223B;font-size:14px;line-height:1.25}.adminSettingCopy span,.aiSettingCopy span{color:#66758A;font-size:13px;line-height:1.45;max-width:70ch}.adminSettingControl,.aiSettingControl{display:flex;align-items:center;justify-content:flex-end;gap:10px;min-width:max-content}.adminSettingControl em,.aiSettingControl em{font-style:normal;white-space:nowrap;border:1px solid #CDEDE5;background:#F0FDFA;color:#0F766E;border-radius:999px;padding:5px 9px;font-size:12px;font-weight:850}.adminSettingControl button{height:32px;border-radius:10px;background:#F8FAFC;color:#334155;padding:0 11px}.aiGovernancePanel{grid-column:auto;display:grid;grid-template-columns:minmax(220px,300px) minmax(0,1fr);gap:22px;padding:22px;background:#fff;border:1px solid var(--border);border-radius:22px;box-shadow:0 12px 30px rgba(15,35,65,.045);align-items:start;min-width:0}.aiSettingsSummary{position:sticky;top:104px;display:grid;gap:12px;padding:2px 4px}.aiSettingsSummary h2{font-size:26px;letter-spacing:-.035em}.aiSettingsMain{display:grid;gap:16px;min-width:0}.aiSettingGrid{display:grid;grid-template-columns:1fr;gap:10px}.aiSettingStack{display:grid;gap:10px}.activitySegment{display:flex;align-items:center;border:1px solid #DDE6F1;border-radius:999px;background:#F8FAFC;padding:2px}.activitySegment button{height:26px;border:0;background:transparent;border-radius:999px;padding:0 9px;font-size:12px;color:#64748B;box-shadow:none}.activitySegment button.active{background:#fff;color:#0F766E;box-shadow:0 1px 4px rgba(15,35,65,.08)}.aiInsightReadable p{max-width:82ch}@media(max-width:1180px){.settingsAdminShell{grid-template-columns:1fr}.settingsAdminNav,.aiSettingsSummary{position:static;max-height:none}.settingsNavGroups{grid-template-columns:repeat(2,minmax(0,1fr))}.aiGovernancePanel{grid-template-columns:1fr}}@media(max-width:720px){.settingsNavGroups{grid-template-columns:1fr}.settingsDetailHeader,.adminSettingRow,.aiSettingRow,.aiInsightReadable{grid-template-columns:1fr;display:grid}.adminSettingControl,.aiSettingControl{justify-content:space-between;min-width:0;flex-wrap:wrap}.adminSettingControl em,.aiSettingControl em{white-space:normal}.scopePill{white-space:normal;height:auto;min-height:30px}.activitySegment{width:100%;justify-content:space-between}.activitySegment button{flex:1}.settingsAdminShell{gap:14px}.settingsDetailPanel,.aiGovernancePanel{padding:16px}}
+`;
+
+const styles = `
+:root{--accent:var(--ocd-tweak-accent-color,#2563EB);--density:var(--ocd-tweak-panel-density,1);--risk:var(--ocd-tweak-risk-emphasis,1);--navy:#0B1F3A;--bg:#F7F9FC;--card:#FFFFFF;--text:#111827;--muted:#6B7280;--border:#E5E7EB;--teal:#0D9488}*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--text)}button,input{font:inherit}button{border:1px solid var(--border);background:#fff;color:#243247;border-radius:10px;padding:9px 12px;font-weight:700;cursor:pointer}button:hover{border-color:#D6DEE9;background:#FAFCFF;box-shadow:0 1px 4px rgba(15,35,65,.025)}.app{min-height:100vh;display:grid;grid-template-columns:264px 1fr}.sidebar{background:var(--navy);color:#DDE8F7;padding:18px 14px;display:flex;flex-direction:column;gap:22px}.brand{display:flex;gap:12px;align-items:center;padding:8px 8px 14px;border-bottom:1px solid rgba(255,255,255,.12)}.mark{width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#2DD4BF,#2563EB);display:grid;place-items:center;color:white;font-weight:900}.brand strong{display:block;letter-spacing:.14em;font-size:13px}.brand span{display:block;color:#8EA2BC;font-size:12px;margin-top:2px}.navGroup{display:grid;gap:5px;margin-bottom:18px}.navGroup p{margin:0 8px 6px;color:#8EA2BC;font-size:11px;text-transform:uppercase;letter-spacing:.14em;font-weight:850}.navGroup button{width:100%;text-align:left;background:transparent;border-color:transparent;color:#C9D6E6;border-radius:10px;padding:9px 10px;font-size:14px}.navGroup button:hover{background:rgba(255,255,255,.055);color:#F8FAFC;border-color:transparent}.navGroup button.active{background:rgba(255,255,255,.085);color:#fff;border-color:rgba(255,255,255,.055)}.workspace{min-width:0;display:flex;flex-direction:column}.topbar{height:64px;background:rgba(255,255,255,.86);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:0 22px;position:sticky;top:0;z-index:10}.topbar div:first-child{margin-right:auto}.topbar span{display:block;color:var(--muted);font-size:12px}.topbar strong{font-size:14px}.topSearch{min-width:260px;text-align:left;color:#6B7280;background:#F8FAFC}.alertBtn{background:#FFF7ED;border-color:#FED7AA;color:#9A3412}.aiBtn{background:#F7FAFF;border-color:#D8E6FB;color:#1E4FB8}.avatar{width:32px;height:32px;border-radius:999px;background:#EAF2FF;color:#1D4ED8;display:inline-grid;place-items:center;font-size:12px;font-weight:900}.content{padding:28px;display:grid;gap:18px}.screenHeader{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}.screenHeader p{margin:0 0 6px;color:var(--teal);text-transform:uppercase;font-size:11px;letter-spacing:.14em;font-weight:900}.screenHeader h1{margin:0;color:#0F2138;font-size:clamp(26px,3vw,38px);letter-spacing:-.045em}.screenHeader span{display:block;margin-top:6px;color:#66758A;max-width:720px}.headerActions{display:flex;gap:10px}.primary{background:var(--accent);border-color:var(--accent);color:#fff}.statsGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.statCard,.panel,.settingsSearch,.settingsGroup{background:var(--card);border:1px solid var(--border);border-radius:18px;box-shadow:0 12px 30px rgba(15,35,65,.045)}.statCard{padding:18px}.statCard span{color:#66758A;font-size:13px}.statCard strong{display:block;margin:8px 0 3px;font-size:28px;letter-spacing:-.04em;color:#10223B}.statCard p{margin:0;color:#7B8797;font-size:13px}.split{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(280px,.7fr);gap:16px}.panel{padding:calc(var(--density)*18px);min-width:0}.panelTitle{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;margin-bottom:14px}.panelTitle h2{margin:0;color:#132033;font-size:17px}.panelTitle span{color:#75849A;font-size:13px}.tableWrap{overflow:auto;border:1px solid #EEF2F7;border-radius:14px}table{width:100%;border-collapse:collapse;min-width:760px;background:white}th,td{text-align:left;padding:13px 14px;border-bottom:1px solid #EEF2F7;font-size:13.5px;vertical-align:middle}th{background:#FAFCFF;color:#66758A;font-size:11px;text-transform:uppercase;letter-spacing:.1em}tr:last-child td{border-bottom:0}.badge{display:inline-flex;align-items:center;white-space:nowrap;border-radius:999px;padding:4px 8px;font-size:12px;font-weight:800;border:1px solid #DDE6F1;color:#40516A;background:#F8FAFC}.badge.critical{background:#FEF2F2;color:#B91C1C;border-color:#FECACA;box-shadow:0 0 0 calc((var(--risk) - 1)*2px) rgba(220,38,38,.12)}.badge.high{background:#FFF7ED;color:#C2410C;border-color:#FED7AA}.badge.medium{background:#FEFCE8;color:#A16207;border-color:#FDE68A}.badge.low{background:#F0FDF4;color:#15803D;border-color:#BBF7D0}.insight{line-height:1.55;color:#40516A}.searchHero,.settingsSearch{display:flex;gap:12px;align-items:center;padding:14px}.searchHero input,.settingsSearch input{width:100%;border:1px solid #DDE6F1;border-radius:12px;padding:12px 13px;outline:0;background:#FAFCFF}.tabs{display:flex;gap:8px;border-bottom:1px solid var(--border);padding-bottom:10px}.tabs button{background:transparent}.tabs .active{background:#F7FAFF;border-color:#D8E6FB;color:#1E4FB8}.settingsPage{gap:20px}.settingsSearch{justify-content:space-between}.settingsSearch strong{display:block;color:#10223B}.settingsSearch span{display:block;color:#66758A;font-size:13px;margin-top:3px}.settingsSearch input{max-width:360px}.settingsLayout{display:grid;grid-template-columns:220px 1fr;gap:18px;align-items:start}.settingsNav{position:sticky;top:84px;background:#fff;border:1px solid var(--border);border-radius:16px;padding:10px;display:grid;gap:4px}.settingsNav a{text-decoration:none;color:#526174;padding:9px 10px;border-radius:10px;font-weight:750;font-size:14px}.settingsNav a:hover{background:#F8FAFC;color:#0F2138}.settingsGroups{display:grid;gap:18px}.settingsGroup{padding:20px}.settingsGroup.important{border-color:#A7F3D0;box-shadow:0 14px 36px rgba(13,148,136,.08)}.settingsGroupHeader{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:14px}.settingsGroup h2{margin:0;color:#10223B;font-size:20px;letter-spacing:-.025em}.settingsGroup p{margin:5px 0 0;color:#66758A;line-height:1.45}.settingsGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.settingItem{height:auto;min-height:86px;display:flex;justify-content:space-between;align-items:flex-start;gap:14px;text-align:left;border-radius:14px;padding:14px;background:#fff}.settingItem strong{display:block;color:#132033}.settingItem span{display:block;margin-top:5px;color:#66758A;font-weight:500;line-height:1.35}.settingItem em{font-style:normal;color:#526174;background:#F8FAFC;border:1px solid #EEF2F7;border-radius:999px;padding:4px 8px;font-size:12px;white-space:nowrap}.moduleEnablement{margin-top:12px;border:1px dashed #99F6E4;background:#F0FDFA;border-radius:14px;padding:14px;display:flex;justify-content:space-between;gap:16px;align-items:center}.moduleEnablement h3{margin:0;color:#134E4A;font-size:15px}.moduleEnablement p{margin:4px 0 0;color:#0F766E;font-size:13px}.modulePills{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}.aiDrawer{position:fixed;right:14px;top:78px;bottom:14px;width:min(380px,calc(100vw - 28px));background:white;border:1px solid #DDE6F1;border-radius:20px;box-shadow:0 24px 80px rgba(11,31,58,.22);z-index:40;padding:18px;display:grid;align-content:start;gap:14px}.aiDrawer header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.aiDrawer header span{font-size:11px;text-transform:uppercase;letter-spacing:.14em;font-weight:900;color:#0D9488}.aiDrawer h2{margin:4px 0 0}.aiDrawer p{margin:0;color:#526174;line-height:1.5}.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 14px}.toolbar input{min-width:min(360px,100%);flex:1;border:1px solid #DDE6F1;border-radius:12px;padding:11px 12px;background:#FAFCFF;outline:0}.actionStack{display:grid;gap:10px}.actionStack button{text-align:left}.kanban{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.kanbanCol{border:1px solid #EEF2F7;background:#FAFCFF;border-radius:16px;padding:12px;display:grid;gap:10px;align-content:start}.kanbanCol h3{margin:0;font-size:13px;color:#526174;text-transform:uppercase;letter-spacing:.08em}.taskCard{background:white;border:1px solid #E7EDF5;border-radius:14px;padding:12px;display:grid;gap:8px}.taskCard strong{font-size:14px;color:#132033}.taskCard span{color:#66758A;font-size:12px}.wizardSteps{display:grid;grid-template-columns:repeat(9,minmax(96px,1fr));gap:8px;overflow:auto;padding-bottom:4px;margin-bottom:14px}.wizardStep{border:1px solid #E7EDF5;background:#fff;border-radius:14px;padding:10px;display:grid;gap:6px;min-height:76px}.wizardStep strong{width:24px;height:24px;border-radius:999px;display:grid;place-items:center;background:#EEF2F7;color:#526174;font-size:12px}.wizardStep span{font-size:12px;font-weight:800;color:#526174}.wizardStep.done strong{background:#DCFCE7;color:#15803D}.wizardStep.active{border-color:#BFDBFE;background:#EFF6FF}.wizardStep.active strong{background:#2563EB;color:white}a:focus-visible,button:focus-visible,input:focus-visible,.settingItem:focus-visible,.wizardStep:focus-visible{outline:2px solid rgba(37,99,235,.18);outline-offset:2px;box-shadow:none}button:active{transform:translateY(1px)}button:disabled,button[aria-disabled="true"]{cursor:not-allowed;opacity:.52;background:#F3F6FA;color:#8A97A8;border-color:#E1E8F0;box-shadow:none;transform:none}.statCard,.panel,.settingItem,.taskCard,.wizardStep,.settingsNav a,.actionStack button{transition:border-color .16s ease,box-shadow .16s ease,background .16s ease,transform .16s ease}.statCard:hover,.panel:hover,.settingItem:hover,.taskCard:hover,.wizardStep:hover,.actionStack button:hover{border-color:#E0E7F0;box-shadow:0 4px 14px rgba(15,35,65,.035);transform:none;background:#fff}tbody tr{transition:background .14s ease}tbody tr:hover td{background:#FAFBFD}.selectedRow td{background:#F8FBFF!important}.selectedRow td:first-child{box-shadow:inset 2px 0 0 #DBEAFE}.rowAction{padding:6px 9px;font-size:12px;border-radius:8px;background:#F8FAFC}.rowAction:hover{background:#F3F6FA;border-color:#E1E8F0;color:#334155}.rowAction:focus-visible{background:#F8FBFF;border-color:#C9D7EA;color:#1E4FB8}.stateBox{border:1px solid #DDE6F1;border-radius:14px;background:#FAFCFF;padding:14px;display:grid;gap:8px;color:#40516A}.stateBox strong{color:#132033}.stateBox span{font-size:13px;line-height:1.45}.emptyState{background:#F8FAFC}.errorState{background:#FFF7F7;border-color:#FECACA}.errorState strong{color:#B91C1C}.errorState div{display:flex;gap:8px;flex-wrap:wrap}.ghostBtn{background:transparent}.skeletonRow td{background:#fff}.skeletonLine{display:block;width:100%;max-width:180px;height:12px;border-radius:999px;background:linear-gradient(90deg,#EEF2F7,#F8FAFC,#EEF2F7);background-size:200% 100%;animation:pulse 1.2s ease-in-out infinite}.miniState{display:flex;align-items:center;gap:9px;border:1px solid #DDE6F1;background:#F8FAFC;border-radius:12px;padding:10px 12px;color:#526174;font-size:13px}.loadingState{border-color:#BFDBFE;background:#EFF6FF;color:#1D4ED8}.spinner{width:14px;height:14px;border-radius:50%;border:2px solid rgba(37,99,235,.24);border-top-color:#2563EB;animation:spin .8s linear infinite}.validationPanel{border:1px solid #FDE68A;background:#FFFBEB;border-radius:16px;padding:14px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}.validationPanel div{background:#fff;border:1px solid #FDE68A;border-radius:12px;padding:10px}.validationPanel strong{display:block;color:#92400E;font-size:13px}.validationPanel span{display:block;color:#785E1E;font-size:12px;margin-top:3px}.toastStack{position:fixed;right:24px;bottom:96px;display:grid;gap:8px;z-index:75;pointer-events:none}.toast{background:#0B1F3A;color:white;border:1px solid rgba(255,255,255,.12);box-shadow:0 16px 40px rgba(11,31,58,.22);border-radius:12px;padding:10px 12px;font-size:13px;font-weight:750;animation:toastOut 4s ease forwards}.errorToast{background:#7F1D1D}@keyframes toastOut{0%,78%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(8px)}}@keyframes pulse{0%{background-position:200% 0}100%{background-position:-200% 0}}@keyframes spin{to{transform:rotate(360deg)}}@media(max-width:1050px){.app{grid-template-columns:1fr}.sidebar{position:static}.statsGrid,.split,.settingsLayout,.settingsGrid{grid-template-columns:1fr}.topbar{flex-wrap:wrap;height:auto;padding:12px}.topSearch{min-width:0;flex:1}.content{padding:20px}.settingsNav{position:static}.screenHeader{display:grid}}@media(max-width:720px){.sidebar nav{display:grid;grid-template-columns:1fr 1fr;gap:8px}.navGroup{margin:0}.statsGrid{grid-template-columns:1fr}.settingsSearch,.moduleEnablement{display:grid}.settingsSearch input{max-width:none}table{min-width:680px}}
+.aiInsightBar{display:flex;align-items:center;gap:16px;background:#F0FDFA;border:1px solid #A7F3D0;border-radius:14px;padding:11px 16px;flex-wrap:wrap;row-gap:8px}
+.aiInsightBarLeft{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+.aiInsightBarLabel{font-size:11px;text-transform:uppercase;letter-spacing:.12em;font-weight:900;color:#0D9488;white-space:nowrap;flex-shrink:0}
+.aiInsightBarText{margin:0;color:#134E4A;font-size:13px;line-height:1.45;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.aiInsightBarActions{display:flex;gap:8px;flex-shrink:0}
+.aiInsightBarActions button{height:28px;border-radius:999px;background:#fff;border:1px solid #5EEAD4;color:#0F766E;padding:0 11px;font-size:12px;font-weight:700;white-space:nowrap}
+.aiInsightBarActions button:hover{background:#F0FDFA;border-color:#2DD4BF}
+.worklistPanel td:not(:first-child){white-space:nowrap}
+.worklistPanel td:first-child{white-space:normal;max-width:260px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+`;
+
+
+const settingsDirectoryOverrideStyles = `
+.settingsDirectoryPage{gap:24px;padding-bottom:52px}
+.settingsHub{display:grid;gap:28px}
+.settingsHubRow{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.settingsHealthBar{display:flex;align-items:center;gap:8px;padding:7px 12px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;white-space:nowrap;flex-shrink:0}
+.settingsHealthDot{width:7px;height:7px;border-radius:50%;background:#D97706;flex-shrink:0}
+.settingsHealthText{font-size:13px;color:#78350F;line-height:1}
+.settingsHealthText strong{font-weight:800}
+.settingsHealthBtn{height:24px;padding:0 9px;font-size:12px;font-weight:700;border-radius:6px;border:1px solid #FCD34D;color:#92400E;background:#fff;box-shadow:none;white-space:nowrap;cursor:pointer}
+.settingsHealthBtn:hover{background:#FFFBEB;box-shadow:none}
+.settingsSearchInput{height:36px;border:1px solid #E2E8F0;border-radius:9px;padding:0 13px;outline:0;font:inherit;font-size:14px;color:#1E293B;background:#FAFCFF;width:240px}
+.settingsSearchInput:focus{border-color:#0D9488;box-shadow:0 0 0 3px rgba(13,148,136,.1)}
+.settingsGroupGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px 48px}
+.settingsDirectoryGroup{display:flex;flex-direction:column}
+.settingsGroupLabel{margin:0 0 10px;padding-bottom:8px;font-size:11.5px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:#0B1F3A;border-bottom:1.5px solid #F1F5F9}
+.settingsItemList{margin:0;padding:0;list-style:none;display:flex;flex-direction:column}
+.settingsItemLink{width:100%;text-align:left;border:0;background:transparent;box-shadow:none;color:#475569;font-size:13.5px;font-weight:500;padding:5px 0;cursor:pointer;line-height:1.4;border-radius:0}
+.settingsItemLink:hover{color:#0D9488;background:transparent;box-shadow:none}
+.settingsNoResults{color:#64748B;font-size:13px}
+.settingsDetailWorkspace{display:grid;gap:12px;max-width:800px}
+.settingsBackButton{justify-self:start;border:0;background:transparent;box-shadow:none;color:#64748B;padding:4px 0;font-size:13px;font-weight:700;cursor:pointer}
+.settingsBackButton:hover{color:#0B1F3A;background:transparent;box-shadow:none}
+.settingsDetailPanel,.settingsFocusedPanel{background:#fff;border:1px solid #E8EEF4;border-radius:18px;padding:24px;box-shadow:0 1px 3px rgba(15,35,65,.05),0 6px 20px rgba(15,35,65,.04);display:grid;gap:0}
+.settingsDetailHeader{padding-bottom:16px;border-bottom:1px solid #F1F5F9}
+.settingsDetailHeader h2{margin:4px 0 0;color:#0B1F3A;font-size:20px;font-weight:800;letter-spacing:-.02em}
+.settingsDetailHeader p{margin:5px 0 0;color:#64748B;font-size:13px;line-height:1.5;max-width:58ch}
+.settingsDetailSection{padding-top:20px}
+.settingsSectionLabel{margin:0 0 10px;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;color:#94A3B8;display:block}
+.settingsWorkspaceModeDesc{margin:0 0 12px;font-size:13px;color:#64748B;line-height:1.45}
+.workspaceModeSegment{display:inline-flex;align-items:center;border:1px solid #E2E8F0;border-radius:10px;background:#F8FAFC;padding:3px;gap:2px}
+.workspaceModeSegment button{height:30px;border:0;background:transparent;border-radius:7px;padding:0 14px;font-size:13px;font-weight:700;color:#64748B;box-shadow:none;white-space:nowrap;cursor:pointer}
+.workspaceModeSegment button.active{background:#fff;color:#0F766E;box-shadow:0 1px 3px rgba(15,35,65,.1);border:1px solid #CDEDE5}
+.settingsRows{display:grid;gap:6px}
+.adminSettingRow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:center;border:1px solid #F1F5F9;background:#FAFCFF;border-radius:10px;padding:12px 14px}
+.adminSettingRow:hover{border-color:#E8EEF4;background:#fff}
+.adminSettingCopy{display:grid;gap:2px;min-width:0}
+.adminSettingCopy strong{color:#1E293B;font-size:13.5px;font-weight:700}
+.adminSettingCopy span{color:#64748B;font-size:12px;line-height:1.35}
+.adminSettingControl{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.adminSettingControl em{font-style:normal;white-space:nowrap;border:1px solid #E8EEF4;background:#F8FAFC;color:#64748B;border-radius:999px;padding:3px 9px;font-size:11.5px;font-weight:700}
+.adminSettingControl button{height:26px;border-radius:7px;background:#fff;color:#334155;padding:0 10px;font-size:12px;border-color:#E2E8F0;font-weight:700;cursor:pointer}
+.settingsModuleGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.settingsModuleRow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;border:1px solid #F1F5F9;border-radius:9px;background:#FAFCFF}
+.settingsModuleRow:hover{border-color:#E8EEF4;background:#fff}
+.settingsModuleMeta{display:grid;gap:1px;min-width:0}
+.settingsModuleName{font-size:13px;color:#1E293B;font-weight:700}
+.settingsModuleDesc{font-size:11.5px;color:#94A3B8;line-height:1.3}
+.switchControl{width:38px;height:21px;border-radius:999px;border:1.5px solid #CBD5E1;background:#E2E8F0;padding:1.5px;display:inline-flex;align-items:center;justify-content:flex-start;box-shadow:none;flex-shrink:0;cursor:pointer}
+.switchControl span{width:16px;height:16px;border-radius:50%;background:#94A3B8;display:block;flex-shrink:0}
+.switchControl.isOn{background:#E6F7F3;border-color:#5EEAD4;justify-content:flex-end}
+.switchControl.isOn span{background:#0D9488}
+.aiGovernancePanel{display:grid;grid-template-columns:minmax(200px,236px) minmax(0,1fr);gap:24px;padding:24px;background:#fff;border:1px solid #E8EEF4;border-radius:18px;box-shadow:0 1px 3px rgba(15,35,65,.05),0 6px 20px rgba(15,35,65,.04);align-items:start}
+.aiSettingsSummary{position:sticky;top:88px;display:grid;gap:12px}
+.aiSettingsSummary h2{margin:0;color:#0B1F3A;font-size:20px;font-weight:800;letter-spacing:-.02em}
+.aiSettingsSummary p{margin:0;color:#475569;font-size:13px;line-height:1.55}
+.aiSafetyNote{border:1px solid #DDEFEA;background:#F6FEFC;border-radius:12px;padding:12px;display:grid;gap:4px}
+.aiSafetyNote strong{color:#0F3D39;font-size:13px;font-weight:800;display:block}
+.aiSafetyNote span{color:#55706E;font-size:12px;line-height:1.45}
+.aiSettingsMain{display:grid;gap:8px;min-width:0}
+.aiSettingSection{border:1px solid #F1F5F9;background:#FAFCFF;border-radius:12px;padding:14px;display:grid;gap:8px}
+.aiSettingSection h3{margin:0;color:#1E293B;font-size:13px;font-weight:800}
+.aiSettingStack{display:grid;gap:5px}
+.aiSettingRow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:center;border:1px solid #F1F5F9;background:#fff;border-radius:9px;padding:11px 13px}
+.aiSettingCopy{display:grid;gap:2px;min-width:0}
+.aiSettingCopy strong{color:#1E293B;font-size:13.5px;font-weight:700}
+.aiSettingCopy span{color:#64748B;font-size:12px;line-height:1.4;max-width:50ch}
+.aiSettingControl{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-shrink:0}
+.aiSettingControl em{font-style:normal;white-space:nowrap;border:1px solid #CDEDE5;background:#F0FDFA;color:#0F766E;border-radius:999px;padding:2px 8px;font-size:11.5px;font-weight:800}
+.scopePill{height:26px;border-radius:999px;border-color:#DDEFEA;background:#F8FFFD;color:#0F766E;padding:0 10px;font-size:12px;white-space:nowrap}
+.activitySegment{display:flex;align-items:center;border:1px solid #E2E8F0;border-radius:999px;background:#F8FAFC;padding:2px}
+.activitySegment button{height:24px;border:0;background:transparent;border-radius:999px;padding:0 8px;font-size:12px;color:#64748B;box-shadow:none;cursor:pointer}
+.activitySegment button.active{background:#fff;color:#0F766E;box-shadow:0 1px 3px rgba(15,35,65,.08)}
+.aiInsightReadable{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;border:1px solid #DDEFEA;background:#F8FFFD;border-radius:12px;padding:12px 14px}
+.aiInsightReadable p{margin:4px 0 0;color:#334155;font-size:13px;line-height:1.5}
+.aiInsightReadable button{white-space:nowrap;border-color:#CDEDE5;color:#0F766E;background:#fff;font-size:12px;cursor:pointer}
+.eyebrow{color:#0D9488;text-transform:uppercase;letter-spacing:.12em;font-size:11px;font-weight:900;display:block;margin-bottom:3px}
+@media(max-width:1100px){.settingsGroupGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.aiGovernancePanel{grid-template-columns:1fr}.aiSettingsSummary{position:static}}
+@media(max-width:700px){.settingsGroupGrid{grid-template-columns:1fr}.settingsModuleGrid{grid-template-columns:1fr}.adminSettingRow{grid-template-columns:1fr}.adminSettingControl{justify-content:flex-start}.aiSettingRow,.aiInsightReadable{grid-template-columns:1fr}.aiSettingControl{justify-content:flex-start}.workspaceModeSegment{display:grid;grid-template-columns:1fr;border-radius:10px}.workspaceModeSegment button{text-align:center}.settingsHubRow{flex-direction:column;align-items:flex-start}.settingsSearchInput{width:100%}}
+`;
+
+
+const oprivaUpgradeStyles = `
+.app{min-height:100vh;display:flex}.sidebar{width:282px;background:linear-gradient(180deg,#0B1F3A,#07111F);color:#EAF4F7;padding:24px 18px;position:fixed;inset:0 auto 0 0;overflow:auto}.workspace{margin-left:282px;min-width:0;flex:1;display:flex;flex-direction:column}.brand{height:62px;display:flex;align-items:center;gap:12px;margin-bottom:18px;padding:0;border-bottom:0}.brandMark{width:36px;height:36px;display:grid;place-items:center;flex:0 0 auto}.brandMark svg{width:36px;height:36px;overflow:visible}.oprivaOpenContour,.agentContour{fill:none;stroke:#24BFA6;stroke-width:2.35;stroke-linecap:round;stroke-linejoin:round}.oprivaFocusDot,.agentFocusDot{fill:#0B7D63;filter:drop-shadow(0 2px 7px rgba(13,148,136,.28))}.brandCopy{display:flex;flex-direction:column;line-height:1.05}.brandCopy strong{font-size:19px;font-weight:650;letter-spacing:.01em;color:#fff}.brandCopy span{margin-top:5px;color:#94A3B8;font-size:11px;letter-spacing:.06em;text-transform:uppercase}.navGroup{margin-top:20px}.navGroup p{margin:0 0 8px 8px;color:#8BA4BD;font-size:11px;text-transform:uppercase;letter-spacing:.1em}.navGroup button{width:100%;border:0;background:transparent;color:#C8D7E5;text-align:left;padding:10px 12px;border-radius:12px;cursor:pointer}.navGroup button:hover,.navGroup button.active{background:rgba(255,255,255,.08);color:#fff}.topbar{height:68px;background:#fff;border-bottom:1px solid var(--border);display:grid;grid-template-columns:250px minmax(260px,560px) auto;gap:24px;align-items:center;padding:0 28px;position:sticky;top:0;z-index:5}.tenantLockup{display:flex;align-items:center;gap:11px;border:0;background:transparent;text-align:left;padding:0;box-shadow:none}.tenantLockup:hover{background:transparent;box-shadow:none}.tenantLogo,.avatar{display:grid;place-items:center;border-radius:50%;background:#EEF6FF;color:#184E94;font-weight:700}.tenantLogo{width:38px;height:38px}.avatar{width:34px;height:34px;font-size:12px}.tenantLockup div{display:flex;flex-direction:column}.tenantLockup strong{font-size:14px;color:#0F2138}.tenantLockup span{font-size:12px;color:var(--muted)}.globalSearch{height:40px;border:1px solid var(--border);border-radius:999px;background:#F8FAFC;display:flex;align-items:center;gap:10px;padding:0 14px;color:#64748B}.globalSearch input{border:0;outline:0;background:transparent;width:100%;color:var(--text)}.globalSearch:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.12)}.topActions{display:flex;align-items:center;gap:12px;justify-content:end}.topActions button{height:34px;border:1px solid var(--border);border-radius:999px;background:#fff;color:#0F766E;padding:0 12px}.agentWrap{position:fixed;right:24px;bottom:96px;z-index:90;display:flex;align-items:center;gap:12px}.agentTip{max-width:244px;background:#0F172A;color:#EAF4F7;padding:10px 12px;border-radius:14px;font-size:12px;box-shadow:0 18px 45px rgba(15,23,42,.2);opacity:0;transform:translateX(6px);pointer-events:none;transition:opacity .22s ease,transform .22s ease}.agentTip.isVisible{opacity:.94;transform:translateX(0)}.agentButton{width:62px;height:62px;border:1px solid rgba(13,148,136,.22);border-radius:20px;background:rgba(255,255,255,.92);box-shadow:0 16px 40px rgba(15,23,42,.16);display:grid;place-items:center;cursor:pointer;backdrop-filter:blur(18px);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}.agentButton:hover{box-shadow:0 20px 48px rgba(15,23,42,.22),0 0 0 6px rgba(45,212,191,.08);border-color:rgba(13,148,136,.45)}.agentMark{width:38px;height:38px;display:grid;place-items:center}.agentMarkSvg{width:38px;height:38px;overflow:visible}.agentContour{transform-origin:16px 16px}.agentFocusDot{transform-origin:center}.aiDrawer{position:fixed;right:24px;bottom:174px;top:auto;width:min(360px,calc(100vw - 48px));max-height:calc(100vh - 210px);overflow:auto;background:#fff;border:1px solid var(--border);border-radius:22px;box-shadow:0 24px 70px rgba(15,23,42,.2);z-index:88;padding:18px;display:block}.drawerHeader{display:flex;justify-content:space-between;gap:12px;align-items:start}.drawerHeader h2{margin:0;font-size:18px}.drawerHeader p,.drawerText,.meta{color:var(--muted);font-size:13px}.drawerHeader button{border:0;background:#F1F5F9;border-radius:10px;width:30px;height:30px;padding:0}.drawerInput{width:100%;border:1px solid var(--border);border-radius:14px;padding:12px;margin:12px 0}.drawerInput:focus{outline:0;border-color:var(--teal);box-shadow:0 0 0 3px rgba(13,148,136,.12)}.suggestions{display:grid;gap:8px}.suggestions button{border:1px solid var(--border);background:#fff;text-align:left;border-radius:12px;padding:10px}.agentSettings{margin-top:12px;padding-top:12px;border-top:1px solid #EEF2F7}.agentSettings label{display:flex;align-items:center;gap:9px;color:#334155;font-size:13px}@media(max-width:1050px){.sidebar{position:relative;width:100%;height:auto}.app{display:block}.workspace{margin-left:0}.topbar{grid-template-columns:1fr;gap:10px;height:auto;padding:16px}.agentWrap{right:18px;bottom:84px}}`;
+
+
 const mvpRecoveryStyles = `
-.aiRiskPanel .aiRiskContent{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;align-items:center}.aiRiskContent p{margin:0;color:#334155;line-height:1.55;max-width:760px}.inlineActions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.inlineActions button{white-space:nowrap}.mvpTable table{table-layout:auto;width:100%}.mvpTable th,.mvpTable td{vertical-align:middle}.mvpTable th{white-space:nowrap}.mvpTable td{white-space:nowrap}.mvpTable .recordCell{white-space:normal;max-width:260px;font-weight:650;color:#0F2138}.mvpTable .issueRecord{white-space:normal;min-width:250px}.mvpTable .issueRecord span{display:block;color:#64748B;font-size:12px;line-height:1.2}.mvpTable .issueRecord strong{display:block;color:#0F2138;font-size:13px;line-height:1.25;margin-top:3px}.mvpTable .badge{font-size:11px;padding:3px 8px}.aiInsightBarActions{flex-wrap:wrap}.aiInsightBarText{overflow:hidden;text-overflow:ellipsis}
-@media(max-width:1200px){.mvpTable{overflow-x:auto}.mvpTable table{min-width:980px}.aiRiskPanel .aiRiskContent{grid-template-columns:1fr}.inlineActions{justify-content:flex-start}}
+.aiRiskPanel .aiRiskContent{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;align-items:center}.aiRiskContent p{margin:0;color:#334155;line-height:1.55;max-width:790px}.inlineActions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.inlineActions button{white-space:nowrap}.mvpTable table{table-layout:auto;width:100%;min-width:900px}.mvpTable th,.mvpTable td{vertical-align:middle;white-space:nowrap}.mvpTable .recordCell{white-space:normal;max-width:260px;font-weight:650;color:#0F2138}.mvpTable .issueRecord{white-space:normal;min-width:250px}.mvpTable .issueRecord span{display:block;color:#64748B;font-size:12px;line-height:1.2}.mvpTable .issueRecord strong{display:block;color:#0F2138;font-size:13px;line-height:1.25;margin-top:3px}.mvpTable .badge{font-size:11px;padding:3px 8px}.aiInsightBar{display:flex;align-items:center;gap:16px;background:#F0FDFA;border:1px solid #A7F3D0;border-radius:14px;padding:11px 16px;flex-wrap:wrap;row-gap:8px}.aiInsightBarLeft{display:flex;align-items:center;gap:10px;flex:1;min-width:0}.aiInsightBarLabel{font-size:11px;text-transform:uppercase;letter-spacing:.12em;font-weight:900;color:#0D9488;white-space:nowrap;flex-shrink:0}.aiInsightBarText{margin:0;color:#134E4A;font-size:13px;line-height:1.45;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.aiInsightBarActions{display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap}.aiInsightBarActions button{height:28px;border-radius:999px;background:#fff;border:1px solid #5EEAD4;color:#0F766E;padding:0 11px;font-size:12px;font-weight:700;white-space:nowrap}.aiInsightBarActions button:hover{background:#F0FDFA;border-color:#2DD4BF}.attentionPage .screenHeader{padding-top:4px}@media(max-width:1200px){.mvpTable{overflow-x:auto}.mvpTable table{min-width:980px}.aiRiskPanel .aiRiskContent{grid-template-columns:1fr}.inlineActions{justify-content:flex-start}}
 `;
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);

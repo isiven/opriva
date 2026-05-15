@@ -1,4 +1,7 @@
-const TWEAK_DEFAULTS = {
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "accentColor": "#2563EB",
   "livingAgent": true,
   "allowCursorFollow": true,
@@ -6,7 +9,7 @@ const TWEAK_DEFAULTS = {
   "activityLevel": "Balanced",
   "reduceMotion": false,
   "muteAssistant": false
-};
+}/*EDITMODE-END*/;
 
 const SIDEBAR_GROUPS = [
   { label: 'Overview', items: ['Dashboard', 'Attention Center', 'Search'] },
@@ -16,10 +19,10 @@ const SIDEBAR_GROUPS = [
 ];
 
 const moduleMeta = {
-  Dashboard: ['Operational command center', 'Know what expires. Know what it costs not to act. Act on time.'],
-  'Attention Center': ['Operational issue center', 'Resolve critical renewals, ownership gaps, missing evidence and approval blockers before they become financial or operational risk.'],
-  Search: ['Global command search', 'Find records, clients, vendors, documents, owners, tasks and renewal risks.'],
-  'Companies / Clients': ['Client operating model', 'Manage client context, contacts, ownership, renewal exposure and related records from one workspace.'],
+  Dashboard: ['Operational command center', 'What needs attention today?'],
+  'Attention Center': ['Alerts and escalations', 'Resolve urgent risk in one queue.'],
+  Search: ['Global record search', 'Find companies, renewals, documents and owners.'],
+  'Companies / Clients': ['Client operating model', 'Companies, contacts, exposure and ownership.'],
   Expirations: ['Renewal calendar', 'Prioritize upcoming dates and missing actions.'],
   Licenses: ['Software and SaaS licenses', 'Track products, quantities, spend and risk.'],
   Contracts: ['Commercial agreements', 'Track obligations, parties, value and status.'],
@@ -29,17 +32,6 @@ const moduleMeta = {
   'Data Import': ['Spreadsheet onboarding', 'Map, validate and import tenant records.'],
   Settings: ['Workspace administration', 'Configure access, data, automation and governance.']
 };
-
-
-function getPageDisplayName(page, workspaceMode){
-  if (page === 'Expirations') return 'Assets & Renewals';
-  if (page === 'Companies / Clients') {
-    if (workspaceMode === 'Internal IT') return 'Organization';
-    if (workspaceMode === 'Hybrid') return 'Organizations';
-    return 'Companies / Clients';
-  }
-  return page || 'Dashboard';
-}
 
 const riskItems = [
   ['SSL certificate expires in 12 days', 'Critical', 'Grupo Regency', 'Assign owner and renew certificate', 'Luis Mora'],
@@ -156,7 +148,7 @@ const settingsAdminGroups = [
 ];
 
 const MODULE_LIST = [
-  ['Assets & Renewals', 'Renewal calendar and expiration tracking.'],
+  ['Expirations',       'Renewal calendar and expiration tracking.'],
   ['Licenses',          'Software and SaaS license management.'],
   ['Contracts',         'Commercial agreements and obligations.'],
   ['Documents',         'Record document vault and evidence management.'],
@@ -164,7 +156,7 @@ const MODULE_LIST = [
   ['Reports',           'Executive and governance reporting.'],
   ['Data Import',       'Spreadsheet onboarding and bulk record import.'],
   ['Vendors / Providers', 'Vendor catalog and supplier management.'],
-  ['Assets / Hardware', 'Optional detailed hardware inventory and warranty tracking.'],
+  ['Assets / Hardware', 'Hardware asset tracking and warranty management.'],
 ];
 
 
@@ -197,10 +189,10 @@ const AI_CONFIRMATION = 'Opriva AI will create 8 tasks assigned to 3 users. Revi
 function cx(...values){ return values.filter(Boolean).join(' '); }
 function asArray(data){ return Array.isArray(data) ? data : []; }
 function safeText(value, fallback='Not specified'){ return value || fallback; }
-function riskClass(value){ const v = String(value || '').toLowerCase(); return v.includes('critical') || v.includes('urgent') ? 'critical' : v.includes('high') || v.includes('approval') || v.includes('blocked') || v.includes('failed') || v.includes('unassigned') || v.includes('needs assignment') ? 'high' : v.includes('review') ? 'review' : v.includes('medium') || v.includes('warning') ? 'medium' : 'low'; }
+function riskClass(value){ const v = String(value || '').toLowerCase(); return v.includes('critical') ? 'critical' : v.includes('high') || v.includes('approval') || v.includes('blocked') || v.includes('failed') ? 'high' : v.includes('medium') || v.includes('review') || v.includes('warning') ? 'medium' : 'low'; }
 function initials(name){ return String(name || 'Opriva').split(/\s+/).filter(Boolean).slice(0,2).map(x => x[0] || '').join('').toUpperCase() || 'OP'; }
 
-function Badge({ children, tone }){ const badgeTone = riskClass(tone || children); return <span className={cx('badge', badgeTone)}>{safeText(children)}</span>; }
+function Badge({ children, tone }){ return <span className={cx('badge', tone || riskClass(children))}>{safeText(children)}</span>; }
 function Avatar({ name }){ return <span className="avatar" aria-hidden="true">{initials(name)}</span>; }
 function EmptyState({ title, message, action }){ return <div className="stateBox emptyState" role="status"><strong>{title || 'No records found'}</strong><span>{message || 'Adjust filters or create a new record to continue.'}</span>{action && <button>{action}</button>}</div>; }
 function ErrorState({ title, message }){ return <div className="stateBox errorState" role="alert"><strong>{title || 'Data could not be loaded'}</strong><span>{message || 'Retry the request or contact support if the problem continues.'}</span><div><button>Retry</button><button className="ghostBtn">Contact support</button></div></div>; }
@@ -227,53 +219,33 @@ function ScreenHeader({ active, subtitle, children }){
 function StatCards(){
   return <section className="statsGrid" aria-label="Workspace summary">
     {[
-      ['90-day exposure', '$284,000', '47 managed records', 'High exposure'],
-      ['30-day critical expirations', '12', '3 above $25,000 impact', 'Urgent'],
-      ['Missing owners', '18', '14% of active portfolio', 'Needs assignment'],
-      ['Pending actions', '9', 'Emails, tasks and documents', 'Review']
-    ].map(([label, value, note, badge]) => <article className="statCard" key={label}><span>{label}</span><strong>{value}</strong><p>{note}</p><Badge tone={badge}>{badge}</Badge></article>)}
+      ['Critical items', '9', '+3 this week'], ['Renewal exposure', '$486K', 'Next 90 days'], ['Missing owners', '14', 'Across clients'], ['Data completeness', '84%', 'Target 95%']
+    ].map(([label, value, note]) => <article className="statCard" key={label}><span>{label}</span><strong>{value}</strong><p>{note}</p></article>)}
   </section>;
 }
 
 function Dashboard(){
-  const priorityRows = [
-    ['Dell Support Contract','Contract','Dell','May 26, 2026','12 days','$42,800','Unassigned','Assign owner'],
-    ['Microsoft 365 Renewal','License','Microsoft','Jun 1, 2026','18 days','$31,200','Ana Ruiz','Prepare renewal'],
-    ['Fortinet Warranty','Warranty','Fortinet','Jun 7, 2026','24 days','$18,600','Luis Mora','Request quote'],
-    ['SSL Wildcard Certificate','Certificate','DigiCert','May 23, 2026','9 days','$3,200','Unassigned','Prepare renewal'],
-    ['Adobe Creative Cloud','SaaS','Adobe','Jun 11, 2026','28 days','$9,800','Carlos Vega','Review usage']
+  const missing = [
+    ['Owner missing','Wildcard SSL Certificate','Grupo Regency','Critical','Assign Luis Mora'],
+    ['Document missing','Gold Support Contract','Banisi','High','Request signed PDF'],
+    ['Approval due','Microsoft true-up','Canal Bank','Medium','Finance approval']
   ];
-  return <main className="content dashboardContent"><ScreenHeader active="Dashboard"><button>Import records</button><button className="primary">Review exposure</button></ScreenHeader><StatCards/><section className="dashboardStack"><article className="panel aiRiskPanel"><div><div className="panelTitle"><h2>AI Risk Summary</h2><span>Financial exposure command center</span></div><p className="insightCopy">This week, 12 records enter a critical renewal window. The highest impact item is the Dell Support Contract for $42,800, expiring in 12 days without an assigned owner. Recommended action: assign an owner and prepare the renewal email today.</p></div><div className="actionStack compactActions"><button>Review critical items</button><button>Assign owners</button><button>Prepare vendor email</button></div></article><article className="panel priorityQueuePanel"><div className="panelTitle"><h2>Priority action queue</h2><span>Records prioritized by urgency, financial value and ownership gaps.</span></div><div className="tableWrap priorityQueueWrap"><table className="priorityQueueTable"><thead><tr>{['Record','Type','Vendor','Expiry date','Days left','Value','Owner','Recommended action'].map(column=><th key={column}>{column}</th>)}</tr></thead><tbody>{priorityRows.map(row=><tr key={row[0]}>{row.map((cell,index)=><td key={index} className={cx(index===0 && 'recordCell', index===1 && 'compactCell', index===2 && 'compactCell', index===4 && 'compactCell', index===5 && 'compactCell', index===6 && 'compactCell', index===7 && 'actionCell')}>{index===6 && cell==='Unassigned' ? <Badge tone="Warning">Unassigned</Badge> : index===7 ? <button type="button" className="rowAction">{cell}</button> : cell}</td>)}</tr>)}</tbody></table></div></article></section></main>;
+  return <main className="content"><ScreenHeader active="Dashboard"><button>Import records</button><button className="primary">Create record</button></ScreenHeader><StatCards/><section className="split"><article className="panel wide"><div className="panelTitle"><h2>Prioritized attention queue</h2><span>Risk, date pressure, owner gaps and business exposure</span></div><div className="tabs"><button className="active">Today</button><button>Critical</button><button>Missing owners</button><button>Approvals</button></div><Table columns={['Issue','Risk','Company','Next action','Owner']} rows={riskItems}/></article><aside className="panel"><div className="panelTitle"><h2>Quick actions</h2><span>High-frequency operational moves</span></div><div className="actionStack"><button>Create renewal task</button><button>Assign missing owner</button><button>Request document</button><button>Generate executive brief</button></div></aside></section><section className="split"><article className="panel wide"><div className="panelTitle"><h2>Missing data and approvals</h2><span>Items blocking renewals, evidence and accountability</span></div><Table columns={['Gap','Record','Company','Priority','Next action']} rows={missing}/></article><AiInsightCard active="Dashboard"/></section></main>;
 }
 
 function AttentionCenter(){
-  const attentionSummary = [
-    ['Critical issues', '12', '$84,600 exposed in 30 days', 'Urgent'],
-    ['Missing owners', '18', '14% of active portfolio', 'Assign'],
-    ['Missing evidence', '7', 'Contracts or documents required', 'Evidence needed'],
-    ['Pending approvals', '9', 'AI drafts and tasks waiting', 'Review']
-  ];
-  return <main className="content attentionContent"><ScreenHeader active="Attention Center" subtitle="Resolve critical renewals, ownership gaps, missing evidence and approval blockers before they become financial or operational risk."><button>Assign owners</button><button className="primary">Create task</button></ScreenHeader><section className="statsGrid attentionSummaryGrid" aria-label="Attention Center summary">{attentionSummary.map(([label, value, note, badge]) => <article className="statCard" key={label}><span>{label}</span><strong>{value}</strong><p>{note}</p><Badge tone={badge}>{badge}</Badge></article>)}</section><div className="aiInsightBar attentionInsightBar" aria-label="Attention Center AI insight"><div className="aiInsightBarLeft"><span className="aiInsightBarLabel">AI insight</span><p className="aiInsightBarText">Opriva found 12 critical renewal issues. Assigning 5 missing owners and requesting 7 documents would reduce the fastest operational risk.</p></div><div className="aiInsightBarActions"><button>Assign owners</button><button>Request documents</button><button>Create tasks</button></div></div><section className="panel"><div className="panelTitle"><h2>Attention workflow</h2><span>Saved views, issue grouping and bulk operations</span></div><div className="tabs"><button className="active">Critical</button><button>Escalations</button><button>Missing owners</button><button>Missing evidence</button><button>Pending approvals</button></div><div className="toolbar"><input placeholder="Filter issues, records, vendors or owners…"/><button>Saved view: Critical this week</button><button>Severity</button><button>Owner</button><button>Bulk actions</button></div><div className="tableWrap attentionWorkflowWrap"><table className="attentionWorkflowTable"><thead><tr>{['Issue / Record','Vendor','Impact','Due','Owner','Recommended action','Status'].map(column => <th key={column}>{column}</th>)}</tr></thead><tbody>{[['Renewal expires in 12 days','Dell Support Contract','Dell','$42,800','May 26, 2026','Unassigned','Assign owner','Critical'],['Certificate expires in 9 days','SSL Wildcard Certificate','DigiCert','$3,200','May 23, 2026','Unassigned','Prepare renewal','Critical'],['Renewal quote not requested','Microsoft 365 Renewal','Microsoft','$31,200','Jun 1, 2026','Ana Ruiz','Prepare vendor email','High'],['Warranty expires in 24 days','Fortinet Warranty','Fortinet','$18,600','Jun 7, 2026','Luis Mora','Request quote','High']].map(row => <tr key={row[1]}><td className="issueRecordCell"><span>{row[0]}</span><strong>{row[1]}</strong></td><td className="compactCell">{row[2]}</td><td className="compactCell">{row[3]}</td><td className="dateCell">{row[4]}</td><td className="compactCell">{row[5]==='Unassigned' ? <Badge tone="Needs assignment">Unassigned</Badge> : row[5]}</td><td className="actionCell"><button type="button" className="rowAction">{row[6]}</button></td><td className="compactCell"><Badge tone={row[7]}>{row[7]}</Badge></td></tr>)}</tbody></table></div></section><section className="panel"><div className="panelTitle"><h2>Issue groups</h2><span>Grouped by financial impact, urgency and blocker type.</span></div><Table columns={['Group','Count','Business impact','Primary owner','Action']} rows={[["Critical certificate and warranty gaps",'3','Service continuity risk','Luis Mora','Escalate today'],['High-risk renewals','5','$128K renewal exposure','María Chen','Prepare approvals'],['Missing evidence','7','Contracts blocked','Nadia Brooks','Request documents']]}/></section></main>;
+  return <main className="content"><ScreenHeader active="Attention Center" subtitle="Resolve alerts, escalations, missing owners, missing documents and approvals from one queue."><button>Bulk assign</button><button className="primary">Create escalation</button></ScreenHeader><section className="panel"><div className="panelTitle"><h2>Attention workflow</h2><span>Saved views, severity grouping and bulk operations</span></div><div className="tabs"><button className="active">Open alerts</button><button>Escalations</button><button>Missing owners</button><button>Missing documents</button><button>Approvals</button></div><div className="toolbar"><input placeholder="Filter alerts, companies or owners…"/><button>Saved view: Critical this week</button><button>Severity</button><button>Owner</button><button>Bulk actions</button></div><Table columns={['Alert','Severity','Company','Recommended action','Owner']} rows={riskItems}/></section><section className="panel"><div className="panelTitle"><h2>Severity groups</h2><span>Grouped so teams can work the queue without losing context</span></div><Table columns={['Group','Count','Business impact','Primary owner','Action']} rows={[["Critical certificate and warranty gaps",'3','Service continuity risk','Luis Mora','Escalate today'],['High-risk renewals','5','$128K renewal exposure','María Chen','Prepare approvals'],['Missing evidence','7','Contracts blocked','Nadia Brooks','Request documents']]}/></section></main>;
 }
 
 function SearchScreen(){
-  const modes = ['All','Records','Clients','Assets & Renewals','Documents','Tasks'];
-  const suggestions = ['Critical renewals next 30 days','Records missing owners','Missing renewal documents','Vendors above $25K exposure'];
-  const results = [
-    ['Contract','Dell Support Contract','Banisi','Critical · May 26, 2026 · $42,800','Unassigned','Assign owner'],
-    ['Certificate','SSL Wildcard Certificate','Grupo Regency','Critical · May 23, 2026 · $3,200','Unassigned','Prepare renewal'],
-    ['License','Microsoft 365 Renewal','Banisi','High · Jun 1, 2026 · $31,200','Ana Ruiz','Prepare email'],
-    ['Warranty','Fortinet Warranty','Metro Retail Group','High · Jun 7, 2026 · $18,600','Luis Mora','Request quote'],
-    ['Document','Trend Micro Renewal Quote.pdf','Microsoft 365 Renewal','Linked to renewal','María Chen','Open document'],
-    ['Report','Q2 Renewal Exposure Report','All clients','Ready','María Chen','Open report']
-  ];
-  return <main className="content searchCommandPage"><ScreenHeader active="Search" subtitle="Find anything across the workspace or ask an operational question."/><section className="searchHero searchCommandHero"><label className="commandInputWrap"><input aria-label="Search Opriva" placeholder="Search records, clients, vendors, owners, documents or ask a question..."/><span aria-hidden="true">⌘K</span></label><button className="primary">Search</button></section><section className="searchModesPanel" aria-label="Search modes"><div className="searchModeInline">{modes.map((mode,i)=><button key={mode} className={i===0?'active':''}>{mode}</button>)}</div><div className="suggestedQuestions" aria-label="Suggested questions"><span>Suggested questions</span>{suggestions.map(chip=><button key={chip}>{chip}</button>)}</div></section><section className="panel searchResultsPanel"><div className="panelTitle"><h2>Results</h2><span>Best matches across records, clients, documents and workflow items.</span></div><div className="tableWrap"><table><thead><tr>{['Type','Result','Context','Risk / Status','Owner','Quick action'].map(column=><th key={column}>{column}</th>)}</tr></thead><tbody>{results.map(row=><tr key={row[1]}><td>{row[0]}</td><td className="recordCell">{row[1]}</td><td>{row[2]}</td><td><Badge tone={row[3]}>{row[3]}</Badge></td><td>{row[4] === 'Unassigned' ? <Badge tone="Needs assignment">Unassigned</Badge> : row[4]}</td><td className="actionCell"><button type="button" className="rowAction">{row[5]}</button></td></tr>)}</tbody></table></div></section></main>;
+  const results = [['License','Trend Micro Vision One Credits','Banisi','Expires May 2, 2026 · High risk'],['Contract','Gold Support Contract','Banisi','Signed PDF missing · notice period open'],['Owner','María Chen','7 active renewals','2 approvals pending'],['Document','Trend Micro Renewal Quote.pdf','Version 2','Linked to license renewal']];
+  return <main className="content"><ScreenHeader active="Search" subtitle="Fast global search for records, documents, owners, expirations and operational questions."/><section className="searchHero"><input aria-label="Search Opriva" placeholder="Ask: which high-risk renewals need documents this month?"/><button className="primary">Search</button></section><section className="panel"><div className="panelTitle"><h2>Search scope</h2><span>Natural language queries with structured filters</span></div><div className="tabs"><button className="active">All</button><button>Records</button><button>Documents</button><button>Owners</button><button>Expirations</button></div><div className="toolbar"><button>Recent: Banisi renewals</button><button>Recent: missing signed contracts</button><button>Suggested: certificates expiring in 30 days</button></div></section><section className="panel"><div className="panelTitle"><h2>Grouped results</h2><span>Best matches across operational objects</span></div><Table columns={['Type','Result','Context','Why it matters']} rows={results}/></section></main>;
 }
 
 function CompaniesScreen(){
   const [tab, setTab] = React.useState('Companies');
-  const companyRecords = [['Trend Micro renewal','Renewal','May 2, 2026','High','María Chen','Open'],['Vision One Credits','License','1,200 credits','High','María Chen','Open'],['Dell Support Contract','Contract','May 26, 2026','Critical','Unassigned','Assign owner'],['Renewal Quote.pdf','Document','Version 2','Linked','María Chen','Open']];
-  return <main className="content companiesClientsPage"><ScreenHeader active="Companies / Clients" subtitle="Manage client context, contacts, ownership, renewal exposure and related records from one workspace."><button>Configure columns</button><button className="primary">Add company</button></ScreenHeader><div className="tabs" role="tablist"><button className={tab==='Companies'?'active':''} onClick={()=>setTab('Companies')}>Companies</button><button className={tab==='Contacts'?'active':''} onClick={()=>setTab('Contacts')}>Contacts</button><button>Exposure</button><button>Documents</button></div><section className="panel clientPortfolioPanel"><div className="toolbar"><input placeholder="Search companies, contacts or domains…"/><button>Saved view: High exposure</button><button>Filters</button><button>Columns</button></div>{tab==='Contacts' ? <><div className="panelTitle"><h2>Key contacts</h2><span>Technical, commercial and legal owners per client</span></div><Table columns={['Contact','Company','Role','Email','Contact type','Responsibility']} rows={contacts}/></> : <><div className="panelTitle"><h2>Client portfolio</h2><span>Client-level exposure, ownership and upcoming renewal pressure.</span></div><Table columns={['Company','Segment','Main contact','Opriva owner','Managed records','Renewal pressure','Exposure','Risk']} rows={companies}/></>}</section><section className="panel selectedClientPanel"><div className="panelTitle"><h2>Selected client preview</h2><span>Key records, documents and actions linked to the selected client.</span></div><div className="tableWrap compactClientPreview"><table><thead><tr>{['Record','Type','Detail','Risk / status','Owner','Action'].map(column=><th key={column}>{column}</th>)}</tr></thead><tbody>{companyRecords.map(row=><tr key={row[0]}>{row.map((cell,index)=><td key={index} className={cx(index===0 && 'recordCell', index===5 && 'actionCell')}>{index===3 ? <Badge tone={cell}>{cell}</Badge> : index===4 && cell==='Unassigned' ? <Badge tone="Needs assignment">Unassigned</Badge> : index===5 ? <button type="button" className="rowAction subtleRowAction">{cell}</button> : cell}</td>)}</tr>)}</tbody></table></div></section></main>;
+  const companyRecords = [['Expirations','Trend Micro renewal','May 2, 2026','High','María Chen'],['Licenses','Vision One Credits','1,200 credits','High','María Chen'],['Contracts','Gold Support Contract','Notice due Mar 18','High','Nadia Brooks'],['Tasks','Request signed quote','Due Friday','Open','María Chen']];
+  return <main className="content"><ScreenHeader active="Companies / Clients" subtitle="Company detail remains the workspace for contacts, expirations, licenses, contracts, documents and tasks."><button>Configure columns</button><button className="primary">Add company</button></ScreenHeader><div className="tabs" role="tablist"><button className={tab==='Companies'?'active':''} onClick={()=>setTab('Companies')}>Companies</button><button className={tab==='Contacts'?'active':''} onClick={()=>setTab('Contacts')}>Contacts</button><button>Exposure</button><button>Documents</button></div><section className="panel"><div className="toolbar"><input placeholder="Search companies, contacts or domains…"/><button>Saved view: High exposure</button><button>Filters</button><button>Columns</button></div>{tab==='Contacts' ? <><div className="panelTitle"><h2>Key contacts</h2><span>Technical, commercial and legal owners per client</span></div><Table columns={['Contact','Company','Role','Email','Contact type','Responsibility']} rows={contacts}/></> : <><div className="panelTitle"><h2>Companies and clients</h2><span>Exposure, next dates and owner accountability</span></div><Table columns={['Company','Segment','Main contact','Corexi owner','Managed records','Renewal pressure','Exposure','Risk']} rows={companies}/></>}</section><section className="panel"><div className="panelTitle"><h2>Banisi workspace preview</h2><span>Related records stay connected to the client context</span></div><Table columns={['Area','Record','Timing','Risk / status','Owner']} rows={companyRecords}/></section></main>;
 }
 
 function ListScreen({ active, columns, rows, note }){
@@ -326,30 +298,26 @@ function SettingsHealthBar(){
   </div>;
 }
 
-function Settings({ workspaceMode = 'MSP / Integrator', setWorkspaceMode = function(){} }){
+function Settings(){
   const [query, setQuery] = React.useState('');
   const [openedGroupId, setOpenedGroupId] = React.useState(null);
+  const [workspaceMode, setWorkspaceMode] = React.useState('MSP / Integrator');
   const [modules, setModules] = React.useState({
-    'Assets & Renewals': true, 'Licenses': true, 'Contracts': true,
+    'Expirations': true, 'Licenses': true, 'Contracts': true,
     'Documents': true, 'Tasks': true, 'Reports': true,
     'Data Import': true, 'Vendors / Providers': true, 'Assets / Hardware': false
   });
   const toggleModule = function(name){ setModules(function(prev){ var next = {}; Object.keys(prev).forEach(function(k){ next[k] = prev[k]; }); next[name] = !prev[name]; return next; }); };
   const normalized = query.trim().toLowerCase();
-  const overviewDescriptions = {
-    company: 'Workspace mode, profile, branding and localization.',
-    access: 'Users, roles, permissions, security and SSO.',
-    data: 'Categories, custom fields, vendors, products and tags.',
-    automation: 'Notifications, escalations, approvals and alert policies.',
-    'ai-operator': 'Assistant availability, AI permissions, approval rules and behavior.',
-    governance: 'Audit log, import history, data retention and export history.',
-    integrations: 'API keys, webhooks, email connectors and external systems.'
-  };
   const filteredGroups = settingsAdminGroups.map(function(group){
-    var overviewDescription = overviewDescriptions[group.id] || group.description;
-    return { id: group.id, label: group.label, description: overviewDescription };
+    return {
+      id: group.id, label: group.label, description: group.description,
+      items: group.items.filter(function(item){
+        return !normalized || (group.label + ' ' + item[0] + ' ' + item[1]).toLowerCase().includes(normalized);
+      })
+    };
   }).filter(function(group){
-    return !normalized || (group.label + ' ' + group.description).toLowerCase().includes(normalized);
+    return !normalized || group.items.length > 0 || group.label.toLowerCase().includes(normalized);
   });
   const openedGroup = openedGroupId ? settingsAdminGroups.find(function(g){ return g.id === openedGroupId; }) : null;
 
@@ -368,16 +336,20 @@ function Settings({ workspaceMode = 'MSP / Integrator', setWorkspaceMode = funct
       </div>
       {filteredGroups.length === 0
         ? <p className="settingsNoResults">No matching settings found.</p>
-        : <div className="settingsGroupGrid settingsOverviewCards">
+        : <div className="settingsGroupGrid">
             {filteredGroups.map(function(group){
-              return <article className="settingsDirectoryGroup settingsOverviewCard" key={group.id}>
-                <div className="settingsOverviewCardCopy">
-                  <h3 className="settingsGroupLabel">{group.label}</h3>
-                  <p className="settingsOverviewDescription">{group.description}</p>
-                </div>
-                <button type="button" className="settingsOverviewOpen" onClick={function(){ setOpenedGroupId(group.id); }}>
-                  Open
-                </button>
+              return <article className="settingsDirectoryGroup" key={group.id}>
+                <h3 className="settingsGroupLabel">{group.label}</h3>
+                <ul className="settingsItemList" role="list">
+                  {group.items.map(function(item){
+                    var name = item[0];
+                    return <li key={name}>
+                      <button type="button" className="settingsItemLink" onClick={function(){ setOpenedGroupId(group.id); }}>
+                        {name}
+                      </button>
+                    </li>;
+                  })}
+                </ul>
               </article>;
             })}
           </div>
@@ -402,52 +374,15 @@ function Settings({ workspaceMode = 'MSP / Integrator', setWorkspaceMode = funct
 function SettingsGroupPanel({ group, workspaceMode, setWorkspaceMode, modules, toggleModule }){
   var isCompany = group.id === 'company';
   var items = Array.isArray(group.items) ? group.items : [];
-  var terminologyPreview = {
-    'MSP / Integrator': [
-      ['Organizations', 'Companies / Clients'],
-      ['People', 'Contacts'],
-      ['Owner', 'Account Owner / Opriva Owner'],
-      ['Records label', 'Assets & Renewals']
-    ],
-    'Internal IT': [
-      ['Organizations label', 'Organization'],
-      ['People label', 'People'],
-      ['Owner label', 'Internal Owner'],
-      ['Records label', 'Assets & Renewals']
-    ],
-    Hybrid: [
-      ['Organizations label', 'Organizations'],
-      ['People label', 'People / Contacts'],
-      ['Owner label', 'Owner'],
-      ['Records label', 'Assets & Renewals']
-    ]
-  };
-  var navigationPreview = {
-    'MSP / Integrator': ['Companies / Clients', 'Assets & Renewals', 'Licenses', 'Contracts'],
-    'Internal IT': ['Organization', 'Departments', 'Locations', 'People', 'Assets & Renewals'],
-    Hybrid: ['Organizations', 'People / Contacts', 'Departments', 'Locations', 'Assets & Renewals']
-  };
-  var importTemplatePreview = {
-    'MSP / Integrator': ['Client', 'Contact', 'Account owner', 'Vendor', 'Product', 'Expiry date'],
-    'Internal IT': ['Organization', 'Department', 'Location', 'Owner', 'Expiry date', 'Value'],
-    Hybrid: ['Organization', 'Scope', 'Person / Contact', 'Owner', 'Expiry date', 'Value']
-  };
-  var activeMode = terminologyPreview[workspaceMode] ? workspaceMode : 'MSP / Integrator';
-  var selectedModeExplanation = {
-    'MSP / Integrator': 'For teams managing multiple client accounts, contacts, renewals, contracts and vendor relationships.',
-    'Internal IT': 'For companies managing their own departments, locations, people, assets, contracts and renewals.',
-    Hybrid: 'For teams managing both internal assets and external client-facing obligations.'
-  };
-  var labelSummary = terminologyPreview[activeMode].map(function(row){ return row[1]; }).slice(0, 3).join(', ');
   return <div className="settingsDetailPanel settingsFocusedPanel">
     <div className="settingsDetailHeader">
-      <span className="eyebrow">{isCompany ? 'Workspace setup' : group.label}</span>
-      <h2>{isCompany ? 'Workspace configuration' : group.label}</h2>
-      <p>{isCompany ? 'Define workspace mode, branding, localization and enabled modules.' : group.description}</p>
+      <span className="eyebrow">{group.label}</span>
+      <h2>{group.label}</h2>
+      <p>{group.description}</p>
     </div>
-    {isCompany && <div className="settingsDetailSection workspaceModeSection">
-      <p className="settingsSectionLabel">Workspace Mode</p>
-      <p className="settingsWorkspaceModeDesc">Choose how your team will use Opriva. The workspace adapts labels, navigation and import templates to match your operating model.</p>
+    {isCompany && <div className="settingsDetailSection">
+      <p className="settingsSectionLabel">Workspace mode</p>
+      <p className="settingsWorkspaceModeDesc">Controls entity labels, sidebar modules and operating model across the workspace.</p>
       <div className="workspaceModeSegment" role="group" aria-label="Select workspace mode">
         {['MSP / Integrator', 'Internal IT', 'Hybrid'].map(function(mode){
           return <button key={mode} type="button"
@@ -456,31 +391,6 @@ function SettingsGroupPanel({ group, workspaceMode, setWorkspaceMode, modules, t
           >{mode}</button>;
         })}
       </div>
-      <p className="modeSelectedSummary">{selectedModeExplanation[activeMode]}</p>
-      <section className="modePreviewUnified" aria-label="Workspace mode preview">
-        <div className="modePreviewUnifiedHeader">
-          <h3>What your team will see</h3>
-          <p>A quick preview of the labels, navigation and import fields for this mode.</p>
-        </div>
-        <div className="modePreviewColumns">
-          <div className="modePreviewColumn">
-            <h4>Labels</h4>
-            <div className="modeLabelList">
-              {terminologyPreview[activeMode].map(function(row){
-                return <div className="modeLabelLine" key={row[0]}><span>{row[0].replace(' label', '')}</span><strong>{row[1]}</strong></div>;
-              })}
-            </div>
-          </div>
-          <div className="modePreviewColumn">
-            <h4>Navigation</h4>
-            <p className="modePreviewText">{navigationPreview[activeMode].join(' · ')}</p>
-          </div>
-          <div className="modePreviewColumn">
-            <h4>Import fields</h4>
-            <p className="modePreviewText">{importTemplatePreview[activeMode].join(' · ')}</p>
-          </div>
-        </div>
-      </section>
     </div>}
     <div className="settingsDetailSection">
       <p className="settingsSectionLabel">{isCompany ? 'Workspace settings' : 'Settings'}</p>
@@ -493,7 +403,7 @@ function SettingsGroupPanel({ group, workspaceMode, setWorkspaceMode, modules, t
     </div>
     {isCompany && <div className="settingsDetailSection">
       <p className="settingsSectionLabel">Module enablement</p>
-      <p className="settingsWorkspaceModeDesc">Enable or disable modules for this workspace. Disabled modules are hidden from navigation but existing records are not deleted.</p>
+      <p className="settingsWorkspaceModeDesc">Enable or disable modules for this workspace. Disabled modules are hidden from all users.</p>
       <div className="settingsModuleGrid">
         {MODULE_LIST.map(function(entry){
           var name = entry[0]; var desc = entry[1];
@@ -862,12 +772,12 @@ function SidebarShell({ active, onSelect }){
   return <aside className="sidebar">
     <div className="brand" aria-label="Opriva product identity">
       <OprivaProductMark />
-      <span className="brandCopy"><strong>Opriva</strong><span>IT Asset & Renewal Intelligence</span></span>
+      <span className="brandCopy"><strong>Opriva</strong><span>Operational Intelligence</span></span>
     </div>
     <nav>
       {SIDEBAR_GROUPS.map(group => <div className="navGroup" key={group.label}>
         <p>{group.label}</p>
-        {group.items.map(item => <button key={item} className={active === item ? 'active' : ''} onClick={() => onSelect(item)} type="button">{getPageDisplayName(item)}</button>)}
+        {group.items.map(item => <button key={item} className={active === item ? 'active' : ''} onClick={() => onSelect(item)} type="button">{item}</button>)}
       </div>)}
     </nav>
   </aside>;
@@ -877,7 +787,7 @@ function TopbarShell({ active, onSearch, onAlerts }){
   return <header className="topbar">
     <button className="tenantLockup" type="button" aria-label="Open workspace menu">
       <span className="tenantLogo">B</span>
-      <div><strong>Banisi Workspace</strong><span>{getPageDisplayName(active)}</span></div>
+      <div><strong>Banisi Workspace</strong><span>{active || 'Dashboard'}</span></div>
     </button>
     <label className="globalSearch"><span aria-hidden="true">⌘K</span><input onFocus={onSearch} placeholder="Search records, renewals, documents..." aria-label="Global Search" /></label>
     <div className="topActions"><button type="button" onClick={onAlerts} aria-label="Open alerts">9 alerts</button><span className="avatar">MC</span></div>
@@ -1029,44 +939,13 @@ function OprivaDrawer({ active, onClose, eyeFollowsCursor, setEyeFollowsCursor }
   </aside>;
 }
 
-
-function AssetsRenewalsScreen(){
-  const rows = [
-    { record: 'Dell Support Contract', type: 'Contract', vendor: 'Dell', expiry: 'May 26, 2026', days: '12 days', value: '$42,800', owner: 'Unassigned', status: 'Critical', action: 'Assign owner' },
-    { record: 'Microsoft 365 Renewal', type: 'License', vendor: 'Microsoft', expiry: 'Jun 1, 2026', days: '18 days', value: '$31,200', owner: 'Ana Ruiz', status: 'High', action: 'Prepare renewal' },
-    { record: 'Fortinet Warranty', type: 'Warranty', vendor: 'Fortinet', expiry: 'Jun 7, 2026', days: '24 days', value: '$18,600', owner: 'Luis Mora', status: 'High', action: 'Request quote' },
-    { record: 'SSL Wildcard Certificate', type: 'Certificate', vendor: 'DigiCert', expiry: 'May 23, 2026', days: '9 days', value: '$3,200', owner: 'Unassigned', status: 'Critical', action: 'Prepare renewal' },
-    { record: 'Adobe Creative Cloud', type: 'SaaS', vendor: 'Adobe', expiry: 'Jun 11, 2026', days: '28 days', value: '$9,800', owner: 'Carlos Vega', status: 'Medium', action: 'Review usage' },
-    { record: 'HPE Server Warranty', type: 'Warranty', vendor: 'HPE', expiry: 'Jul 18, 2026', days: '65 days', value: '$22,400', owner: 'Maria Chen', status: 'Medium', action: 'Schedule review' },
-    { record: 'Veeam Backup Renewal', type: 'License', vendor: 'Veeam', expiry: 'Aug 4, 2026', days: '82 days', value: '$14,900', owner: 'Diego Paredes', status: 'Low', action: 'Monitor' }
-  ];
-  const tabs = ['All','Critical','30 days','60 days','Missing owner','Expired'];
-  const filters = ['Type','Owner','Vendor','Status','Saved view: Operational risk'];
-  return <main className="content assetsRenewalsPage">
-    <ScreenHeader active="Assets & Renewals" eyebrow="RENEWAL WORKLIST" subtitle="Manage tracked assets, licenses, contracts, warranties, SaaS subscriptions and certificates by urgency, value and ownership."><button>Import records</button><button>Configure columns</button><button className="primary">New record</button></ScreenHeader>
-    <div className="tabs assetsTabs" role="tablist" aria-label="Renewal worklist filters">{tabs.map((tab,index)=><button key={tab} className={index===0?'active':''}>{tab}</button>)}</div>
-    <section className="panel renewalControlsPanel">
-      <div className="toolbar assetsFilterRow"><input aria-label="Filter renewal records" placeholder="Filter by record, vendor, owner, type or status..." />{filters.map(filter=><button key={filter}>{filter}</button>)}</div>
-    </section>
-    <section className="panel aiInsightBar assetsInsightBar"><p><strong>AI Insight</strong> Opriva found 12 records entering a critical renewal window and 18 records without an assigned owner. Start by assigning owners to high-value records expiring in the next 30 days.</p><div className="compactActions"><button>Assign owners</button><button>Review critical</button><button>Prepare emails</button></div></section>
-    <section className="panel renewalWorklistPanel"><div className="panelTitle"><h2>Renewal worklist</h2><span>All tracked records prioritized by expiry date, financial exposure and ownership gaps.</span></div><div className="tableWrap renewalWorklistWrap"><table className="renewalWorklistTable"><thead><tr>{['Record','Type','Vendor','Expiry date','Days left','Value','Owner','Status','Recommended action'].map(column=><th key={column}>{column}</th>)}</tr></thead><tbody>{rows.map(row=><tr key={row.record}><td className="renewalRecordCell"><strong>{row.record}</strong></td><td>{row.type}</td><td>{row.vendor}</td><td className="dateCell">{row.expiry}</td><td className="daysCell">{row.days}</td><td className="valueCell">{row.value}</td><td className="ownerCell">{row.owner==='Unassigned' ? <Badge tone="Warning">Unassigned</Badge> : row.owner}</td><td className="statusCell"><Badge tone={row.status}>{row.status}</Badge></td><td className="actionCell"><button type="button" className="rowAction">{row.action}</button></td></tr>)}</tbody></table></div></section>
-  </main>;
-}
-
-
-const assetsRenewalsStyles = `
-.assetsRouteActive .agentWrap{right:12px;bottom:32px}
-.assetsRouteActive .navGroup button:not(.active):hover{background:rgba(255,255,255,.025);color:#DDE8F7}
-`;
-
 function App(){
   const [active, setActive] = React.useState('Dashboard');
   const [aiOpen, setAiOpen] = React.useState(false);
   const [eyeFollowsCursor, setEyeFollowsCursor] = React.useState(true);
-  const [workspaceMode, setWorkspaceMode] = React.useState('MSP / Integrator');
-  const route = active === 'Search' ? <SearchScreen/> : active === 'Dashboard' ? <Dashboard/> : active === 'Attention Center' ? <AttentionCenter/> : active === 'Companies / Clients' ? <CompaniesScreen/> : active === 'Settings' ? <Settings workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode}/> : active === 'Expirations' ? <AssetsRenewalsScreen/> : active === 'Licenses' ? <OperationalList active="Licenses" note="Brand, product, SKU, quantity, usage, renewal status and document links stay visible." tabs={['All','High risk','Under-used','Missing document','Renewal due']} columns={['License','Brand','Company','Quantity','Renewal','Amount','Owner','Risk']} rows={licenses}/> : active === 'Contracts' ? <ContractsScreen/> : active === 'Documents' ? <DocumentsScreen/> : active === 'Tasks' ? <TasksScreen/> : active === 'Reports' ? <ReportsScreen/> : active === 'Data Import' ? <DataImportScreen/> : <Dashboard/>;
-  return <div className={cx('app', active === 'Expirations' && 'assetsRouteActive', active === 'Search' && 'searchRouteActive')}>
-    <style>{styles + aiStyles + livingAgentStyles + oprivaUpgradeStyles + assetsRenewalsStyles + aiSettingsFixStyles + settingsAdminOverrideStyles + settingsDirectoryOverrideStyles}</style>
+  const route = active === 'Search' ? <SearchScreen/> : active === 'Dashboard' ? <Dashboard/> : active === 'Attention Center' ? <AttentionCenter/> : active === 'Companies / Clients' ? <CompaniesScreen/> : active === 'Settings' ? <Settings/> : active === 'Expirations' ? <OperationalList active="Expirations" note="Renewal worklist with saved views, quick actions and AI summary." columns={['Record','Type','Company','Date','Time left','Risk','Owner','Next action']} rows={expirations}/> : active === 'Licenses' ? <OperationalList active="Licenses" note="Brand, product, SKU, quantity, usage, renewal status and document links stay visible." tabs={['All','High risk','Under-used','Missing document','Renewal due']} columns={['License','Brand','Company','Quantity','Renewal','Amount','Owner','Risk']} rows={licenses}/> : active === 'Contracts' ? <ContractsScreen/> : active === 'Documents' ? <DocumentsScreen/> : active === 'Tasks' ? <TasksScreen/> : active === 'Reports' ? <ReportsScreen/> : active === 'Data Import' ? <DataImportScreen/> : <Dashboard/>;
+  return <div className="app">
+    <style>{styles + aiStyles + livingAgentStyles + oprivaUpgradeStyles + aiSettingsFixStyles + settingsAdminOverrideStyles + settingsDirectoryOverrideStyles}</style>
     <SidebarShell active={active} onSelect={setActive} />
     <section className="workspace"><TopbarShell active={active} onSearch={() => setActive('Search')} onAlerts={() => setActive('Attention Center')} />{route}</section>
     <FloatingOprivaAgentButton isOpen={aiOpen} onClick={() => setAiOpen(true)} eyeFollowsCursor={eyeFollowsCursor} />
@@ -1085,33 +964,8 @@ const settingsAdminOverrideStyles = `
 `;
 
 const styles = `
-:root{--accent:var(--ocd-tweak-accent-color,#2563EB);--density:var(--ocd-tweak-panel-density,1);--risk:var(--ocd-tweak-risk-emphasis,1);--navy:#0B1F3A;--bg:#F7F9FC;--card:#FFFFFF;--text:#111827;--muted:#6B7280;--border:#E5E7EB;--teal:#0D9488}*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--text)}button,input{font:inherit}button{border:1px solid var(--border);background:#fff;color:#243247;border-radius:10px;padding:9px 12px;font-weight:700;cursor:pointer}button:hover{border-color:#D6DEE9;background:#FAFCFF;box-shadow:0 1px 4px rgba(15,35,65,.025)}.app{min-height:100vh;display:grid;grid-template-columns:264px 1fr}.sidebar{background:var(--navy);color:#DDE8F7;padding:18px 14px;display:flex;flex-direction:column;gap:22px}.brand{display:flex;gap:12px;align-items:center;padding:8px 8px 14px;border-bottom:1px solid rgba(255,255,255,.12)}.mark{width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#2DD4BF,#2563EB);display:grid;place-items:center;color:white;font-weight:900}.brand strong{display:block;letter-spacing:.14em;font-size:13px}.brand span{display:block;color:#8EA2BC;font-size:12px;margin-top:2px}.navGroup{display:grid;gap:5px;margin-bottom:18px}.navGroup p{margin:0 8px 6px;color:#8EA2BC;font-size:11px;text-transform:uppercase;letter-spacing:.14em;font-weight:850}.navGroup button{width:100%;text-align:left;background:transparent;border-color:transparent;color:#C9D6E6;border-radius:10px;padding:9px 10px;font-size:14px}.navGroup button:hover{background:rgba(255,255,255,.055);color:#F8FAFC;border-color:transparent}.navGroup button.active{background:rgba(255,255,255,.085);color:#fff;border-color:rgba(255,255,255,.055)}.workspace{min-width:0;display:flex;flex-direction:column}.topbar{height:64px;background:rgba(255,255,255,.86);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:0 22px;position:sticky;top:0;z-index:10}.topbar div:first-child{margin-right:auto}.topbar span{display:block;color:var(--muted);font-size:12px}.topbar strong{font-size:14px}.topSearch{min-width:260px;text-align:left;color:#6B7280;background:#F8FAFC}.alertBtn{background:#FFF7ED;border-color:#FED7AA;color:#9A3412}.aiBtn{background:#F7FAFF;border-color:#D8E6FB;color:#1E4FB8}.avatar{width:32px;height:32px;border-radius:999px;background:#EAF2FF;color:#1D4ED8;display:inline-grid;place-items:center;font-size:12px;font-weight:900}.content{padding:28px;display:grid;gap:18px}.screenHeader{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}.screenHeader p{margin:0 0 6px;color:var(--teal);text-transform:uppercase;font-size:11px;letter-spacing:.14em;font-weight:900}.screenHeader h1{margin:0;color:#0F2138;font-size:clamp(26px,3vw,38px);letter-spacing:-.045em}.screenHeader span{display:block;margin-top:6px;color:#66758A;max-width:720px}.headerActions{display:flex;gap:10px}.primary{background:var(--accent);border-color:var(--accent);color:#fff}.statsGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.statCard,.panel,.settingsSearch,.settingsGroup{background:var(--card);border:1px solid var(--border);border-radius:18px;box-shadow:0 12px 30px rgba(15,35,65,.045)}.statCard{padding:18px}.statCard span{color:#66758A;font-size:13px}.statCard strong{display:block;margin:8px 0 3px;font-size:28px;letter-spacing:-.04em;color:#10223B}.statCard p{margin:0;color:#7B8797;font-size:13px}.split{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(280px,.7fr);gap:16px}.panel{padding:calc(var(--density)*18px);min-width:0}.panelTitle{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;margin-bottom:14px}.panelTitle h2{margin:0;color:#132033;font-size:17px}.panelTitle span{color:#75849A;font-size:13px}.tableWrap{overflow:auto;border:1px solid #EEF2F7;border-radius:14px}table{width:100%;border-collapse:collapse;min-width:760px;background:white}th,td{text-align:left;padding:13px 14px;border-bottom:1px solid #EEF2F7;font-size:13.5px;vertical-align:middle}th{background:#FAFCFF;color:#66758A;font-size:11px;text-transform:uppercase;letter-spacing:.1em}tr:last-child td{border-bottom:0}.badge{display:inline-flex;align-items:center;white-space:nowrap;border-radius:999px;padding:4px 8px;font-size:12px;font-weight:800;border:1px solid #DDE6F1;color:#40516A;background:#F8FAFC}.badge.critical{background:#FEF2F2;color:#B91C1C;border-color:#FECACA;box-shadow:0 0 0 calc((var(--risk) - 1)*2px) rgba(220,38,38,.12)}.badge.high{background:#FFF7ED;color:#C2410C;border-color:#FED7AA}.badge.medium{background:#FEFCE8;color:#A16207;border-color:#FDE68A}.badge.review{background:#EFF6FF;color:#1D4ED8;border-color:#BFDBFE}.badge.low{background:#F0FDF4;color:#15803D;border-color:#BBF7D0}.insight{line-height:1.55;color:#40516A}.searchHero,.settingsSearch{display:flex;gap:12px;align-items:center;padding:14px}.searchHero input,.settingsSearch input{width:100%;border:1px solid #DDE6F1;border-radius:12px;padding:12px 13px;outline:0;background:#FAFCFF}.tabs{display:flex;gap:8px;border-bottom:1px solid var(--border);padding-bottom:10px}.tabs button{background:transparent}.tabs .active{background:#F7FAFF;border-color:#D8E6FB;color:#1E4FB8}.settingsPage{gap:20px}.settingsSearch{justify-content:space-between}.settingsSearch strong{display:block;color:#10223B}.settingsSearch span{display:block;color:#66758A;font-size:13px;margin-top:3px}.settingsSearch input{max-width:360px}.settingsLayout{display:grid;grid-template-columns:220px 1fr;gap:18px;align-items:start}.settingsNav{position:sticky;top:84px;background:#fff;border:1px solid var(--border);border-radius:16px;padding:10px;display:grid;gap:4px}.settingsNav a{text-decoration:none;color:#526174;padding:9px 10px;border-radius:10px;font-weight:750;font-size:14px}.settingsNav a:hover{background:#F8FAFC;color:#0F2138}.settingsGroups{display:grid;gap:18px}.settingsGroup{padding:20px}.settingsGroup.important{border-color:#A7F3D0;box-shadow:0 14px 36px rgba(13,148,136,.08)}.settingsGroupHeader{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:14px}.settingsGroup h2{margin:0;color:#10223B;font-size:20px;letter-spacing:-.025em}.settingsGroup p{margin:5px 0 0;color:#66758A;line-height:1.45}.settingsGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.settingItem{height:auto;min-height:86px;display:flex;justify-content:space-between;align-items:flex-start;gap:14px;text-align:left;border-radius:14px;padding:14px;background:#fff}.settingItem strong{display:block;color:#132033}.settingItem span{display:block;margin-top:5px;color:#66758A;font-weight:500;line-height:1.35}.settingItem em{font-style:normal;color:#526174;background:#F8FAFC;border:1px solid #EEF2F7;border-radius:999px;padding:4px 8px;font-size:12px;white-space:nowrap}.moduleEnablement{margin-top:12px;border:1px dashed #99F6E4;background:#F0FDFA;border-radius:14px;padding:14px;display:flex;justify-content:space-between;gap:16px;align-items:center}.moduleEnablement h3{margin:0;color:#134E4A;font-size:15px}.moduleEnablement p{margin:4px 0 0;color:#0F766E;font-size:13px}.modulePills{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}.aiDrawer{position:fixed;right:14px;top:78px;bottom:14px;width:min(380px,calc(100vw - 28px));background:white;border:1px solid #DDE6F1;border-radius:20px;box-shadow:0 24px 80px rgba(11,31,58,.22);z-index:40;padding:18px;display:grid;align-content:start;gap:14px}.aiDrawer header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.aiDrawer header span{font-size:11px;text-transform:uppercase;letter-spacing:.14em;font-weight:900;color:#0D9488}.aiDrawer h2{margin:4px 0 0}.aiDrawer p{margin:0;color:#526174;line-height:1.5}.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 14px}.toolbar input{min-width:min(360px,100%);flex:1;border:1px solid #DDE6F1;border-radius:12px;padding:11px 12px;background:#FAFCFF;outline:0}.actionStack{display:grid;gap:10px}.actionStack button{text-align:left}.kanban{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.kanbanCol{border:1px solid #EEF2F7;background:#FAFCFF;border-radius:16px;padding:12px;display:grid;gap:10px;align-content:start}.kanbanCol h3{margin:0;font-size:13px;color:#526174;text-transform:uppercase;letter-spacing:.08em}.taskCard{background:white;border:1px solid #E7EDF5;border-radius:14px;padding:12px;display:grid;gap:8px}.taskCard strong{font-size:14px;color:#132033}.taskCard span{color:#66758A;font-size:12px}.wizardSteps{display:grid;grid-template-columns:repeat(9,minmax(96px,1fr));gap:8px;overflow:auto;padding-bottom:4px;margin-bottom:14px}.wizardStep{border:1px solid #E7EDF5;background:#fff;border-radius:14px;padding:10px;display:grid;gap:6px;min-height:76px}.wizardStep strong{width:24px;height:24px;border-radius:999px;display:grid;place-items:center;background:#EEF2F7;color:#526174;font-size:12px}.wizardStep span{font-size:12px;font-weight:800;color:#526174}.wizardStep.done strong{background:#DCFCE7;color:#15803D}.wizardStep.active{border-color:#BFDBFE;background:#EFF6FF}.wizardStep.active strong{background:#2563EB;color:white}a:focus-visible,button:focus-visible,input:focus-visible,.settingItem:focus-visible,.wizardStep:focus-visible{outline:2px solid rgba(37,99,235,.18);outline-offset:2px;box-shadow:none}button:active{transform:translateY(1px)}button:disabled,button[aria-disabled="true"]{cursor:not-allowed;opacity:.52;background:#F3F6FA;color:#8A97A8;border-color:#E1E8F0;box-shadow:none;transform:none}.statCard,.panel,.settingItem,.taskCard,.wizardStep,.settingsNav a,.actionStack button{transition:border-color .16s ease,box-shadow .16s ease,background .16s ease,transform .16s ease}.statCard:hover,.panel:hover,.settingItem:hover,.taskCard:hover,.wizardStep:hover,.actionStack button:hover{border-color:#E0E7F0;box-shadow:0 4px 14px rgba(15,35,65,.035);transform:none;background:#fff}tbody tr{transition:background .14s ease}tbody tr:hover td{background:#FAFBFD}.selectedRow td{background:#F8FBFF!important}.selectedRow td:first-child{box-shadow:inset 2px 0 0 #DBEAFE}.rowAction{padding:6px 9px;font-size:12px;border-radius:8px;background:#F8FAFC}.rowAction:hover{background:#F3F6FA;border-color:#E1E8F0;color:#334155}.rowAction:focus-visible{background:#F8FBFF;border-color:#C9D7EA;color:#1E4FB8}.companiesClientsPage{gap:16px}.companiesClientsPage .screenHeader span{max-width:760px}.companiesClientsPage .tabs{padding-bottom:8px}.companiesClientsPage .panel{box-shadow:0 10px 26px rgba(15,35,65,.035)}.companiesClientsPage .panelTitle{margin-bottom:10px}.companiesClientsPage .toolbar{margin:8px 0 12px}.companiesClientsPage th,.companiesClientsPage td{padding:11px 12px}.clientPortfolioPanel table{min-width:1040px}.selectedClientPanel{padding-top:16px}.selectedClientPanel .panelTitle{align-items:flex-start}.selectedClientPanel .panelTitle h2{font-size:16px}.compactClientPreview{border-color:#EEF2F7}.compactClientPreview table{min-width:820px}.compactClientPreview th,.compactClientPreview td{padding:10px 12px;font-size:13px}.compactClientPreview .recordCell{font-weight:800;color:#10223B}.compactClientPreview .badge{padding:3px 7px;font-size:11.5px}.subtleRowAction{padding:5px 8px;font-size:11.5px;font-weight:750;background:#FBFCFE;color:#475569;border-color:#E6ECF3}.subtleRowAction:hover{background:#F8FAFC;color:#0F766E;border-color:#D6EAE5}.stateBox{border:1px solid #DDE6F1;border-radius:14px;background:#FAFCFF;padding:14px;display:grid;gap:8px;color:#40516A}.stateBox strong{color:#132033}.stateBox span{font-size:13px;line-height:1.45}.emptyState{background:#F8FAFC}.errorState{background:#FFF7F7;border-color:#FECACA}.errorState strong{color:#B91C1C}.errorState div{display:flex;gap:8px;flex-wrap:wrap}.ghostBtn{background:transparent}.skeletonRow td{background:#fff}.skeletonLine{display:block;width:100%;max-width:180px;height:12px;border-radius:999px;background:linear-gradient(90deg,#EEF2F7,#F8FAFC,#EEF2F7);background-size:200% 100%;animation:pulse 1.2s ease-in-out infinite}.miniState{display:flex;align-items:center;gap:9px;border:1px solid #DDE6F1;background:#F8FAFC;border-radius:12px;padding:10px 12px;color:#526174;font-size:13px}.loadingState{border-color:#BFDBFE;background:#EFF6FF;color:#1D4ED8}.spinner{width:14px;height:14px;border-radius:50%;border:2px solid rgba(37,99,235,.24);border-top-color:#2563EB;animation:spin .8s linear infinite}.validationPanel{border:1px solid #FDE68A;background:#FFFBEB;border-radius:16px;padding:14px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}.validationPanel div{background:#fff;border:1px solid #FDE68A;border-radius:12px;padding:10px}.validationPanel strong{display:block;color:#92400E;font-size:13px}.validationPanel span{display:block;color:#785E1E;font-size:12px;margin-top:3px}.toastStack{position:fixed;right:24px;bottom:96px;display:grid;gap:8px;z-index:75;pointer-events:none}.toast{background:#0B1F3A;color:white;border:1px solid rgba(255,255,255,.12);box-shadow:0 16px 40px rgba(11,31,58,.22);border-radius:12px;padding:10px 12px;font-size:13px;font-weight:750;animation:toastOut 4s ease forwards}.errorToast{background:#7F1D1D}@keyframes toastOut{0%,78%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(8px)}}@keyframes pulse{0%{background-position:200% 0}100%{background-position:-200% 0}}@keyframes spin{to{transform:rotate(360deg)}}@media(max-width:1050px){.app{grid-template-columns:1fr}.sidebar{position:static}.statsGrid,.split,.settingsLayout,.settingsGrid{grid-template-columns:1fr}.topbar{flex-wrap:wrap;height:auto;padding:12px}.topSearch{min-width:0;flex:1}.content{padding:20px}.settingsNav{position:static}.screenHeader{display:grid}}@media(max-width:720px){.sidebar nav{display:grid;grid-template-columns:1fr 1fr;gap:8px}.navGroup{margin:0}.statsGrid{grid-template-columns:1fr}.settingsSearch,.moduleEnablement{display:grid}.settingsSearch input{max-width:none}table{min-width:680px}}
+:root{--accent:var(--ocd-tweak-accent-color,#2563EB);--density:var(--ocd-tweak-panel-density,1);--risk:var(--ocd-tweak-risk-emphasis,1);--navy:#0B1F3A;--bg:#F7F9FC;--card:#FFFFFF;--text:#111827;--muted:#6B7280;--border:#E5E7EB;--teal:#0D9488}*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--text)}button,input{font:inherit}button{border:1px solid var(--border);background:#fff;color:#243247;border-radius:10px;padding:9px 12px;font-weight:700;cursor:pointer}button:hover{border-color:#D6DEE9;background:#FAFCFF;box-shadow:0 1px 4px rgba(15,35,65,.025)}.app{min-height:100vh;display:grid;grid-template-columns:264px 1fr}.sidebar{background:var(--navy);color:#DDE8F7;padding:18px 14px;display:flex;flex-direction:column;gap:22px}.brand{display:flex;gap:12px;align-items:center;padding:8px 8px 14px;border-bottom:1px solid rgba(255,255,255,.12)}.mark{width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#2DD4BF,#2563EB);display:grid;place-items:center;color:white;font-weight:900}.brand strong{display:block;letter-spacing:.14em;font-size:13px}.brand span{display:block;color:#8EA2BC;font-size:12px;margin-top:2px}.navGroup{display:grid;gap:5px;margin-bottom:18px}.navGroup p{margin:0 8px 6px;color:#8EA2BC;font-size:11px;text-transform:uppercase;letter-spacing:.14em;font-weight:850}.navGroup button{width:100%;text-align:left;background:transparent;border-color:transparent;color:#C9D6E6;border-radius:10px;padding:9px 10px;font-size:14px}.navGroup button:hover{background:rgba(255,255,255,.055);color:#F8FAFC;border-color:transparent}.navGroup button.active{background:rgba(255,255,255,.085);color:#fff;border-color:rgba(255,255,255,.055)}.workspace{min-width:0;display:flex;flex-direction:column}.topbar{height:64px;background:rgba(255,255,255,.86);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:0 22px;position:sticky;top:0;z-index:10}.topbar div:first-child{margin-right:auto}.topbar span{display:block;color:var(--muted);font-size:12px}.topbar strong{font-size:14px}.topSearch{min-width:260px;text-align:left;color:#6B7280;background:#F8FAFC}.alertBtn{background:#FFF7ED;border-color:#FED7AA;color:#9A3412}.aiBtn{background:#F7FAFF;border-color:#D8E6FB;color:#1E4FB8}.avatar{width:32px;height:32px;border-radius:999px;background:#EAF2FF;color:#1D4ED8;display:inline-grid;place-items:center;font-size:12px;font-weight:900}.content{padding:28px;display:grid;gap:18px}.screenHeader{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}.screenHeader p{margin:0 0 6px;color:var(--teal);text-transform:uppercase;font-size:11px;letter-spacing:.14em;font-weight:900}.screenHeader h1{margin:0;color:#0F2138;font-size:clamp(26px,3vw,38px);letter-spacing:-.045em}.screenHeader span{display:block;margin-top:6px;color:#66758A;max-width:720px}.headerActions{display:flex;gap:10px}.primary{background:var(--accent);border-color:var(--accent);color:#fff}.statsGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.statCard,.panel,.settingsSearch,.settingsGroup{background:var(--card);border:1px solid var(--border);border-radius:18px;box-shadow:0 12px 30px rgba(15,35,65,.045)}.statCard{padding:18px}.statCard span{color:#66758A;font-size:13px}.statCard strong{display:block;margin:8px 0 3px;font-size:28px;letter-spacing:-.04em;color:#10223B}.statCard p{margin:0;color:#7B8797;font-size:13px}.split{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(280px,.7fr);gap:16px}.panel{padding:calc(var(--density)*18px);min-width:0}.panelTitle{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;margin-bottom:14px}.panelTitle h2{margin:0;color:#132033;font-size:17px}.panelTitle span{color:#75849A;font-size:13px}.tableWrap{overflow:auto;border:1px solid #EEF2F7;border-radius:14px}table{width:100%;border-collapse:collapse;min-width:760px;background:white}th,td{text-align:left;padding:13px 14px;border-bottom:1px solid #EEF2F7;font-size:13.5px;vertical-align:middle}th{background:#FAFCFF;color:#66758A;font-size:11px;text-transform:uppercase;letter-spacing:.1em}tr:last-child td{border-bottom:0}.badge{display:inline-flex;align-items:center;white-space:nowrap;border-radius:999px;padding:4px 8px;font-size:12px;font-weight:800;border:1px solid #DDE6F1;color:#40516A;background:#F8FAFC}.badge.critical{background:#FEF2F2;color:#B91C1C;border-color:#FECACA;box-shadow:0 0 0 calc((var(--risk) - 1)*2px) rgba(220,38,38,.12)}.badge.high{background:#FFF7ED;color:#C2410C;border-color:#FED7AA}.badge.medium{background:#FEFCE8;color:#A16207;border-color:#FDE68A}.badge.low{background:#F0FDF4;color:#15803D;border-color:#BBF7D0}.insight{line-height:1.55;color:#40516A}.searchHero,.settingsSearch{display:flex;gap:12px;align-items:center;padding:14px}.searchHero input,.settingsSearch input{width:100%;border:1px solid #DDE6F1;border-radius:12px;padding:12px 13px;outline:0;background:#FAFCFF}.tabs{display:flex;gap:8px;border-bottom:1px solid var(--border);padding-bottom:10px}.tabs button{background:transparent}.tabs .active{background:#F7FAFF;border-color:#D8E6FB;color:#1E4FB8}.settingsPage{gap:20px}.settingsSearch{justify-content:space-between}.settingsSearch strong{display:block;color:#10223B}.settingsSearch span{display:block;color:#66758A;font-size:13px;margin-top:3px}.settingsSearch input{max-width:360px}.settingsLayout{display:grid;grid-template-columns:220px 1fr;gap:18px;align-items:start}.settingsNav{position:sticky;top:84px;background:#fff;border:1px solid var(--border);border-radius:16px;padding:10px;display:grid;gap:4px}.settingsNav a{text-decoration:none;color:#526174;padding:9px 10px;border-radius:10px;font-weight:750;font-size:14px}.settingsNav a:hover{background:#F8FAFC;color:#0F2138}.settingsGroups{display:grid;gap:18px}.settingsGroup{padding:20px}.settingsGroup.important{border-color:#A7F3D0;box-shadow:0 14px 36px rgba(13,148,136,.08)}.settingsGroupHeader{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:14px}.settingsGroup h2{margin:0;color:#10223B;font-size:20px;letter-spacing:-.025em}.settingsGroup p{margin:5px 0 0;color:#66758A;line-height:1.45}.settingsGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.settingItem{height:auto;min-height:86px;display:flex;justify-content:space-between;align-items:flex-start;gap:14px;text-align:left;border-radius:14px;padding:14px;background:#fff}.settingItem strong{display:block;color:#132033}.settingItem span{display:block;margin-top:5px;color:#66758A;font-weight:500;line-height:1.35}.settingItem em{font-style:normal;color:#526174;background:#F8FAFC;border:1px solid #EEF2F7;border-radius:999px;padding:4px 8px;font-size:12px;white-space:nowrap}.moduleEnablement{margin-top:12px;border:1px dashed #99F6E4;background:#F0FDFA;border-radius:14px;padding:14px;display:flex;justify-content:space-between;gap:16px;align-items:center}.moduleEnablement h3{margin:0;color:#134E4A;font-size:15px}.moduleEnablement p{margin:4px 0 0;color:#0F766E;font-size:13px}.modulePills{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}.aiDrawer{position:fixed;right:14px;top:78px;bottom:14px;width:min(380px,calc(100vw - 28px));background:white;border:1px solid #DDE6F1;border-radius:20px;box-shadow:0 24px 80px rgba(11,31,58,.22);z-index:40;padding:18px;display:grid;align-content:start;gap:14px}.aiDrawer header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.aiDrawer header span{font-size:11px;text-transform:uppercase;letter-spacing:.14em;font-weight:900;color:#0D9488}.aiDrawer h2{margin:4px 0 0}.aiDrawer p{margin:0;color:#526174;line-height:1.5}.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 14px}.toolbar input{min-width:min(360px,100%);flex:1;border:1px solid #DDE6F1;border-radius:12px;padding:11px 12px;background:#FAFCFF;outline:0}.actionStack{display:grid;gap:10px}.actionStack button{text-align:left}.kanban{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.kanbanCol{border:1px solid #EEF2F7;background:#FAFCFF;border-radius:16px;padding:12px;display:grid;gap:10px;align-content:start}.kanbanCol h3{margin:0;font-size:13px;color:#526174;text-transform:uppercase;letter-spacing:.08em}.taskCard{background:white;border:1px solid #E7EDF5;border-radius:14px;padding:12px;display:grid;gap:8px}.taskCard strong{font-size:14px;color:#132033}.taskCard span{color:#66758A;font-size:12px}.wizardSteps{display:grid;grid-template-columns:repeat(9,minmax(96px,1fr));gap:8px;overflow:auto;padding-bottom:4px;margin-bottom:14px}.wizardStep{border:1px solid #E7EDF5;background:#fff;border-radius:14px;padding:10px;display:grid;gap:6px;min-height:76px}.wizardStep strong{width:24px;height:24px;border-radius:999px;display:grid;place-items:center;background:#EEF2F7;color:#526174;font-size:12px}.wizardStep span{font-size:12px;font-weight:800;color:#526174}.wizardStep.done strong{background:#DCFCE7;color:#15803D}.wizardStep.active{border-color:#BFDBFE;background:#EFF6FF}.wizardStep.active strong{background:#2563EB;color:white}a:focus-visible,button:focus-visible,input:focus-visible,.settingItem:focus-visible,.wizardStep:focus-visible{outline:2px solid rgba(37,99,235,.18);outline-offset:2px;box-shadow:none}button:active{transform:translateY(1px)}button:disabled,button[aria-disabled="true"]{cursor:not-allowed;opacity:.52;background:#F3F6FA;color:#8A97A8;border-color:#E1E8F0;box-shadow:none;transform:none}.statCard,.panel,.settingItem,.taskCard,.wizardStep,.settingsNav a,.actionStack button{transition:border-color .16s ease,box-shadow .16s ease,background .16s ease,transform .16s ease}.statCard:hover,.panel:hover,.settingItem:hover,.taskCard:hover,.wizardStep:hover,.actionStack button:hover{border-color:#E0E7F0;box-shadow:0 4px 14px rgba(15,35,65,.035);transform:none;background:#fff}tbody tr{transition:background .14s ease}tbody tr:hover td{background:#FAFBFD}.selectedRow td{background:#F8FBFF!important}.selectedRow td:first-child{box-shadow:inset 2px 0 0 #DBEAFE}.rowAction{padding:6px 9px;font-size:12px;border-radius:8px;background:#F8FAFC}.rowAction:hover{background:#F3F6FA;border-color:#E1E8F0;color:#334155}.rowAction:focus-visible{background:#F8FBFF;border-color:#C9D7EA;color:#1E4FB8}.stateBox{border:1px solid #DDE6F1;border-radius:14px;background:#FAFCFF;padding:14px;display:grid;gap:8px;color:#40516A}.stateBox strong{color:#132033}.stateBox span{font-size:13px;line-height:1.45}.emptyState{background:#F8FAFC}.errorState{background:#FFF7F7;border-color:#FECACA}.errorState strong{color:#B91C1C}.errorState div{display:flex;gap:8px;flex-wrap:wrap}.ghostBtn{background:transparent}.skeletonRow td{background:#fff}.skeletonLine{display:block;width:100%;max-width:180px;height:12px;border-radius:999px;background:linear-gradient(90deg,#EEF2F7,#F8FAFC,#EEF2F7);background-size:200% 100%;animation:pulse 1.2s ease-in-out infinite}.miniState{display:flex;align-items:center;gap:9px;border:1px solid #DDE6F1;background:#F8FAFC;border-radius:12px;padding:10px 12px;color:#526174;font-size:13px}.loadingState{border-color:#BFDBFE;background:#EFF6FF;color:#1D4ED8}.spinner{width:14px;height:14px;border-radius:50%;border:2px solid rgba(37,99,235,.24);border-top-color:#2563EB;animation:spin .8s linear infinite}.validationPanel{border:1px solid #FDE68A;background:#FFFBEB;border-radius:16px;padding:14px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}.validationPanel div{background:#fff;border:1px solid #FDE68A;border-radius:12px;padding:10px}.validationPanel strong{display:block;color:#92400E;font-size:13px}.validationPanel span{display:block;color:#785E1E;font-size:12px;margin-top:3px}.toastStack{position:fixed;right:24px;bottom:96px;display:grid;gap:8px;z-index:75;pointer-events:none}.toast{background:#0B1F3A;color:white;border:1px solid rgba(255,255,255,.12);box-shadow:0 16px 40px rgba(11,31,58,.22);border-radius:12px;padding:10px 12px;font-size:13px;font-weight:750;animation:toastOut 4s ease forwards}.errorToast{background:#7F1D1D}@keyframes toastOut{0%,78%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(8px)}}@keyframes pulse{0%{background-position:200% 0}100%{background-position:-200% 0}}@keyframes spin{to{transform:rotate(360deg)}}@media(max-width:1050px){.app{grid-template-columns:1fr}.sidebar{position:static}.statsGrid,.split,.settingsLayout,.settingsGrid{grid-template-columns:1fr}.topbar{flex-wrap:wrap;height:auto;padding:12px}.topSearch{min-width:0;flex:1}.content{padding:20px}.settingsNav{position:static}.screenHeader{display:grid}}@media(max-width:720px){.sidebar nav{display:grid;grid-template-columns:1fr 1fr;gap:8px}.navGroup{margin:0}.statsGrid{grid-template-columns:1fr}.settingsSearch,.moduleEnablement{display:grid}.settingsSearch input{max-width:none}table{min-width:680px}}
 .aiInsightBar{display:flex;align-items:center;gap:16px;background:#F0FDFA;border:1px solid #A7F3D0;border-radius:14px;padding:11px 16px;flex-wrap:wrap;row-gap:8px}
-  .attentionContent{padding-top:28px}
-
-  .dashboardStack{display:grid;grid-template-columns:1fr;gap:16px;min-width:0}
-  .aiRiskPanel{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:22px;align-items:center}
-  .aiRiskPanel .panelTitle{margin-bottom:8px;align-items:flex-start}
-  .aiRiskPanel .insightCopy{margin:0;color:#40516A;line-height:1.55;max-width:96ch}
-  .compactActions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;min-width:260px}
-  .compactActions button{white-space:nowrap;text-align:center;padding:8px 10px;font-size:12.5px}
-  .priorityQueuePanel{width:100%}
-  .priorityQueueWrap{width:100%;overflow-x:auto}
-  .priorityQueueTable{min-width:1080px;table-layout:fixed}
-  .priorityQueueTable th,.priorityQueueTable td{padding:12px 12px}
-  .priorityQueueTable th:nth-child(1){width:20%}
-  .priorityQueueTable th:nth-child(2){width:10%}
-  .priorityQueueTable th:nth-child(3){width:11%}
-  .priorityQueueTable th:nth-child(4){width:12%}
-  .priorityQueueTable th:nth-child(5){width:9%}
-  .priorityQueueTable th:nth-child(6){width:9%}
-  .priorityQueueTable th:nth-child(7){width:12%}
-  .priorityQueueTable th:nth-child(8){width:17%}
-  .priorityQueueTable .recordCell{line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;white-space:normal}
-  .priorityQueueTable .compactCell,.priorityQueueTable .actionCell{white-space:nowrap}
-  .priorityQueueTable .actionCell .rowAction{white-space:nowrap;padding:6px 8px}
-  @media(max-width:1050px){.aiRiskPanel{grid-template-columns:1fr}.compactActions{justify-content:flex-start;min-width:0}.priorityQueueTable{min-width:980px}}
-
 .aiInsightBarLeft{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
 .aiInsightBarLabel{font-size:11px;text-transform:uppercase;letter-spacing:.12em;font-weight:900;color:#0D9488;white-space:nowrap;flex-shrink:0}
 .aiInsightBarText{margin:0;color:#134E4A;font-size:13px;line-height:1.45;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -1120,47 +974,11 @@ const styles = `
 .aiInsightBarActions button:hover{background:#F0FDFA;border-color:#2DD4BF}
 .worklistPanel td:not(:first-child){white-space:nowrap}
 .worklistPanel td:first-child{white-space:normal;max-width:260px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
-/* Dashboard priority queue fit refinement */
-.priorityQueueWrap{max-width:100%;overflow:hidden}
-.priorityQueueTable{width:100%;min-width:0;table-layout:fixed}
-.priorityQueueTable th,.priorityQueueTable td{padding:9px 7px;font-size:12.5px;line-height:1.25}
-.priorityQueueTable th:nth-child(1){width:23%}
-.priorityQueueTable th:nth-child(2){width:7%}
-.priorityQueueTable th:nth-child(3){width:8%}
-.priorityQueueTable th:nth-child(4){width:11%}
-.priorityQueueTable th:nth-child(5){width:8%}
-.priorityQueueTable th:nth-child(6){width:8%}
-.priorityQueueTable th:nth-child(7){width:11%}
-.priorityQueueTable th:nth-child(8){width:24%}
-.priorityQueueTable .recordCell{line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;white-space:normal}
-.priorityQueueTable .compactCell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.priorityQueueTable .actionCell{white-space:nowrap;overflow:visible}
-.priorityQueueTable .actionCell .rowAction{white-space:nowrap;padding:5px 7px;font-size:11.5px;line-height:1;border-color:#A7F3D0;background:#ECFDF5;color:#047857}
-.priorityQueueTable .actionCell .rowAction:hover{background:#D1FAE5;border-color:#6EE7B7}
-@media(max-width:1050px){.priorityQueueTable th:nth-child(2),.priorityQueueTable td:nth-child(2){display:none}.priorityQueueTable th:nth-child(1){width:27%}.priorityQueueTable th:nth-child(3){width:9%}.priorityQueueTable th:nth-child(4){width:12%}.priorityQueueTable th:nth-child(5){width:8%}.priorityQueueTable th:nth-child(6){width:9%}.priorityQueueTable th:nth-child(7){width:12%}.priorityQueueTable th:nth-child(8){width:23%}}
-.attentionWorkflowWrap{max-width:100%;overflow:hidden}
-.attentionWorkflowTable{width:100%;min-width:0;table-layout:fixed}
-.attentionWorkflowTable th,.attentionWorkflowTable td{padding:10px 7px;font-size:12.5px;line-height:1.28;vertical-align:middle}
-.attentionWorkflowTable th:nth-child(1){width:30%}
-.attentionWorkflowTable th:nth-child(2){width:10%}
-.attentionWorkflowTable th:nth-child(3){width:9%}
-.attentionWorkflowTable th:nth-child(4){width:13%}
-.attentionWorkflowTable th:nth-child(5){width:11%}
-.attentionWorkflowTable th:nth-child(6){width:18%}
-.attentionWorkflowTable th:nth-child(7){width:9%}
-.attentionWorkflowTable .issueRecordCell{white-space:normal;min-width:0;display:grid;gap:2px}
-.attentionWorkflowTable .issueRecordCell span{color:#64748B;font-size:12px;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.attentionWorkflowTable .issueRecordCell strong{color:#0B1F3A;font-size:13px;font-weight:800;line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
-.attentionWorkflowTable .compactCell,.attentionWorkflowTable .dateCell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.attentionWorkflowTable .dateCell{overflow:visible;text-overflow:clip}
-.attentionWorkflowTable .actionCell{white-space:nowrap;overflow:visible}
-.attentionWorkflowTable .actionCell .rowAction{white-space:nowrap;padding:5px 7px;font-size:11.5px;line-height:1;border-color:#A7F3D0;background:#ECFDF5;color:#047857}
-.attentionWorkflowTable .actionCell .rowAction:hover{background:#D1FAE5;border-color:#6EE7B7}
 `;
 
 
 const settingsDirectoryOverrideStyles = `
-.settingsDirectoryPage{gap:22px;padding-bottom:52px}
+.settingsDirectoryPage{gap:24px;padding-bottom:52px}
 .settingsHub{display:grid;gap:28px}
 .settingsHubRow{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 .settingsHealthBar{display:flex;align-items:center;gap:8px;padding:7px 12px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;white-space:nowrap;flex-shrink:0}
@@ -1169,20 +987,6 @@ const settingsDirectoryOverrideStyles = `
 .settingsHealthText strong{font-weight:800}
 .settingsHealthBtn{height:24px;padding:0 9px;font-size:12px;font-weight:700;border-radius:6px;border:1px solid #FCD34D;color:#92400E;background:#fff;box-shadow:none;white-space:nowrap;cursor:pointer}
 .settingsHealthBtn:hover{background:#FFFBEB;box-shadow:none}
-.modeSelectedSummary{margin:10px 0 0;max-width:760px;color:#334155;font-size:13px;line-height:1.45;background:#F8FAFC;border:1px solid #E8EEF4;border-radius:10px;padding:9px 12px}
-.modePreviewUnified{margin-top:12px;border:1px solid #E6EDF4;border-radius:14px;background:#FCFEFF;padding:13px}
-.modePreviewUnifiedHeader{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding-bottom:10px;border-bottom:1px solid #EEF2F7}
-.modePreviewUnifiedHeader h3{margin:0;color:#0B1F3A;font-size:14px;font-weight:850;letter-spacing:-.02em}
-.modePreviewUnifiedHeader p{margin:0;color:#64748B;font-size:12.5px;line-height:1.45;max-width:48ch;text-align:right}
-.modePreviewColumns{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch;gap:10px;padding-top:10px}
-.modePreviewColumn{min-width:0;min-height:100%;border:1px solid #EAF0F6;border-radius:11px;background:#fff;padding:12px;display:flex;flex-direction:column;justify-content:flex-start}
-.modePreviewColumn h4{margin:0 0 8px;color:#0B1F3A;font-size:12px;font-weight:850;letter-spacing:-.01em}
-.modeLabelList{display:grid;gap:6px}
-.modeLabelLine{display:grid;grid-template-columns:96px minmax(0,1fr);gap:8px;align-items:start;color:#64748B;font-size:11.5px;line-height:1.3}
-.modeLabelLine strong{min-width:0;color:#0B1F3A;font-size:12px;font-weight:800;white-space:normal;overflow:visible;text-overflow:clip;line-height:1.3}
-.modePreviewText{margin:0;color:#475569;font-size:12px;font-weight:650;line-height:1.6}
-.modeChipRow{display:flex;flex-wrap:wrap;gap:5px}
-.modeChip{display:inline-flex;align-items:center;min-height:21px;border:1px solid #E8EEF4;background:#FCFEFF;border-radius:999px;padding:2px 7px;color:#475569;font-size:11.25px;font-weight:650;line-height:1.2}
 .settingsSearchInput{height:36px;border:1px solid #E2E8F0;border-radius:9px;padding:0 13px;outline:0;font:inherit;font-size:14px;color:#1E293B;background:#FAFCFF;width:240px}
 .settingsSearchInput:focus{border-color:#0D9488;box-shadow:0 0 0 3px rgba(13,148,136,.1)}
 .settingsGroupGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px 48px}
@@ -1192,16 +996,16 @@ const settingsDirectoryOverrideStyles = `
 .settingsItemLink{width:100%;text-align:left;border:0;background:transparent;box-shadow:none;color:#475569;font-size:13.5px;font-weight:500;padding:5px 0;cursor:pointer;line-height:1.4;border-radius:0}
 .settingsItemLink:hover{color:#0D9488;background:transparent;box-shadow:none}
 .settingsNoResults{color:#64748B;font-size:13px}
-.settingsDetailWorkspace{display:grid;gap:10px;width:min(100%,1040px);max-width:1040px;margin:0 auto}
+.settingsDetailWorkspace{display:grid;gap:12px;max-width:800px}
 .settingsBackButton{justify-self:start;border:0;background:transparent;box-shadow:none;color:#64748B;padding:4px 0;font-size:13px;font-weight:700;cursor:pointer}
 .settingsBackButton:hover{color:#0B1F3A;background:transparent;box-shadow:none}
-.settingsDetailPanel,.settingsFocusedPanel{background:#fff;border:1px solid #E8EEF4;border-radius:18px;padding:22px;box-shadow:0 1px 3px rgba(15,35,65,.045),0 6px 20px rgba(15,35,65,.035);display:grid;gap:0}
-.settingsDetailHeader{padding-bottom:14px;border-bottom:1px solid #F1F5F9}
+.settingsDetailPanel,.settingsFocusedPanel{background:#fff;border:1px solid #E8EEF4;border-radius:18px;padding:24px;box-shadow:0 1px 3px rgba(15,35,65,.05),0 6px 20px rgba(15,35,65,.04);display:grid;gap:0}
+.settingsDetailHeader{padding-bottom:16px;border-bottom:1px solid #F1F5F9}
 .settingsDetailHeader h2{margin:4px 0 0;color:#0B1F3A;font-size:20px;font-weight:800;letter-spacing:-.02em}
 .settingsDetailHeader p{margin:5px 0 0;color:#64748B;font-size:13px;line-height:1.5;max-width:58ch}
-.settingsDetailSection{padding-top:18px}
-.settingsSectionLabel{margin:0 0 9px;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;color:#94A3B8;display:block}
-.settingsWorkspaceModeDesc{margin:0 0 10px;font-size:13px;color:#64748B;line-height:1.45}
+.settingsDetailSection{padding-top:20px}
+.settingsSectionLabel{margin:0 0 10px;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;color:#94A3B8;display:block}
+.settingsWorkspaceModeDesc{margin:0 0 12px;font-size:13px;color:#64748B;line-height:1.45}
 .workspaceModeSegment{display:inline-flex;align-items:center;border:1px solid #E2E8F0;border-radius:10px;background:#F8FAFC;padding:3px;gap:2px}
 .workspaceModeSegment button{height:30px;border:0;background:transparent;border-radius:7px;padding:0 14px;font-size:13px;font-weight:700;color:#64748B;box-shadow:none;white-space:nowrap;cursor:pointer}
 .workspaceModeSegment button.active{background:#fff;color:#0F766E;box-shadow:0 1px 3px rgba(15,35,65,.1);border:1px solid #CDEDE5}
@@ -1251,30 +1055,10 @@ const settingsDirectoryOverrideStyles = `
 .eyebrow{color:#0D9488;text-transform:uppercase;letter-spacing:.12em;font-size:11px;font-weight:900;display:block;margin-bottom:3px}
 @media(max-width:1100px){.settingsGroupGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.aiGovernancePanel{grid-template-columns:1fr}.aiSettingsSummary{position:static}}
 @media(max-width:700px){.settingsGroupGrid{grid-template-columns:1fr}.settingsModuleGrid{grid-template-columns:1fr}.adminSettingRow{grid-template-columns:1fr}.adminSettingControl{justify-content:flex-start}.aiSettingRow,.aiInsightReadable{grid-template-columns:1fr}.aiSettingControl{justify-content:flex-start}.workspaceModeSegment{display:grid;grid-template-columns:1fr;border-radius:10px}.workspaceModeSegment button{text-align:center}.settingsHubRow{flex-direction:column;align-items:flex-start}.settingsSearchInput{width:100%}}
-.searchCommandPage .screenHeader{margin-bottom:8px}.searchCommandPage .eyebrow{letter-spacing:.09em}.searchCommandHero{border:0;background:transparent;box-shadow:none;padding:4px 0 8px}.commandInputWrap{min-width:0;flex:1;display:flex;align-items:center;gap:10px;border:1px solid #D8E2EF;border-radius:14px;background:#fff;padding:0 13px;box-shadow:0 10px 28px rgba(11,31,58,.07)}.commandInputWrap:focus-within{border-color:#0D9488;box-shadow:0 0 0 3px rgba(13,148,136,.10),0 12px 30px rgba(11,31,58,.08)}.commandInputWrap input{border:0;background:transparent;box-shadow:none;padding:0;min-height:54px;font-size:15.5px}.commandInputWrap input:focus{outline:0;box-shadow:none}.commandInputWrap span{flex-shrink:0;border:1px solid #E2E8F0;background:#F8FAFC;color:#64748B;border-radius:7px;padding:2px 7px;font-size:11px;font-weight:750;letter-spacing:.02em}.searchCommandHero .primary{min-height:42px;padding:0 18px}.searchModesPanel{display:grid;gap:8px;margin-top:-2px;margin-bottom:2px}.searchModeInline{display:flex;flex-wrap:wrap;align-items:center;gap:5px;color:#64748B}.searchModeInline button{border:1px solid #E6EEF2;background:#FAFCFF;color:#486274;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:600;box-shadow:none;cursor:pointer}.searchModeInline button.active{background:#F0FDFA;border-color:#BFE7E1;color:#0F766E}.suggestedQuestions{display:flex;flex-wrap:wrap;align-items:center;gap:5px;padding-top:2px;color:#64748B}.suggestedQuestions span{font-size:10.5px;font-weight:750;text-transform:uppercase;letter-spacing:.08em;margin-right:2px}.suggestedQuestions button{border:1px solid #E6EEF2;background:#fff;color:#39566A;border-radius:999px;padding:3px 7px;font-size:11px;font-weight:520;box-shadow:none;cursor:pointer}.suggestedQuestions button:hover{border-color:#CDEDE5;background:#F8FFFD;color:#0F766E}.searchResultsPanel{margin-top:4px;box-shadow:0 8px 22px rgba(15,35,65,.035)}.searchResultsPanel .panelTitle{margin-bottom:4px}.searchResultsPanel .panelTitle h2{font-size:17px}.searchResultsPanel .panelTitle span{font-size:12px;color:#718096}.searchResultsPanel th,.searchResultsPanel td{padding:10px 12px}.searchResultsPanel .badge{padding:2px 6px;font-size:10.75px;line-height:1.15;font-weight:700;white-space:nowrap}.searchResultsPanel .rowAction{padding:4px 8px;font-size:11px;font-weight:650;border-radius:999px;color:#0B5D56;background:#F7FCFB;border-color:#D8EDEA;box-shadow:none}.searchResultsPanel .rowAction:hover{background:#EAF7F5;border-color:#BCE1DC}.searchRouteActive .agentWrap{right:12px;bottom:56px}
-
 `;
 
 
 const oprivaUpgradeStyles = `
-.app{min-height:100vh;display:flex}.sidebar{width:282px;background:linear-gradient(180deg,#0B1F3A,#07111F);color:#EAF4F7;padding:24px 18px;position:fixed;inset:0 auto 0 0;overflow:auto}.workspace{margin-left:282px;min-width:0;flex:1;display:flex;flex-direction:column}.brand{height:62px;display:flex;align-items:center;gap:12px;margin-bottom:18px;padding:0;border-bottom:0}.brandMark{width:36px;height:36px;display:grid;place-items:center;flex:0 0 auto}.brandMark svg{width:36px;height:36px;overflow:visible}.oprivaOpenContour,.agentContour{fill:none;stroke:#24BFA6;stroke-width:2.35;stroke-linecap:round;stroke-linejoin:round}.oprivaFocusDot,.agentFocusDot{fill:#0B7D63;filter:drop-shadow(0 2px 7px rgba(13,148,136,.28))}.brandCopy{display:flex;flex-direction:column;line-height:1.05}.brandCopy strong{font-size:19px;font-weight:650;letter-spacing:.01em;color:#fff}.brandCopy span{margin-top:5px;color:#94A3B8;font-size:11px;letter-spacing:.06em;text-transform:uppercase}.navGroup{margin-top:20px}.navGroup p{margin:0 0 8px 8px;color:#8BA4BD;font-size:11px;text-transform:uppercase;letter-spacing:.1em}.navGroup button{width:100%;border:0;background:transparent;color:#C8D7E5;text-align:left;padding:10px 12px;border-radius:12px;cursor:pointer}.navGroup button:hover,.navGroup button.active{background:rgba(255,255,255,.08);color:#fff}.topbar{height:68px;background:#fff;border-bottom:1px solid var(--border);display:grid;grid-template-columns:250px minmax(260px,560px) auto;gap:24px;align-items:center;padding:0 28px;position:sticky;top:0;z-index:5}.tenantLockup{display:flex;align-items:center;gap:11px;border:0;background:transparent;text-align:left;padding:0;box-shadow:none}.tenantLockup:hover{background:transparent;box-shadow:none}.tenantLogo,.avatar{display:grid;place-items:center;border-radius:50%;background:#EEF6FF;color:#184E94;font-weight:700}.tenantLogo{width:38px;height:38px}.avatar{width:34px;height:34px;font-size:12px}.tenantLockup div{display:flex;flex-direction:column}.tenantLockup strong{font-size:14px;color:#0F2138}.tenantLockup span{font-size:12px;color:var(--muted)}.globalSearch{height:40px;border:1px solid var(--border);border-radius:999px;background:#F8FAFC;display:flex;align-items:center;gap:10px;padding:0 14px;color:#64748B}.globalSearch input{border:0;outline:0;background:transparent;width:100%;color:var(--text)}.globalSearch:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.12)}.topActions{display:flex;align-items:center;gap:12px;justify-content:end}.topActions button{height:34px;border:1px solid var(--border);border-radius:999px;background:#fff;color:#0F766E;padding:0 12px}.agentWrap{position:fixed;right:24px;bottom:96px;z-index:90;display:flex;align-items:center;gap:12px}.agentTip{max-width:244px;background:#0F172A;color:#EAF4F7;padding:10px 12px;border-radius:14px;font-size:12px;box-shadow:0 18px 45px rgba(15,23,42,.2);opacity:0;transform:translateX(6px);pointer-events:none;transition:opacity .22s ease,transform .22s ease}.agentTip.isVisible{opacity:.94;transform:translateX(0)}.agentButton{width:62px;height:62px;border:1px solid rgba(13,148,136,.22);border-radius:20px;background:rgba(255,255,255,.92);box-shadow:0 16px 40px rgba(15,23,42,.16);display:grid;place-items:center;cursor:pointer;backdrop-filter:blur(18px);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}.agentButton:hover{box-shadow:0 20px 48px rgba(15,23,42,.22),0 0 0 6px rgba(45,212,191,.08);border-color:rgba(13,148,136,.45)}.agentMark{width:38px;height:38px;display:grid;place-items:center}.agentMarkSvg{width:38px;height:38px;overflow:visible}.agentContour{transform-origin:16px 16px}.agentFocusDot{transform-origin:center}.aiDrawer{position:fixed;right:24px;bottom:174px;top:auto;width:min(360px,calc(100vw - 48px));max-height:calc(100vh - 210px);overflow:auto;background:#fff;border:1px solid var(--border);border-radius:22px;box-shadow:0 24px 70px rgba(15,23,42,.2);z-index:88;padding:18px;display:block}.drawerHeader{display:flex;justify-content:space-between;gap:12px;align-items:start}.drawerHeader h2{margin:0;font-size:18px}.drawerHeader p,.drawerText,.meta{color:var(--muted);font-size:13px}.drawerHeader button{border:0;background:#F1F5F9;border-radius:10px;width:30px;height:30px;padding:0}.drawerInput{width:100%;border:1px solid var(--border);border-radius:14px;padding:12px;margin:12px 0}.drawerInput:focus{outline:0;border-color:var(--teal);box-shadow:0 0 0 3px rgba(13,148,136,.12)}.suggestions{display:grid;gap:8px}.suggestions button{border:1px solid var(--border);background:#fff;text-align:left;border-radius:12px;padding:10px}.agentSettings{margin-top:12px;padding-top:12px;border-top:1px solid #EEF2F7}.agentSettings label{display:flex;align-items:center;gap:9px;color:#334155;font-size:13px}
-/* Final Settings overview polish */
-.settingsOverviewCards{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;max-width:980px}
-.settingsOverviewCard{border:1px solid #E6EDF4;background:#fff;border-radius:16px;padding:16px 16px 15px;box-shadow:0 1px 2px rgba(15,35,65,.035);display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:18px}
-.settingsOverviewCard:hover{border-color:#D6E2EF;background:#FCFEFF}
-.settingsOverviewCard .settingsGroupLabel{margin:0 0 5px;padding:0;border:0;font-size:14px;font-weight:850;text-transform:none;letter-spacing:-.01em;color:#0B1F3A}
-.settingsOverviewDescription{margin:0;color:#64748B;font-size:13px;line-height:1.45;max-width:52ch}
-.settingsOverviewOpen{border:1px solid #DDE7F1;background:#fff;color:#1F2F46;border-radius:11px;padding:8px 13px;font-weight:800;font-size:12.5px;box-shadow:none}
-.settingsOverviewOpen:hover{border-color:#A7F3D0;background:#F0FDFA;color:#0F766E}
-.settingsFocusedPanel{max-width:1080px;width:100%;margin:0 auto}
-.settingsFocusedPanel .settingsDetailHeader{display:block;text-align:left;padding-bottom:14px}
-.settingsFocusedPanel .settingsDetailHeader .eyebrow{display:block;margin-bottom:4px}
-.settingsFocusedPanel .settingsDetailHeader h2{margin:0;color:#0B1F3A;font-size:24px;letter-spacing:-.035em}
-.settingsFocusedPanel .settingsDetailHeader p{margin:6px 0 0;max-width:620px;color:#64748B}
-.modePreviewColumns{grid-template-columns:1.05fr 1fr 1fr}
-.modeLabelLine{grid-template-columns:minmax(76px,96px) minmax(0,1fr)}
-.modeLabelLine strong{white-space:normal;overflow:visible;text-overflow:clip}
-.modePreviewText{font-size:13px;line-height:1.65}
-@media(max-width:1050px){.sidebar{position:relative;width:100%;height:auto}.app{display:block}.workspace{margin-left:0}.topbar{grid-template-columns:1fr;gap:10px;height:auto;padding:16px}.agentWrap{right:18px;bottom:84px}}`;
+.app{min-height:100vh;display:flex}.sidebar{width:282px;background:linear-gradient(180deg,#0B1F3A,#07111F);color:#EAF4F7;padding:24px 18px;position:fixed;inset:0 auto 0 0;overflow:auto}.workspace{margin-left:282px;min-width:0;flex:1;display:flex;flex-direction:column}.brand{height:62px;display:flex;align-items:center;gap:12px;margin-bottom:18px;padding:0;border-bottom:0}.brandMark{width:36px;height:36px;display:grid;place-items:center;flex:0 0 auto}.brandMark svg{width:36px;height:36px;overflow:visible}.oprivaOpenContour,.agentContour{fill:none;stroke:#24BFA6;stroke-width:2.35;stroke-linecap:round;stroke-linejoin:round}.oprivaFocusDot,.agentFocusDot{fill:#0B7D63;filter:drop-shadow(0 2px 7px rgba(13,148,136,.28))}.brandCopy{display:flex;flex-direction:column;line-height:1.05}.brandCopy strong{font-size:19px;font-weight:650;letter-spacing:.01em;color:#fff}.brandCopy span{margin-top:5px;color:#94A3B8;font-size:11px;letter-spacing:.06em;text-transform:uppercase}.navGroup{margin-top:20px}.navGroup p{margin:0 0 8px 8px;color:#8BA4BD;font-size:11px;text-transform:uppercase;letter-spacing:.1em}.navGroup button{width:100%;border:0;background:transparent;color:#C8D7E5;text-align:left;padding:10px 12px;border-radius:12px;cursor:pointer}.navGroup button:hover,.navGroup button.active{background:rgba(255,255,255,.08);color:#fff}.topbar{height:68px;background:#fff;border-bottom:1px solid var(--border);display:grid;grid-template-columns:250px minmax(260px,560px) auto;gap:24px;align-items:center;padding:0 28px;position:sticky;top:0;z-index:5}.tenantLockup{display:flex;align-items:center;gap:11px;border:0;background:transparent;text-align:left;padding:0;box-shadow:none}.tenantLockup:hover{background:transparent;box-shadow:none}.tenantLogo,.avatar{display:grid;place-items:center;border-radius:50%;background:#EEF6FF;color:#184E94;font-weight:700}.tenantLogo{width:38px;height:38px}.avatar{width:34px;height:34px;font-size:12px}.tenantLockup div{display:flex;flex-direction:column}.tenantLockup strong{font-size:14px;color:#0F2138}.tenantLockup span{font-size:12px;color:var(--muted)}.globalSearch{height:40px;border:1px solid var(--border);border-radius:999px;background:#F8FAFC;display:flex;align-items:center;gap:10px;padding:0 14px;color:#64748B}.globalSearch input{border:0;outline:0;background:transparent;width:100%;color:var(--text)}.globalSearch:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.12)}.topActions{display:flex;align-items:center;gap:12px;justify-content:end}.topActions button{height:34px;border:1px solid var(--border);border-radius:999px;background:#fff;color:#0F766E;padding:0 12px}.agentWrap{position:fixed;right:24px;bottom:96px;z-index:90;display:flex;align-items:center;gap:12px}.agentTip{max-width:244px;background:#0F172A;color:#EAF4F7;padding:10px 12px;border-radius:14px;font-size:12px;box-shadow:0 18px 45px rgba(15,23,42,.2);opacity:0;transform:translateX(6px);pointer-events:none;transition:opacity .22s ease,transform .22s ease}.agentTip.isVisible{opacity:.94;transform:translateX(0)}.agentButton{width:62px;height:62px;border:1px solid rgba(13,148,136,.22);border-radius:20px;background:rgba(255,255,255,.92);box-shadow:0 16px 40px rgba(15,23,42,.16);display:grid;place-items:center;cursor:pointer;backdrop-filter:blur(18px);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}.agentButton:hover{box-shadow:0 20px 48px rgba(15,23,42,.22),0 0 0 6px rgba(45,212,191,.08);border-color:rgba(13,148,136,.45)}.agentMark{width:38px;height:38px;display:grid;place-items:center}.agentMarkSvg{width:38px;height:38px;overflow:visible}.agentContour{transform-origin:16px 16px}.agentFocusDot{transform-origin:center}.aiDrawer{position:fixed;right:24px;bottom:174px;top:auto;width:min(360px,calc(100vw - 48px));max-height:calc(100vh - 210px);overflow:auto;background:#fff;border:1px solid var(--border);border-radius:22px;box-shadow:0 24px 70px rgba(15,23,42,.2);z-index:88;padding:18px;display:block}.drawerHeader{display:flex;justify-content:space-between;gap:12px;align-items:start}.drawerHeader h2{margin:0;font-size:18px}.drawerHeader p,.drawerText,.meta{color:var(--muted);font-size:13px}.drawerHeader button{border:0;background:#F1F5F9;border-radius:10px;width:30px;height:30px;padding:0}.drawerInput{width:100%;border:1px solid var(--border);border-radius:14px;padding:12px;margin:12px 0}.drawerInput:focus{outline:0;border-color:var(--teal);box-shadow:0 0 0 3px rgba(13,148,136,.12)}.suggestions{display:grid;gap:8px}.suggestions button{border:1px solid var(--border);background:#fff;text-align:left;border-radius:12px;padding:10px}.agentSettings{margin-top:12px;padding-top:12px;border-top:1px solid #EEF2F7}.agentSettings label{display:flex;align-items:center;gap:9px;color:#334155;font-size:13px}@media(max-width:1050px){.sidebar{position:relative;width:100%;height:auto}.app{display:block}.workspace{margin-left:0}.topbar{grid-template-columns:1fr;gap:10px;height:auto;padding:16px}.agentWrap{right:18px;bottom:84px}}`;
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+export default App;

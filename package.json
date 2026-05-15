@@ -1,8 +1,19 @@
 {
-  "name": "opriva-open-codesign-static",
+  "name": "opriva",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "build": "echo 'Static Open CoDesign export - no build needed'"
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0"
+  },
+  "dependencies": {
+    "react": "latest",
+    "react-dom": "latest"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "latest",
+    "vite": "latest"
   }
 }

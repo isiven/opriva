@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Corexi Brand Kit</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: #fff;
+            color: #1a1a1a;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 60px 40px;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            padding: 80px 40px;
+            background: #0f1419;
+            color: #fff;
+        }
+
+        .header-logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .header-logo svg {
+            width: 48px;
+            height: 48px;
+        }
+
+        .header-logo .wordmark {
+            font-size: 1.8rem;
+            font-weight: 500;
+            letter-spacing: 6px;
+            color: #2dd4bf;
+        }
+
+        .header p {
+            color: #888;
+            font-size: 1rem;
+        }
+
+        /* Section styles */
+        .section {
+            padding: 60px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .section:last-child {
+            border-bottom: none;
+        }
+
+        .section-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #0d9488;
+            margin-bottom: 8px;
+        }
+
+        .section-title {
+            font-size: 1.4rem;
+            font-weight: 500;
+            margin-bottom: 32px;
+        }
+
+        /* Logo Grid */
+        .logo-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
+        }
+
+        .logo-card {
+            border-radius: 16px;
+            padding: 48px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .logo-card.dark {
+            background: #0f1419;
+        }
+
+        .logo-card.light {
+            background: #f8fafb;
+            border: 1px solid #e5e5e5;
+        }
+
+        .logo-card svg {
+            width: 64px;
+            height: 64px;
+        }
+
+        .logo-card .wordmark {
+            font-size: 1.1rem;
+            font-weight: 500;
+            letter-spacing: 5px;
+        }
+
+        .logo-card .variant-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.5;
+        }
+
+        /* Horizontal logo */
+        .logo-horizontal {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-horizontal svg {
+            width: 40px;
+            height: 40px;
+        }
+
+        .logo-horizontal .wordmark {
+            font-size: 1rem;
+            font-weight: 500;
+            letter-spacing: 4px;
+        }
+
+        /* Color Palette */
+        .color-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+        }
+
+        .color-card {
+            text-align: center;
+        }
+
+        .color-swatch {
+            height: 100px;
+            border-radius: 12px;
+            margin-bottom: 16px;
+        }
+
+        .color-swatch.bordered {
+            border: 1px solid #e5e5e5;
+        }
+
+        .color-name {
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .color-hex {
+            font-size: 0.75rem;
+            color: #888;
+            font-family: monospace;
+        }
+
+        .color-use {
+            font-size: 0.7rem;
+            color: #aaa;
+            margin-top: 8px;
+        }
+
+        /* Typography */
+        .type-sample {
+            margin-bottom: 32px;
+        }
+
+        .type-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #999;
+            margin-bottom: 8px;
+        }
+
+        .type-display {
+            font-size: 2.5rem;
+            font-weight: 600;
+            color: #0d9488;
+            margin-bottom: 8px;
+        }
+
+        .type-heading {
+            font-size: 1.5rem;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .type-body {
+            font-size: 1rem;
+            color: #555;
+            max-width: 500px;
+        }
+
+        .type-info {
+            background: #f8fafb;
+            padding: 24px;
+            border-radius: 12px;
+            margin-top: 24px;
+        }
+
+        .type-info p {
+            font-size: 0.85rem;
+            color: #666;
+        }
+
+        .type-info code {
+            background: #e5e5e5;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+
+        /* Usage Guidelines */
+        .usage-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
+        }
+
+        .usage-card {
+            padding: 24px;
+            border-radius: 12px;
+            background: #f8fafb;
+        }
+
+        .usage-card.dont {
+            background: #fef2f2;
+        }
+
+        .usage-card .label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+        }
+
+        .usage-card .label.do {
+            color: #0d9488;
+        }
+
+        .usage-card .label.dont {
+            color: #dc2626;
+        }
+
+        .usage-card ul {
+            list-style: none;
+            font-size: 0.85rem;
+            color: #555;
+        }
+
+        .usage-card li {
+            margin-bottom: 8px;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .usage-card li::before {
+            content: "•";
+            position: absolute;
+            left: 0;
+            color: #0d9488;
+        }
+
+        .usage-card.dont li::before {
+            color: #dc2626;
+        }
+
+        /* Product naming */
+        .product-examples {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .product-tag {
+            padding: 12px 20px;
+            background: #0f1419;
+            border-radius: 8px;
+            color: #2dd4bf;
+            font-size: 0.85rem;
+            font-weight: 500;
+            letter-spacing: 1px;
+        }
+
+        /* Download section */
+        .download-section {
+            background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+            padding: 48px;
+            border-radius: 20px;
+            color: #fff;
+            text-align: center;
+        }
+
+        .download-section h3 {
+            font-size: 1.2rem;
+            font-weight: 500;
+            margin-bottom: 12px;
+        }
+
+        .download-section p {
+            opacity: 0.9;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            .logo-grid,
+            .color-grid,
+            .usage-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <div class="header">
+        <div class="header-logo">
+            <svg viewBox="0 0 100 100" fill="none">
+                <line x1="50" y1="50" x2="20" y2="28" stroke="#2dd4bf" stroke-width="1.5"/>
+                <line x1="50" y1="50" x2="20" y2="72" stroke="#2dd4bf" stroke-width="1.5"/>
+                <line x1="50" y1="50" x2="75" y2="22" stroke="#2dd4bf" stroke-width="1.5"/>
+                <circle cx="20" cy="28" r="4" fill="#2dd4bf"/>
+                <circle cx="20" cy="72" r="4" fill="#2dd4bf"/>
+                <circle cx="75" cy="22" r="5" fill="#2dd4bf"/>
+                <circle cx="50" cy="50" r="12" fill="#2dd4bf"/>
+            </svg>
+            <span class="wordmark">COREXI</span>
+        </div>
+        <p>Brand Kit — Versión 1.0</p>
+    </div>
+
+    <div class="container">
+
+        <!-- Logo Section -->
+        <div class="section">
+            <p class="section-label">01</p>
+            <h2 class="section-title">Logo Principal</h2>
+            
+            <div class="logo-grid">
+                <!-- Dark BG - Vertical -->
+                <div class="logo-card dark">
+                    <svg viewBox="0 0 100 100" fill="none">
+                        <line x1="50" y1="50" x2="20" y2="28" stroke="#2dd4bf" stroke-width="1.5"/>
+                        <line x1="50" y1="50" x2="20" y2="72" stroke="#2dd4bf" stroke-width="1.5"/>
+                        <line x1="50" y1="50" x2="75" y2="22" stroke="#2dd4bf" stroke-width="1.5"/>
+                        <circle cx="20" cy="28" r="4" fill="#2dd4bf"/>
+                        <circle cx="20" cy="72" r="4" fill="#2dd4bf"/>
+                        <circle cx="75" cy="22" r="5" fill="#2dd4bf"/>
+                        <circle cx="50" cy="50" r="12" fill="#2dd4bf"/>
+                    </svg>
+                    <span class="wordmark" style="color: #2dd4bf;">COREXI</span>
+                    <span class="variant-label" style="color: #2dd4bf;">Fondo oscuro — Primario</span>
+                </div>
+
+                <!-- Light BG - Vertical -->
+                <div class="logo-card light">
+                    <svg viewBox="0 0 100 100" fill="none">
+                        <line x1="50" y1="50" x2="20" y2="28" stroke="#0d9488" stroke-width="1.5"/>
+                        <line x1="50" y1="50" x2="20" y2="72" stroke="#0d9488" stroke-width="1.5"/>
+                        <line x1="50" y1="50" x2="75" y2="22" stroke="#0d9488" stroke-width="1.5"/>
+                        <circle cx="20" cy="28" r="4" fill="#0d9488"/>
+                        <circle cx="20" cy="72" r="4" fill="#0d9488"/>
+                        <circle cx="75" cy="22" r="5" fill="#0d9488"/>
+                        <circle cx="50" cy="50" r="12" fill="#0d9488"/>
+                    </svg>
+                    <span class="wordmark" style="color: #0d9488;">COREXI</span>
+                    <span class="variant-label" style="color: #0d9488;">Fondo claro</span>
+                </div>
+
+                <!-- Dark BG - Horizontal -->
+                <div class="logo-card dark">
+                    <div class="logo-horizontal">
+                        <svg viewBox="0 0 100 100" fill="none">
+                            <line x1="50" y1="50" x2="20" y2="28" stroke="#2dd4bf" stroke-width="1.5"/>
+                            <line x1="50" y1="50" x2="20" y2="72" stroke="#2dd4bf" stroke-width="1.5"/>
+                            <line x1="50" y1="50" x2="75" y2="22" stroke="#2dd4bf" stroke-width="1.5"/>
+                            <circle cx="20" cy="28" r="4" fill="#2dd4bf"/>
+                            <circle cx="20" cy="72" r="4" fill="#2dd4bf"/>
+                            <circle cx="75" cy="22" r="5" fill="#2dd4bf"/>
+                            <circle cx="50" cy="50" r="12" fill="#2dd4bf"/>
+                        </svg>
+                        <span class="wordmark" style="color: #2dd4bf;">COREXI</span>
+                    </div>
+                    <span class="variant-label" style="color: #2dd4bf;">Horizontal — Header / Nav</span>
+                </div>
+
+                <!-- Light BG - Horizontal -->
+                <div class="logo-card light">
+                    <div class="logo-horizontal">
+                        <svg viewBox="0 0 100 100" fill="none">
+                            <line x1="50" y1="50" x2="20" y2="28" stroke="#0d9488" stroke-width="1.5"/>
+                            <line x1="50" y1="50" x2="20" y2="72" stroke="#0d9488" stroke-width="1.5"/>
+                            <line x1="50" y1="50" x2="75" y2="22" stroke="#0d9488" stroke-width="1.5"/>
+                            <circle cx="20" cy="28" r="4" fill="#0d9488"/>
+                            <circle cx="20" cy="72" r="4" fill="#0d9488"/>
+                            <circle cx="75" cy="22" r="5" fill="#0d9488"/>
+                            <circle cx="50" cy="50" r="12" fill="#0d9488"/>
+                        </svg>
+                        <span class="wordmark" style="color: #0d9488;">COREXI</span>
+                    </div>
+                    <span class="variant-label" style="color: #0d9488;">Horizontal — Header / Nav</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Color Palette -->
+        <div class="section">
+            <p class="section-label">02</p>
+            <h2 class="section-title">Paleta de Colores</h2>
+            
+            <div class="color-grid">
+                <div class="color-card">
+                    <div class="color-swatch" style="background: #0d9488;"></div>
+                    <p class="color-name">Teal Primary</p>
+                    <p class="color-hex">#0D9488</p>
+                    <p class="color-use">Logo, CTAs, links, acentos</p>
+                </div>
+                <div class="color-card">
+                    <div class="color-swatch" style="background: #2dd4bf;"></div>
+                    <p class="color-name">Teal Light</p>
+                    <p class="color-hex">#2DD4BF</p>
+                    <p class="color-use">Logo en fondo oscuro, highlights</p>
+                </div>
+                <div class="color-card">
+                    <div class="color-swatch" style="background: #0f1419;"></div>
+                    <p class="color-name">Dark Background</p>
+                    <p class="color-hex">#0F1419</p>
+                    <p class="color-use">Fondos oscuros, hero sections</p>
+                </div>
+                <div class="color-card">
+                    <div class="color-swatch bordered" style="background: #f8fafb;"></div>
+                    <p class="color-name">Light Background</p>
+                    <p class="color-hex">#F8FAFB</p>
+                    <p class="color-use">Fondos claros, cards</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Typography -->
+        <div class="section">
+            <p class="section-label">03</p>
+            <h2 class="section-title">Tipografía</h2>
+            
+            <div class="type-sample">
+                <p class="type-label">Display / Headlines</p>
+                <p class="type-display">Outfit Semibold</p>
+            </div>
+            
+            <div class="type-sample">
+                <p class="type-label">Headings</p>
+                <p class="type-heading">The operational mind of the modern enterprise</p>
+            </div>
+            
+            <div class="type-sample">
+                <p class="type-label">Body Text</p>
+                <p class="type-body">Corexi es la infraestructura de inteligencia operativa que permite a las organizaciones operar con mayor autonomía, anticipación y control.</p>
+            </div>
+
+            <div class="type-info">
+                <p><strong>Fuente principal:</strong> <code>Outfit</code> — Google Fonts</p>
+                <p style="margin-top: 8px;"><strong>Weights:</strong> Light (300), Regular (400), Medium (500), Semibold (600)</p>
+                <p style="margin-top: 8px;"><strong>Alternativa monospace:</strong> <code>JetBrains Mono</code> para código y datos técnicos</p>
+            </div>
+        </div>
+
+        <!-- Product Naming -->
+        <div class="section">
+            <p class="section-label">04</p>
+            <h2 class="section-title">Nomenclatura de Productos</h2>
+            
+            <div class="product-examples">
+                <span class="product-tag">COREXI CONTINUITY</span>
+                <span class="product-tag">COREXI INSIGHT</span>
+                <span class="product-tag">COREXI FLOW</span>
+                <span class="product-tag">COREXI GUARD</span>
+            </div>
+
+            <div class="type-info" style="margin-top: 24px;">
+                <p><strong>Formato:</strong> COREXI + [Nombre del módulo en inglés]</p>
+                <p style="margin-top: 8px;">Los nombres de módulos deben ser una sola palabra que comunique la función principal.</p>
+            </div>
+        </div>
+
+        <!-- Usage Guidelines -->
+        <div class="section">
+            <p class="section-label">05</p>
+            <h2 class="section-title">Guía de Uso</h2>
+            
+            <div class="usage-grid">
+                <div class="usage-card">
+                    <p class="label do">✓ Hacer</p>
+                    <ul>
+                        <li>Usar el logo con suficiente espacio alrededor</li>
+                        <li>Mantener las proporciones originales</li>
+                        <li>Usar Teal Primary (#0D9488) en fondos claros</li>
+                        <li>Usar Teal Light (#2DD4BF) en fondos oscuros</li>
+                        <li>Mantener el wordmark en MAYÚSCULAS con letter-spacing</li>
+                    </ul>
+                </div>
+                <div class="usage-card dont">
+                    <p class="label dont">✗ No hacer</p>
+                    <ul>
+                        <li>Distorsionar o rotar el logo</li>
+                        <li>Cambiar los colores de la paleta</li>
+                        <li>Usar el logo sobre fondos que no contrasten</li>
+                        <li>Agregar efectos como sombras o gradientes</li>
+                        <li>Separar el ícono del wordmark en proporciones incorrectas</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Download -->
+        <div class="section">
+            <div class="download-section">
+                <h3>Brand Kit Completo</h3>
+                <p>Usa este documento como referencia para mantener consistencia en todos los materiales de Corexi.</p>
+            </div>
+        </div>
+
+    </div>
+
+</body>
+</html>

@@ -1,5 +1,19 @@
 import React from 'react';
 
+function useViewport(){
+  const [vp, setVp] = React.useState('desktop');
+  React.useEffect(() => {
+    const check = () => {
+      const w = window.innerWidth;
+      setVp(w < 768 ? 'mobile' : (w < 1200 ? 'tablet' : 'desktop'));
+    };
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+  return vp;
+}
+
 const TWEAK_DEFAULTS = {
   "accentColor": "#2563EB",
   "livingAgent": true,
@@ -212,7 +226,7 @@ function Table({ columns, rows, loading=false, error=false, emptyTitle, emptyMes
   const safeRows = asArray(rows);
   if (error) return <ErrorState title="Failed data loading" message="Opriva could not load this table. Retry or open support with the current workspace context." />;
   if (!loading && safeRows.length === 0) return <EmptyState title={emptyTitle || 'No records yet'} message={emptyMessage || 'This module has no matching records for the current filters.'} action="Create record" />;
-  return <div className="tableWrap"><table><thead><tr>{safeColumns.map(c => <th key={c}>{safeText(c)}</th>)}{actions && <th aria-label="Row actions">Actions</th>}</tr></thead>{loading ? <LoadingRows columns={[...safeColumns,'Actions']} /> : <tbody>{safeRows.map((row, i) => { const safeRow = asArray(row); return <tr key={i} className={i===selectedIndex?'selectedRow':''} aria-selected={i===selectedIndex}>{safeColumns.map((column, j) => { const cell = safeText(safeRow[j]); return <td key={column || j}>{j === safeColumns.length - 1 || /risk|status|priority|severity/i.test(column || '') ? <Badge>{cell}</Badge> : cell}</td>; })}{actions && <td><button className="rowAction" aria-label={`Open ${safeText(safeRow[0], 'record')}`}>Open</button></td>}</tr>; })}</tbody>}</table></div>;
+  return <div className="tableWrap"><table><thead><tr>{safeColumns.map(c => <th key={c}>{safeText(c)}</th>)}{actions && <th aria-label="Row actions">Actions</th>}</tr></thead>{loading ? <LoadingRows columns={[...safeColumns,'Actions']} /> : <tbody>{safeRows.map((row, i) => { const safeRow = asArray(row); return <tr key={i} className={i===selectedIndex?'selectedRow':''} aria-selected={i===selectedIndex}>{safeColumns.map((column, j) => { const cell = safeText(safeRow[j]); return <td key={column || j} data-label={column || ''}>{j === safeColumns.length - 1 || /risk|status|priority|severity/i.test(column || '') ? <Badge>{cell}</Badge> : cell}</td>; })}{actions && <td data-label="Actions" className="actionCell"><button className="rowAction" aria-label={`Open ${safeText(safeRow[0], 'record')}`}>Open</button></td>}</tr>; })}</tbody>}</table></div>;
 }
 function ToastStack({ notices = [] }){
   const safeNotices = Array.isArray(notices) ? notices.filter(Boolean) : [];
@@ -237,7 +251,121 @@ function StatCards(){
   </section>;
 }
 
+function MobileDashboard(){
+  const [chip, setChip] = React.useState('All');
+  const [showLater, setShowLater] = React.useState(false);
+  const attentionFeed = [
+    { type: 'ai', title: '18 records have no assigned owner', desc: 'Want me to draft assignment proposals based on workload?', action: 'Show me' },
+    { type: 'expiration', severity: 'critical', badge: 'Expired', title: 'Dell R750 Warranty', context: 'Metro Retail · Expired 5 days ago', owner: 'Ana Ríos', ownerInitials: 'AR', action: 'Approve coverage' },
+    { type: 'expiration', severity: 'critical', badge: '12 days', title: 'Wildcard SSL Certificate', context: 'Grupo Regency · Needs owner', owner: null, ownerInitials: '?', action: 'Assign owner' },
+    { type: 'approval', severity: 'warning', badge: 'Pending', title: 'Microsoft 365 true-up', context: 'Canal Bank · $63K · 480 seats', owner: 'Elena Ruiz', ownerInitials: 'ER', action: 'Approve' },
+    { type: 'task', severity: 'warning', badge: 'Overdue 2d', title: 'Send Trend Micro renewal quote', context: 'Banisi · Assigned to you', owner: 'María Chen', ownerInitials: 'MC', action: 'Mark done' }
+  ];
+  const upcomingFeed = [
+    { type: 'expiration', severity: 'high', badge: '28 days', title: 'Trend Micro Vision One', context: 'Banisi · License · $42.8K', owner: 'María Chen', ownerInitials: 'MC', action: 'Review' },
+    { type: 'contract', severity: 'medium', badge: 'May 2', title: 'Gold Support Contract', context: 'Banisi · Nextcom · Auto-renew', owner: 'Diego Paredes', ownerInitials: 'DP', action: 'Review' },
+    { type: 'expiration', severity: 'medium', badge: 'May 19', title: 'Veeam Backup M365', context: 'Nova Finance · 250 mailboxes', owner: 'Tomás Vega', ownerInitials: 'TV', action: 'Renew' },
+    { type: 'task', severity: 'medium', badge: 'Fri', title: 'Schedule QBR with Banisi', context: 'Q2 quarterly business review', owner: 'You', ownerInitials: 'YO', action: 'Schedule' }
+  ];
+  const browseShortcuts = [
+    { label: 'Companies', count: '12 clients' },
+    { label: 'Licenses', count: '4 expiring' },
+    { label: 'Contracts', count: '23 active' },
+    { label: 'Documents', count: '186 files' },
+    { label: 'Tasks', count: '17 open' },
+    { label: 'Reports', count: '8 scheduled' }
+  ];
+  const typeMeta = {
+    expiration: { label: 'EXPIRATION', color: '#DC2626', bg: '#FEF2F2' },
+    task: { label: 'TASK', color: '#D97706', bg: '#FFFBEB' },
+    approval: { label: 'APPROVAL', color: '#6D28D9', bg: '#F5F3FF' },
+    contract: { label: 'CONTRACT', color: '#1D4ED8', bg: '#EFF6FF' },
+    ai: { label: 'AI · OPRIVA', color: '#0D9488', bg: '#F0FDFA' }
+  };
+  const renderCard = (item, idx) => {
+    const meta = typeMeta[item.type] || typeMeta.expiration;
+    const sevClass = item.severity ? `sev-${item.severity}` : '';
+    if(item.type === 'ai'){
+      return <div className="mdFeedCard mdCardAi" key={idx}>
+        <span className="mdTypeChip" style={{color: meta.color, background: meta.bg}}>{meta.label}</span>
+        <h3 className="mdCardTitle">{item.title}</h3>
+        <p className="mdCardDesc">{item.desc}</p>
+        <div className="mdCardFooter mdCardFooterAi">
+          <button className="mdAction mdActionAi" type="button">{item.action} →</button>
+        </div>
+      </div>;
+    }
+    return <div className={`mdFeedCard ${sevClass}`} key={idx}>
+      <div className="mdCardTop">
+        <span className="mdTypeChip" style={{color: meta.color, background: meta.bg}}>{meta.label}</span>
+        <span className={`mdBadge ${sevClass}`}>{item.badge}</span>
+      </div>
+      <h3 className="mdCardTitle">{item.title}</h3>
+      <p className="mdCardContext">{item.context}</p>
+      <div className="mdCardFooter">
+        <div className="mdOwner">
+          <div className={`mdAvatar ${item.owner ? '' : 'mdAvatarNoOwner'}`}>{item.ownerInitials}</div>
+          <span className="mdOwnerName">{item.owner || 'Unassigned'}</span>
+        </div>
+        <button type="button" className={`mdAction ${item.severity === 'critical' ? 'mdActionCritical' : ''}`}>{item.action} →</button>
+      </div>
+    </div>;
+  };
+  return <main className="content mobileDashboard">
+    <div className="mdGreeting">
+      <span className="mdSalute">Good morning</span>
+      <h1>4 things need you</h1>
+    </div>
+    <div className="mdHeroStats">
+      <div className="mdHeroStat urgent">
+        <span className="mdStLbl">Critical now</span>
+        <span className="mdStVal">4</span>
+        <span className="mdStDelta">2 overdue</span>
+      </div>
+      <div className="mdHeroStat">
+        <span className="mdStLbl">At risk</span>
+        <span className="mdStVal">$214K</span>
+        <span className="mdStDelta">+8% vs last week</span>
+      </div>
+    </div>
+    <div className="mdChips" role="tablist" aria-label="Filter feed">
+      {['All','Mine','Critical','Today','This week'].map(c => (
+        <button key={c} type="button" role="tab" aria-selected={chip===c} className={`mdChip ${chip===c?'active':''}`} onClick={()=>setChip(c)}>{c}</button>
+      ))}
+    </div>
+    <div className="mdSectionHeader">
+      <span className="mdIndicator" aria-hidden="true"></span>
+      <strong>Needs action now</strong>
+      <em>{attentionFeed.length}</em>
+    </div>
+    <div className="mdFeedList">{attentionFeed.map(renderCard)}</div>
+    <div className="mdSectionHeader mdSectionWarning">
+      <span className="mdIndicator" aria-hidden="true"></span>
+      <strong>Upcoming this week</strong>
+      <em>{upcomingFeed.length}</em>
+    </div>
+    <div className="mdFeedList">{upcomingFeed.map(renderCard)}</div>
+    {!showLater && <button type="button" className="mdLaterToggle" onClick={()=>setShowLater(true)}>Show 14 more later this quarter ▾</button>}
+    <div className="mdBrowseSection">
+      <div className="mdSectionHeader mdSectionNeutral">
+        <span className="mdIndicator" aria-hidden="true"></span>
+        <strong>Browse</strong>
+      </div>
+      <div className="mdBrowseGrid">
+        {browseShortcuts.map(s => (
+          <button key={s.label} type="button" className="mdBrowseCard">
+            <strong>{s.label}</strong>
+            <span>{s.count}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  </main>;
+}
+
 function Dashboard(){
+  const vp = useViewport();
+  if(vp === 'mobile') return <MobileDashboard />;
   const priorityRows = [
     ['Dell Support Contract','Contract','Dell','May 26, 2026','12 days','$42,800','Unassigned','Assign owner'],
     ['Microsoft 365 Renewal','License','Microsoft','Jun 1, 2026','18 days','$31,200','Ana Ruiz','Prepare renewal'],
@@ -349,43 +477,64 @@ function Settings({ workspaceMode = 'MSP / Integrator', setWorkspaceMode = funct
   };
   const filteredGroups = settingsAdminGroups.map(function(group){
     var overviewDescription = overviewDescriptions[group.id] || group.description;
-    return { id: group.id, label: group.label, description: overviewDescription };
+    var subItems = (group.items || []).map(function(it){ return it[0]; });
+    return { id: group.id, label: group.label, description: overviewDescription, subItems: subItems };
   }).filter(function(group){
-    return !normalized || (group.label + ' ' + group.description).toLowerCase().includes(normalized);
+    if(!normalized) return true;
+    var combined = (group.label + ' ' + group.description + ' ' + group.subItems.join(' ')).toLowerCase();
+    return combined.includes(normalized);
   });
+  var foundationIds = { company: true, access: true, data: true, integrations: true };
+  var topRow = filteredGroups.filter(function(g){ return foundationIds[g.id]; });
+  var bottomRow = filteredGroups.filter(function(g){ return !foundationIds[g.id]; });
   const openedGroup = openedGroupId ? settingsAdminGroups.find(function(g){ return g.id === openedGroupId; }) : null;
+  const renderHubSection = function(group){
+    return <div className="settingsHubSection" key={group.id}>
+      <button type="button" className="settingsHubSectionTitleBtn" onClick={function(){ setOpenedGroupId(group.id); }}>{group.label}</button>
+      <p className="settingsHubSectionDesc">{group.description}</p>
+      <ul className="settingsHubSectionList">
+        {group.subItems.map(function(item){
+          return <li key={item}>
+            <button type="button" className="settingsHubLink" onClick={function(){ setOpenedGroupId(group.id); }}>
+              <span>{item}</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+            </button>
+          </li>;
+        })}
+      </ul>
+    </div>;
+  };
 
   return <main className="content settingsPage settingsDirectoryPage">
-    <ScreenHeader active="Settings" subtitle="Manage workspace, access, data, automation, AI and governance." />
-    {!openedGroup && <div className="settingsHub">
-      <div className="settingsHubRow">
-        <SettingsHealthBar />
+    {!openedGroup && <div className="settingsHubDirectory">
+      <div className="settingsHubDirectoryHeader">
+        <p className="settingsHubDirectoryEyebrow">Workspace administration</p>
+        <h1 className="settingsHubDirectoryTitle">Settings</h1>
+        <p className="settingsHubDirectorySubtitle">Manage workspace, access, data, automation, AI and governance.</p>
+      </div>
+      <div className="settingsHubDirectorySearchBlock">
+        <p className="settingsHubDirectorySearchLabel">Search settings</p>
         <input
-          className="settingsSearchInput"
+          type="text"
+          className="settingsHubDirectorySearchInput"
           value={query}
           onChange={function(e){ setQuery(e.target.value); }}
           placeholder="Search settings..."
           aria-label="Search settings"
         />
       </div>
+      <hr className="settingsHubDirectoryDivider" />
       {filteredGroups.length === 0
         ? <p className="settingsNoResults">No matching settings found.</p>
-        : <div className="settingsGroupGrid settingsOverviewCards">
-            {filteredGroups.map(function(group){
-              return <article className="settingsDirectoryGroup settingsOverviewCard" key={group.id}>
-                <div className="settingsOverviewCardCopy">
-                  <h3 className="settingsGroupLabel">{group.label}</h3>
-                  <p className="settingsOverviewDescription">{group.description}</p>
-                </div>
-                <button type="button" className="settingsOverviewOpen" onClick={function(){ setOpenedGroupId(group.id); }}>
-                  Open
-                </button>
-              </article>;
-            })}
-          </div>
+        : <React.Fragment>
+            {topRow.length > 0 && <div className="settingsHubDirectoryRow">{topRow.map(renderHubSection)}</div>}
+            {topRow.length > 0 && bottomRow.length > 0 && <hr className="settingsHubDirectoryDivider" />}
+            {bottomRow.length > 0 && <div className="settingsHubDirectoryRow">{bottomRow.map(renderHubSection)}</div>}
+          </React.Fragment>
       }
     </div>}
     {openedGroup && <div className="settingsDetailWorkspace" aria-live="polite">
+      <ScreenHeader active="Settings" subtitle="Manage workspace, access, data, automation, AI and governance." />
       <button className="settingsBackButton" type="button" onClick={function(){ setOpenedGroupId(null); }}>← Back to Settings</button>
       {openedGroup.id === 'ai-operator'
         ? <AiSettingsPanel />
@@ -860,8 +1009,10 @@ function OprivaProductMark(){
   </span>;
 }
 
-function SidebarShell({ active, onSelect }){
-  return <aside className="sidebar">
+function SidebarShell({ active, onSelect, open=false, onClose }){
+  const handleSelect = (item) => { onSelect(item); if(onClose) onClose(); };
+  return <aside className={cx('sidebar', open && 'sidebarOpen')}>
+    <button type="button" className="sidebarCloseBtn" onClick={onClose} aria-label="Close menu">×</button>
     <div className="brand" aria-label="Opriva product identity">
       <OprivaProductMark />
       <span className="brandCopy"><strong>Opriva</strong><span>IT Asset & Renewal Intelligence</span></span>
@@ -869,20 +1020,26 @@ function SidebarShell({ active, onSelect }){
     <nav>
       {SIDEBAR_GROUPS.map(group => <div className="navGroup" key={group.label}>
         <p>{group.label}</p>
-        {group.items.map(item => <button key={item} className={active === item ? 'active' : ''} onClick={() => onSelect(item)} type="button">{getPageDisplayName(item)}</button>)}
+        {group.items.map(item => <button key={item} className={active === item ? 'active' : ''} onClick={() => handleSelect(item)} type="button">{getPageDisplayName(item)}</button>)}
       </div>)}
     </nav>
   </aside>;
 }
 
-function TopbarShell({ active, onSearch, onAlerts }){
+function TopbarShell({ active, onSearch, onAlerts, onMenuToggle }){
   return <header className="topbar">
+    <button className="mobileHamburger" type="button" onClick={onMenuToggle} aria-label="Open menu">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+    </button>
     <button className="tenantLockup" type="button" aria-label="Open workspace menu">
       <span className="tenantLogo">B</span>
       <div><strong>Banisi Workspace</strong><span>{getPageDisplayName(active)}</span></div>
     </button>
     <label className="globalSearch"><span aria-hidden="true">⌘K</span><input onFocus={onSearch} placeholder="Search records, renewals, documents..." aria-label="Global Search" /></label>
-    <div className="topActions"><button type="button" onClick={onAlerts} aria-label="Open alerts">9 alerts</button><span className="avatar">MC</span></div>
+    <button className="mobileSearchIcon" type="button" onClick={onSearch} aria-label="Search">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+    </button>
+    <div className="topActions"><button type="button" onClick={onAlerts} aria-label="Open alerts"><span className="topActionLabel">9 alerts</span><span className="topActionIcon" aria-hidden="true">🔔</span></button><span className="avatar">MC</span></div>
   </header>;
 }
 
@@ -1066,11 +1223,14 @@ function App(){
   const [aiOpen, setAiOpen] = React.useState(false);
   const [eyeFollowsCursor, setEyeFollowsCursor] = React.useState(true);
   const [workspaceMode, setWorkspaceMode] = React.useState('MSP / Integrator');
+  const [sidebarOpen, setSidebarOpen] = React.useState(false);
+  const handleSelect = (item) => { setActive(item); setSidebarOpen(false); };
   const route = active === 'Search' ? <SearchScreen/> : active === 'Dashboard' ? <Dashboard/> : active === 'Attention Center' ? <AttentionCenter/> : active === 'Companies / Clients' ? <CompaniesScreen/> : active === 'Settings' ? <Settings workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode}/> : active === 'Expirations' ? <AssetsRenewalsScreen/> : active === 'Licenses' ? <OperationalList active="Licenses" note="Brand, product, SKU, quantity, usage, renewal status and document links stay visible." tabs={['All','High risk','Under-used','Missing document','Renewal due']} columns={['License','Brand','Company','Quantity','Renewal','Amount','Owner','Risk']} rows={licenses}/> : active === 'Contracts' ? <ContractsScreen/> : active === 'Documents' ? <DocumentsScreen/> : active === 'Tasks' ? <TasksScreen/> : active === 'Reports' ? <ReportsScreen/> : active === 'Data Import' ? <DataImportScreen/> : <Dashboard/>;
   return <div className={cx('app', active === 'Expirations' && 'assetsRouteActive', active === 'Search' && 'searchRouteActive')}>
-    <style>{styles + aiStyles + livingAgentStyles + oprivaUpgradeStyles + assetsRenewalsStyles + aiSettingsFixStyles + settingsAdminOverrideStyles + settingsDirectoryOverrideStyles}</style>
-    <SidebarShell active={active} onSelect={setActive} />
-    <section className="workspace"><TopbarShell active={active} onSearch={() => setActive('Search')} onAlerts={() => setActive('Attention Center')} />{route}</section>
+    <style>{styles + aiStyles + livingAgentStyles + oprivaUpgradeStyles + assetsRenewalsStyles + aiSettingsFixStyles + settingsAdminOverrideStyles + settingsDirectoryOverrideStyles + settingsHubDirectoryStyles + responsiveStyles}</style>
+    <SidebarShell active={active} onSelect={handleSelect} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+    <div className={cx('sidebarBackdrop', sidebarOpen && 'sidebarBackdropOpen')} onClick={() => setSidebarOpen(false)} aria-hidden="true"></div>
+    <section className="workspace"><TopbarShell active={active} onSearch={() => setActive('Search')} onAlerts={() => setActive('Attention Center')} onMenuToggle={() => setSidebarOpen(true)} />{route}</section>
     <FloatingOprivaAgentButton isOpen={aiOpen} onClick={() => setAiOpen(true)} eyeFollowsCursor={eyeFollowsCursor} />
     {aiOpen && <OprivaDrawer active={active} onClose={() => setAiOpen(false)} eyeFollowsCursor={eyeFollowsCursor} setEyeFollowsCursor={setEyeFollowsCursor} />}
     <ToastStack />
@@ -1278,5 +1438,267 @@ const oprivaUpgradeStyles = `
 .modeLabelLine strong{white-space:normal;overflow:visible;text-overflow:clip}
 .modePreviewText{font-size:13px;line-height:1.65}
 @media(max-width:1050px){.sidebar{position:relative;width:100%;height:auto}.app{display:block}.workspace{margin-left:0}.topbar{grid-template-columns:1fr;gap:10px;height:auto;padding:16px}.agentWrap{right:18px;bottom:84px}}`;
+
+const settingsHubDirectoryStyles = `
+.settingsDirectoryPage{padding:32px 28px 80px}
+.settingsHubDirectory{display:flex;flex-direction:column;gap:0;padding:0}
+.settingsHubDirectoryHeader{margin:0 0 36px;display:block}
+.settingsHubDirectoryEyebrow{margin:0 0 14px;color:#0D9488;text-transform:uppercase;font-size:12px;letter-spacing:.18em;font-weight:800}
+.settingsHubDirectoryTitle{margin:0;color:#0F2138;font-size:clamp(40px,5vw,64px);letter-spacing:-.045em;font-weight:800;line-height:.95}
+.settingsHubDirectorySubtitle{margin:18px 0 0;color:#66758A;font-size:16px;line-height:1.5;max-width:640px;font-weight:400}
+.settingsHubDirectorySearchBlock{margin:0 0 44px;max-width:680px}
+.settingsHubDirectorySearchLabel{margin:0 0 12px;color:#66758A;text-transform:uppercase;font-size:11px;letter-spacing:.18em;font-weight:800}
+.settingsHubDirectorySearchInput{width:100%;height:56px;border:1px solid #E5E7EB;border-radius:14px;background:#fff;padding:0 22px;font-size:16px;color:#0F2138;outline:0;font-family:inherit;box-shadow:0 4px 14px rgba(15,35,65,.035);transition:border-color .16s ease,box-shadow .16s ease}
+.settingsHubDirectorySearchInput::placeholder{color:#94A3B8;font-weight:400}
+.settingsHubDirectorySearchInput:focus{border-color:#0D9488;box-shadow:0 0 0 4px rgba(13,148,136,.12)}
+.settingsHubDirectoryDivider{margin:0 0 36px;height:1px;background:#E8EEF4;border:0}
+.settingsHubDirectoryRow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:48px;margin-bottom:36px}
+.settingsHubSection{display:flex;flex-direction:column;min-width:0}
+.settingsHubSectionTitleBtn{appearance:none;-webkit-appearance:none;background:transparent;border:0;padding:0;margin:0 0 10px;color:#0F2138;font-size:22px;font-weight:800;letter-spacing:-.02em;font-family:inherit;text-align:left;cursor:pointer;transition:color .16s ease;width:fit-content;box-shadow:none}
+.settingsHubSectionTitleBtn:hover{color:#0D9488;background:transparent;border-color:transparent;box-shadow:none}
+.settingsHubSectionTitleBtn:focus-visible{outline:2px solid rgba(13,148,136,.4);outline-offset:3px;border-radius:4px}
+.settingsHubSectionDesc{margin:0 0 26px;color:#66758A;font-size:14px;line-height:1.5;font-weight:400}
+.settingsHubSectionList{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.settingsHubSectionList li{margin:0;padding:0}
+.settingsHubSectionList li + li .settingsHubLink{border-top:1px solid #E8EEF4}
+.settingsHubLink{appearance:none;-webkit-appearance:none;background:transparent;border:0;padding:14px 0;margin:0;width:100%;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:12px;color:#0F2138;font-size:15.5px;font-weight:700;letter-spacing:-.005em;font-family:inherit;text-align:left;box-shadow:none;border-radius:0;transition:padding .18s ease,color .16s ease}
+.settingsHubLink:hover{padding-left:8px;color:#0D9488;background:transparent;border-color:transparent;box-shadow:none}
+.settingsHubLink:focus-visible{outline:2px solid rgba(13,148,136,.4);outline-offset:4px;border-radius:4px}
+.settingsHubLink svg{color:#94A3B8;flex:0 0 auto;transition:transform .18s ease,color .16s ease}
+.settingsHubLink:hover svg{color:#0D9488;transform:translateX(3px)}
+.settingsDirectoryPage .settingsNoResults{color:#94A3B8;font-size:15px;margin:0;padding:24px 0}
+@media(max-width:1200px){.settingsHubDirectoryRow{grid-template-columns:repeat(3,minmax(0,1fr));gap:40px}}
+@media(max-width:900px){.settingsHubDirectoryRow{grid-template-columns:repeat(2,minmax(0,1fr));gap:36px}}
+@media(max-width:600px){.settingsDirectoryPage{padding:24px 20px 56px}.settingsHubDirectoryRow{grid-template-columns:1fr;gap:28px}.settingsHubDirectoryHeader{margin-bottom:28px}.settingsHubDirectorySearchBlock{margin-bottom:32px}}
+`;
+
+const responsiveStyles = `
+/* ============================================================
+   RESPONSIVE LAYER — desktop (>=1200px) totally untouched.
+   All rules are inside media queries.
+   ============================================================ */
+
+/* Defaults: new elements are invisible on desktop */
+.mobileHamburger{display:none}
+.mobileSearchIcon{display:none}
+.sidebarBackdrop{display:none}
+.sidebarCloseBtn{display:none}
+.topActionIcon{display:none}
+
+/* === TABLET + MOBILE (< 1200px) === */
+@media (max-width: 1199px){
+  /* App layout: drop the grid so sidebar can float as drawer */
+  .app{display:block !important;grid-template-columns:none !important}
+
+  /* Sidebar becomes off-canvas drawer */
+  .sidebar{position:fixed !important;top:0 !important;left:0 !important;bottom:0 !important;width:300px !important;height:100vh !important;max-height:100vh !important;z-index:200 !important;transform:translateX(-100%) !important;transition:transform .28s cubic-bezier(.32,.72,0,1) !important;box-shadow:0 0 80px rgba(11,31,58,.32) !important;overflow-y:auto !important;padding:18px 14px !important}
+  .sidebar.sidebarOpen{transform:translateX(0) !important}
+
+  /* Close button inside sidebar (visible only when drawer mode) */
+  .sidebarCloseBtn{display:inline-flex;position:absolute;top:14px;right:12px;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.10);border:0;color:#fff;cursor:pointer;align-items:center;justify-content:center;padding:0;font-size:22px;line-height:1;font-weight:400;z-index:1}
+  .sidebarCloseBtn:hover{background:rgba(255,255,255,.18)}
+
+  /* Workspace no longer pushed by fixed sidebar */
+  .workspace{margin-left:0 !important;width:100% !important;min-width:0 !important}
+
+  /* Backdrop overlay when sidebar open */
+  .sidebarBackdrop{display:block;position:fixed;inset:0;background:rgba(11,31,58,.5);z-index:150;opacity:0;pointer-events:none;transition:opacity .22s ease;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
+  .sidebarBackdrop.sidebarBackdropOpen{opacity:1;pointer-events:auto}
+
+  /* Show hamburger button */
+  .mobileHamburger{display:inline-flex;appearance:none;width:42px;height:42px;border-radius:11px;border:1px solid #E2E8F0;background:#fff;color:#0F2138;cursor:pointer;align-items:center;justify-content:center;flex:0 0 auto;padding:0;margin-right:6px;font-family:inherit}
+  .mobileHamburger:hover{background:#F8FAFC;border-color:#CBD5E1}
+  .mobileHamburger:active{transform:translateY(1px)}
+
+  /* Touch targets ≥44px on nav items */
+  .navGroup button{min-height:44px}
+
+  /* Topbar adjustments */
+  .topbar{padding:12px 16px !important;gap:10px !important;height:auto !important;min-height:64px;display:flex !important;flex-wrap:nowrap !important;align-items:center !important;grid-template-columns:none !important}
+  .topbar .globalSearch{min-width:0 !important;flex:1;max-width:none}
+  .tenantLockup{flex:0 0 auto;min-width:0}
+  .tenantLockup div{min-width:0;overflow:hidden}
+  .tenantLockup strong{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}
+  .tenantLockup span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  /* AI Drawer adjust */
+  .aiDrawer{width:min(380px,calc(100vw - 36px)) !important}
+}
+
+/* === MOBILE ONLY (< 768px) === */
+@media (max-width: 767px){
+  /* Sidebar narrower on phone */
+  .sidebar{width:84% !important;max-width:300px !important}
+
+  /* Topbar compaction */
+  .topbar{padding:10px 12px !important;gap:8px !important;min-height:58px}
+  .topbar .globalSearch{display:none !important}
+  .mobileSearchIcon{display:inline-flex;appearance:none;width:38px;height:38px;border-radius:50%;border:1px solid #E2E8F0;background:#fff;color:#0F2138;cursor:pointer;align-items:center;justify-content:center;flex:0 0 auto;padding:0;font-family:inherit}
+  .mobileSearchIcon:hover{background:#F8FAFC}
+  .tenantLockup strong{font-size:13px;max-width:120px}
+  .tenantLockup span{font-size:11px}
+  .tenantLogo{width:32px !important;height:32px !important;font-size:12px !important}
+  .topActions button{height:38px !important;width:38px !important;padding:0 !important;border-radius:50% !important;display:grid !important;place-items:center}
+  .topActions .topActionLabel{display:none}
+  .topActions .topActionIcon{display:block;font-size:15px}
+  .avatar{width:34px !important;height:34px !important}
+
+  /* Content padding */
+  .content{padding:14px !important;gap:12px !important}
+
+  /* Screen header compaction */
+  .screenHeader{flex-direction:column;align-items:stretch}
+  .screenHeader h1{font-size:24px !important}
+  .screenHeader span{max-width:none}
+  .headerActions{width:100%;flex-wrap:wrap}
+  .headerActions button{flex:1 1 auto;min-height:44px}
+
+  /* Stats grid → 2 cols on phone */
+  .statsGrid{grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:9px !important}
+  .statCard{padding:14px !important}
+  .statCard strong{font-size:22px !important}
+
+  /* Split layout stacks */
+  .split{grid-template-columns:1fr !important;gap:12px !important}
+
+  /* Panels: tighter */
+  .panel{padding:14px !important;border-radius:14px !important}
+  .panelTitle{flex-direction:column;align-items:flex-start;gap:4px;margin-bottom:10px !important}
+
+  /* === TABLES → STACKED CARDS === */
+  .content .tableWrap,
+  .content .priorityQueueWrap,
+  .content .renewalWorklistWrap,
+  .content .attentionWorkflowWrap{overflow:visible !important;border:0 !important;background:transparent !important;border-radius:0 !important}
+  .content table{min-width:0 !important;width:100% !important;display:block !important;background:transparent !important;border:0 !important}
+  .content thead{display:none !important}
+  .content tbody{display:block !important}
+  .content tr{display:block !important;background:#fff;border:1px solid #E5E7EB;border-radius:14px;padding:4px 4px;margin-bottom:10px;box-shadow:0 4px 12px rgba(15,35,65,.05)}
+  .content tr.selectedRow{border-color:#BFDBFE;background:#F8FBFF !important}
+  .content tr.selectedRow td:first-child{box-shadow:none}
+  .content td{display:flex !important;justify-content:space-between !important;align-items:center !important;gap:12px !important;padding:10px 12px !important;border-bottom:1px solid #F1F5F9 !important;text-align:right !important;font-size:13px !important;color:#0F2138 !important;font-weight:600 !important;min-width:0}
+  .content td:last-child{border-bottom:0 !important}
+  .content td::before{content:attr(data-label);color:#94A3B8;font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;font-weight:800;flex:0 0 auto;text-align:left;min-width:88px;white-space:normal}
+  .content td:not([data-label])::before,
+  .content td[data-label=""]::before{display:none}
+  .content td[data-label="Actions"]::before,
+  .content td.actionCell::before{display:none}
+  .content td.actionCell{justify-content:flex-end}
+  .content td.actionCell .rowAction{min-height:36px;padding:8px 14px;font-size:12.5px}
+
+  /* AI Drawer → bottom sheet */
+  .aiDrawer{position:fixed !important;left:0 !important;right:0 !important;bottom:0 !important;top:auto !important;width:100% !important;max-height:82vh !important;border-radius:22px 22px 0 0 !important;animation:drawerInBottom .26s cubic-bezier(.32,.72,0,1) !important;box-shadow:0 -18px 48px rgba(15,23,42,.22) !important;border-bottom:0 !important;border-left:0 !important;border-right:0 !important}
+  .aiDrawer::before{content:'';display:block;width:36px;height:4px;background:#CBD5E1;border-radius:999px;margin:-4px auto 10px}
+  @keyframes drawerInBottom{from{opacity:.5;transform:translateY(100%)}to{opacity:1;transform:translateY(0)}}
+
+  /* Floating agent button: respect safe-area, smaller */
+  .agentWrap,.floatingAgentWrap{right:14px !important;bottom:14px !important}
+  .agentButton,.floatingAgentBtn{width:52px !important;height:52px !important;border-radius:16px !important}
+
+  /* Touch targets */
+  .content button:not(.rowAction):not(.ghostBtn):not(.subtleRowAction):not(.hubLink):not(.mdChip):not(.mdAvatar):not(.mdAction):not(.mdLaterToggle):not(.settingsHubLink):not(.settingsHubSectionTitleBtn){min-height:44px}
+
+  /* Wizard scrollable horizontal */
+  .wizardSteps{grid-template-columns:repeat(9,minmax(120px,1fr)) !important}
+
+  /* Toolbar: stack inputs and buttons */
+  .toolbar{flex-direction:column;align-items:stretch;gap:8px}
+  .toolbar input{width:100%;min-width:0}
+  .toolbar button{width:100%}
+
+  /* Tabs: horizontal scroll */
+  .tabs{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:8px}
+  .tabs::-webkit-scrollbar{display:none}
+  .tabs button{flex:0 0 auto;white-space:nowrap}
+
+  /* Kanban becomes stacked */
+  .kanban{grid-template-columns:1fr !important}
+
+  /* AI insight bar */
+  .aiInsightBar{flex-direction:column;align-items:flex-start;padding:12px}
+  .aiInsightBarLeft,.aiInsightBarText{width:100%}
+  .aiInsightBarActions,.compactActions{width:100%;flex-wrap:wrap}
+  .aiInsightBarActions button,.compactActions button{flex:1 1 auto;min-height:36px}
+
+  /* Toast stack positioning */
+  .toastStack{right:14px !important;left:14px !important;bottom:80px !important}
+}
+
+/* ============================================================
+   MOBILE DASHBOARD — feed unificado
+   Only renders on phone (MobileDashboard is only returned by Dashboard
+   when viewport is mobile), so these styles only ever apply on mobile.
+   ============================================================ */
+.mobileDashboard{padding:14px !important;gap:14px !important;display:flex !important;flex-direction:column !important}
+.mdGreeting{margin:2px 2px 0}
+.mdSalute{display:block;color:#94A3B8;font-size:13px;font-weight:600;margin-bottom:2px}
+.mdGreeting h1{margin:0;color:#0F2138;font-size:26px;letter-spacing:-.035em;font-weight:800;line-height:1.1}
+
+.mdHeroStats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.mdHeroStat{background:#fff;border:1px solid #E5E7EB;border-radius:14px;padding:14px;box-shadow:0 6px 18px rgba(15,35,65,.04);position:relative;overflow:hidden}
+.mdHeroStat.urgent{border-color:#FECACA;background:linear-gradient(180deg,#FFFBFB 0%,#fff 60%)}
+.mdStLbl{display:block;color:#64748B;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.mdStVal{display:block;margin:6px 0 1px;font-size:26px;font-weight:800;letter-spacing:-.035em;color:#0F2138;line-height:1.1}
+.mdHeroStat.urgent .mdStVal{color:#B91C1C}
+.mdStDelta{display:block;color:#94A3B8;font-size:11.5px;font-weight:600}
+.mdHeroStat.urgent .mdStDelta{color:#B91C1C;font-weight:700}
+
+.mdChips{display:flex;gap:7px;overflow-x:auto;padding:2px 0;scrollbar-width:none;margin:0 -14px 0;padding:0 14px;-webkit-overflow-scrolling:touch}
+.mdChips::-webkit-scrollbar{display:none}
+.mdChip{appearance:none;flex:0 0 auto;height:34px;padding:0 13px;border-radius:999px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;box-shadow:none;min-height:34px}
+.mdChip:hover{border-color:#CBD5E1;background:#F8FAFC}
+.mdChip.active{background:#0F2138;color:#fff;border-color:#0F2138}
+
+.mdSectionHeader{display:flex;align-items:baseline;gap:8px;margin:6px 2px 0}
+.mdSectionHeader strong{color:#0F2138;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.1em}
+.mdSectionHeader em{font-style:normal;color:#94A3B8;font-size:12px;font-weight:700;margin-left:auto;background:#F1F5F9;padding:2px 9px;border-radius:999px}
+.mdIndicator{display:inline-block;width:8px;height:8px;border-radius:50%;background:#DC2626}
+.mdSectionWarning .mdIndicator{background:#D97706}
+.mdSectionNeutral .mdIndicator{background:#94A3B8}
+
+.mdFeedList{display:grid;gap:9px}
+.mdFeedCard{background:#fff;border:1px solid #E5E7EB;border-radius:14px;padding:14px;box-shadow:0 4px 12px rgba(15,35,65,.04);display:grid;gap:8px;cursor:pointer;transition:border-color .14s ease,box-shadow .14s ease,transform .12s ease}
+.mdFeedCard:hover{border-color:#CBD5E1;box-shadow:0 8px 22px rgba(15,35,65,.07);background:#fff}
+.mdFeedCard:active{transform:translateY(1px)}
+.mdFeedCard.sev-critical{border-left:3px solid #DC2626;padding-left:13px}
+.mdFeedCard.sev-warning{border-left:3px solid #D97706;padding-left:13px}
+.mdFeedCard.sev-high{border-left:3px solid #EA580C;padding-left:13px}
+.mdCardAi{border-color:#A7F3D0;background:linear-gradient(135deg,#F0FDFA 0%,#fff 60%)}
+
+.mdCardTop{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.mdTypeChip{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.mdBadge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:800;border:1px solid #E2E8F0;color:#475569;background:#F8FAFC;white-space:nowrap}
+.mdBadge.sev-critical{background:#FEF2F2;color:#B91C1C;border-color:#FECACA}
+.mdBadge.sev-warning{background:#FFFBEB;color:#92400E;border-color:#FCD34D}
+.mdBadge.sev-high{background:#FFF7ED;color:#C2410C;border-color:#FED7AA}
+
+.mdCardTitle{margin:0;color:#0F2138;font-size:15.5px;font-weight:750;letter-spacing:-.012em;line-height:1.3}
+.mdCardContext{margin:0;color:#64748B;font-size:13px;font-weight:600;line-height:1.4}
+.mdCardDesc{margin:0;color:#475569;font-size:13px;line-height:1.45}
+
+.mdCardFooter{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:8px;border-top:1px solid #F1F5F9;margin-top:2px}
+.mdCardFooterAi{border-top:0;padding-top:0;justify-content:flex-end;margin-top:0}
+.mdOwner{display:flex;align-items:center;gap:7px;min-width:0;flex:1}
+.mdAvatar{width:24px;height:24px;border-radius:50%;background:#EAF2FF;color:#1D4ED8;display:grid;place-items:center;font-size:10.5px;font-weight:900;flex:0 0 auto}
+.mdAvatarNoOwner{background:#FEE9C2;color:#92400E}
+.mdOwnerName{color:#475569;font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.mdAction{appearance:none;display:inline-flex;align-items:center;gap:5px;padding:8px 12px;border-radius:9px;background:#0F2138;color:#fff;border:0;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;min-height:36px;box-shadow:none}
+.mdAction:hover{background:#1E293B}
+.mdActionCritical{background:#DC2626}
+.mdActionCritical:hover{background:#B91C1C}
+.mdActionAi{background:#0D9488}
+.mdActionAi:hover{background:#0F766E}
+
+.mdLaterToggle{appearance:none;width:100%;padding:12px;background:#fff;border:1px dashed #CBD5E1;border-radius:12px;color:#64748B;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;box-shadow:none}
+.mdLaterToggle:hover{background:#F8FAFC;border-color:#94A3B8;color:#0F2138}
+
+.mdBrowseSection{margin-top:6px}
+.mdBrowseGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:8px}
+.mdBrowseCard{appearance:none;background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:14px;text-align:left;cursor:pointer;font-family:inherit;display:grid;gap:2px;min-height:64px;box-shadow:0 2px 8px rgba(15,35,65,.03);transition:border-color .14s ease,box-shadow .14s ease}
+.mdBrowseCard:hover{border-color:#CBD5E1;box-shadow:0 6px 16px rgba(15,35,65,.05);background:#fff}
+.mdBrowseCard strong{color:#0F2138;font-size:14px;font-weight:750;letter-spacing:-.012em}
+.mdBrowseCard span{color:#94A3B8;font-size:11.5px;font-weight:600}
+`;
 
 export default App;

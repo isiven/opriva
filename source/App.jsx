@@ -26,7 +26,7 @@ const TWEAK_DEFAULTS = {
 
 const SIDEBAR_GROUPS = [
   { label: 'Overview', items: ['Dashboard', 'Attention Center'] },
-  { label: 'Manage', items: ['Companies / Clients', 'Expirations', 'Licenses', 'Contracts', 'Documents'] },
+  { label: 'Manage', items: ['Companies / Clients', 'Vendors', 'Expirations', 'Licenses', 'Contracts', 'Documents'] },
   { label: 'Work', items: ['Tasks', 'Reports'] },
   { label: 'Admin', items: ['Data Import', 'Settings'] }
 ];
@@ -36,6 +36,7 @@ const moduleMeta = {
   'Attention Center': ['Operational issue center', 'Resolve critical renewals, ownership gaps, missing evidence and approval blockers before they become financial or operational risk.'],
   Search: ['Global command search', 'Find records, clients, vendors, documents, owners, tasks and renewal risks.'],
   'Companies / Clients': ['Client operating model', 'Manage client context, contacts, ownership, renewal exposure and related records from one workspace.'],
+  Vendors: ['Vendor portfolio', 'Vendor relationships, spend concentration and consolidation opportunities.'],
   Expirations: ['Renewal calendar', 'Prioritize upcoming dates and missing actions.'],
   Licenses: ['Software and SaaS licenses', 'Track products, quantities, spend and risk.'],
   Contracts: ['Commercial agreements', 'Track obligations, parties, value and status.'],
@@ -92,6 +93,23 @@ const licenses = [
   ['FortiGate UTP Support', 'Fortinet', 'Global Logistics Panamá', '8 appliances', 'Renews Aug 17, 2026', '$24,100', 'Diego Paredes', 'Healthy']
 ];
 
+const vendors = [
+  ['Microsoft', 'Productivity & cloud', '$287,400', '4', '1', 'Active'],
+  ['SAP', 'ERP', '$214,800', '2', '0', 'Active'],
+  ['NCR Corporation', 'POS systems', '$187,400', '1', '1', 'Renewal due'],
+  ['Cisco', 'Networking', '$124,800', '3', '2', 'Active'],
+  ['AWS', 'Cloud infrastructure', '$98,400', '1', '0', 'Active'],
+  ['Dell', 'Hardware', '$84,200', '4', '2', 'Active'],
+  ['Fortinet', 'Network security', '$42,800', '1', '1', 'Renewal due'],
+  ['CrowdStrike', 'Endpoint protection', '$38,400', '1', '0', 'Active'],
+  ['ManageEngine', 'ITSM', '$32,400', '1', '0', 'Active'],
+  ['Adobe', 'Creative & marketing', '$28,400', '2', '1', 'Active'],
+  ['Veeam', 'Backup & DR', '$24,800', '1', '0', 'Active'],
+  ['Kaspersky', 'Endpoint security', '$24,400', '1', '0', 'Consolidate'],
+  ['Symantec', 'Endpoint security', '$18,800', '1', '1', 'Consolidate'],
+  ['McAfee', 'Endpoint security', '$14,400', '1', '0', 'Consolidate']
+];
+
 const contracts = [
   ['Gold Support Contract', 'Support agreement', 'Banisi', 'Nextcom', 'Ends May 2, 2026', '$42,800', 'High risk'],
   ['Data Processing Addendum', 'Legal compliance', 'Nova Finance', 'CloudSecure Ltd.', 'Ends Jun 15, 2026', '$12,500', 'Legal review'],
@@ -124,6 +142,108 @@ const importRows = [
   ['Vendor catalog cleanup', 'providers.xlsx', '82 rows', '9 potential matches', 'Mapping required'],
   ['Warranty batch upload', 'dell_assets.csv', '146 rows', '3 serial conflicts', 'Validation failed']
 ];
+
+const operatingModels = [
+  { id: 'MSP / Integrator', label: 'MSP / Integrator', description: 'Manage client portfolios, assets, licenses, contracts, renewals and commercial exposure.' },
+  { id: 'Internal IT', label: 'Internal IT', description: 'Manage internal assets, departments, vendors, licenses, contracts and operational risk.' },
+  { id: 'Hybrid', label: 'Hybrid', description: 'Manage internal operations, external clients, vendors, subsidiaries and cross-functional exposure.' },
+  { id: 'Custom', label: 'Custom', description: 'Start from a flexible structure and configure Opriva around your operating model.' }
+];
+
+const modeConfig = {
+  'MSP / Integrator': {
+    sidebarLabels: {},
+    dashboardEyebrow: 'Client portfolio overview',
+    dashboardSubtitle: 'Operational signals across all your managed clients',
+    aiSummary: 'This week, 12 records enter a critical renewal window across your client portfolio. The highest impact item is the Dell Support Contract for Banisi for $42,800, expiring in 12 days without an assigned owner. Recommended action: assign an owner and prepare the renewal email today.',
+    dashboardStats: [
+      ['90-day exposure', '$284,000', '47 managed records', 'High exposure'],
+      ['30-day critical expirations', '12', '3 above $25,000 impact', 'Urgent'],
+      ['Missing owners', '18', '14% of active portfolio', 'Needs assignment'],
+      ['Pending actions', '9', 'Emails, tasks and documents', 'Review']
+    ],
+    vendors: {
+      eyebrow: 'Vendor portfolio',
+      subtitle: 'Vendor relationships across your client portfolio',
+      aiInsightTitle: 'Vendor leverage opportunities detected',
+      aiInsightDescription: 'Several vendors are present across multiple clients — opportunity to negotiate master agreements or volume pricing on behalf of the portfolio.',
+      aiInsightBreakdown: [
+        'Microsoft: present in 8 of 12 clients · master agreement opportunity',
+        'Cisco: present in 6 of 12 clients · volume pricing eligible',
+        'Dell: present in 5 of 12 clients · service consolidation possible'
+      ]
+    }
+  },
+  'Internal IT': {
+    sidebarLabels: { 'Companies / Clients': 'Departments' },
+    dashboardEyebrow: 'Internal IT overview',
+    dashboardSubtitle: 'IT operations, compliance and renewal posture across the organization',
+    aiSummary: 'Across the IT portfolio, $214K in vendor consolidation savings identified (3 antivirus vendors, 2 cloud storage providers). Highest impact opportunity: consolidate Kaspersky, Symantec and McAfee into a single enterprise license, estimated savings $87K per year. Recommended action: schedule a strategic vendor review with IT leadership this month.',
+    dashboardStats: [
+      ['Critical renewals (30 days)', '7', '$187K impact · 3 departments affected', 'Urgent'],
+      ['Renewal forecast (next quarter)', '$487K', 'Impact on accounts payable', 'High exposure'],
+      ['Compliance gaps', '4', 'PCI-DSS audit in 4 months', 'Needs assignment'],
+      ['Vendor consolidation savings', '$214K', 'Annual opportunity identified', 'Review']
+    ],
+    vendors: {
+      eyebrow: 'Vendor management',
+      subtitle: 'Concentration analysis and consolidation opportunities',
+      aiInsightTitle: '$214K consolidation opportunity identified',
+      aiInsightDescription: 'AI detected 3 vendor consolidation paths that could reduce IT spend without impacting capability.',
+      aiInsightBreakdown: [
+        'Endpoint security: Kaspersky + Symantec + McAfee → 1 enterprise license · $87K annual savings',
+        'Cloud storage: 2 providers detected with overlapping capacity → consolidated platform · $54K annual savings',
+        'POS support: 2 vendors covering 26 stores → consolidated MSA · $73K annual savings'
+      ]
+    }
+  },
+  'Hybrid': {
+    sidebarLabels: { 'Companies / Clients': 'Clients & Departments' },
+    dashboardEyebrow: 'Cross-functional overview',
+    dashboardSubtitle: 'Operations across business units, clients and subsidiaries',
+    aiSummary: 'This week, 12 records enter a critical renewal window across business units and external clients. The highest impact item is the Dell Support Contract for Banisi (external client) for $42,800, expiring in 12 days without an assigned owner. Recommended action: assign an owner and align with the relevant business unit lead today.',
+    dashboardStats: [
+      ['Cross-functional exposure', '$2.4M', 'Across business units and clients', 'High exposure'],
+      ['Critical renewals (30 days)', '14', 'Spanning 6 business units', 'Urgent'],
+      ['Multi-segment ownership gaps', '23', 'Records without BU lead', 'Needs assignment'],
+      ['Consolidation opportunities', '$324K', 'Cross-BU savings identified', 'Review']
+    ],
+    vendors: {
+      eyebrow: 'Vendor portfolio',
+      subtitle: 'Vendor concentration across business units and external clients',
+      aiInsightTitle: 'Cross-BU vendor optimization identified',
+      aiInsightDescription: 'AI detected vendors with overlap between internal business units and external clients — leverage opportunity for unified procurement.',
+      aiInsightBreakdown: [
+        'Microsoft: 3 internal BUs + 4 client accounts · unified enterprise agreement opportunity',
+        'Endpoint security: 3 vendors across internal and external · consolidate to 1 platform',
+        'Cloud storage: split internal/external · consolidated approach could save $124K'
+      ]
+    }
+  },
+  'Custom': {
+    sidebarLabels: { 'Companies / Clients': 'Records' },
+    dashboardEyebrow: 'Custom workspace overview',
+    dashboardSubtitle: 'Configure Opriva around your operating model',
+    aiSummary: 'Activate modules and connect data sources to see AI-powered insights here. Once your records are imported, Opriva will surface critical renewals, at-risk assets and recommended actions tailored to your custom operating model.',
+    dashboardStats: [
+      ['Workspace status', 'Setup in progress', 'Configure your operating model', 'Review'],
+      ['Active modules', '0 of 12', 'Activate modules in Settings', 'Review'],
+      ['Imported records', '—', 'Import CSV or XLSX to begin', 'Needs assignment'],
+      ['Setup progress', '15%', 'Workspace configuration in progress', 'Review']
+    ],
+    vendors: {
+      eyebrow: 'Vendor portfolio',
+      subtitle: 'Import your vendor list to surface insights',
+      aiInsightTitle: 'AI insights will appear once vendors are imported',
+      aiInsightDescription: 'Once your vendor list is connected, Opriva will surface spend concentration, consolidation opportunities and renewal risks tailored to your operating model.',
+      aiInsightBreakdown: [
+        'Connect your accounts payable or ERP system',
+        'Or import a CSV with vendor name, annual spend and contract details',
+        'AI insights typically appear within minutes of first import'
+      ]
+    }
+  }
+};
 
 const settingsAdminGroups = [
   { id: 'company', label: 'Company', title: 'Company', description: 'Workspace identity, tenant branding and regional defaults.', items: [
@@ -213,7 +333,7 @@ const AI_CONFIRMATION = 'Opriva AI will create 8 tasks assigned to 3 users. Revi
 function cx(...values){ return values.filter(Boolean).join(' '); }
 function asArray(data){ return Array.isArray(data) ? data : []; }
 function safeText(value, fallback='Not specified'){ return value || fallback; }
-function riskClass(value){ const v = String(value || '').toLowerCase(); return v.includes('critical') || v.includes('urgent') ? 'critical' : v.includes('high') || v.includes('approval') || v.includes('blocked') || v.includes('failed') || v.includes('unassigned') || v.includes('needs assignment') ? 'high' : v.includes('review') ? 'review' : v.includes('medium') || v.includes('warning') ? 'medium' : 'low'; }
+function riskClass(value){ const v = String(value || '').toLowerCase(); return v.includes('critical') || v.includes('urgent') ? 'critical' : v.includes('high') || v.includes('approval') || v.includes('blocked') || v.includes('failed') || v.includes('unassigned') || v.includes('needs assignment') ? 'high' : v.includes('review') ? 'review' : v.includes('medium') || v.includes('warning') || v.includes('consolidate') || v.includes('renewal due') ? 'medium' : 'low'; }
 function initials(name){ return String(name || 'Opriva').split(/\s+/).filter(Boolean).slice(0,2).map(x => x[0] || '').join('').toUpperCase() || 'OP'; }
 
 function Badge({ children, tone }){ const badgeTone = riskClass(tone || children); return <span className={cx('badge', badgeTone)}>{safeText(children)}</span>; }
@@ -235,19 +355,21 @@ function ToastStack({ notices = [] }){
 }
 function ValidationPanel(){ return <div className="validationPanel" role="group" aria-label="Import validation states"><div><strong>Required field missing</strong><span>Owner is required for 7 license rows.</span></div><div><strong>Invalid date</strong><span>Three rows use 31/31/2026.</span></div><div><strong>Duplicate record warning</strong><span>12 vendors resemble existing catalog records.</span></div><div><strong>Invalid file format</strong><span>Upload CSV or XLSX files only.</span></div><button disabled title="Fix validation errors before confirming">Confirm import</button></div>; }
 
-function ScreenHeader({ active, subtitle, children }){
+function ScreenHeader({ active, subtitle, eyebrow, children }){
   const meta = moduleMeta[active] || ['Opriva Workspace', 'Enterprise operational intelligence.'];
-  return <header className="screenHeader"><div><p>{meta[0]}</p><h1>{active}</h1><span>{subtitle || meta[1]}</span></div>{children && <div className="headerActions">{children}</div>}</header>;
+  return <header className="screenHeader"><div><p>{eyebrow || meta[0]}</p><h1>{active}</h1><span>{subtitle || meta[1]}</span></div>{children && <div className="headerActions">{children}</div>}</header>;
 }
 
-function StatCards(){
+function StatCards({ workspaceMode = 'MSP / Integrator' }){
+  const config = modeConfig[workspaceMode] || modeConfig['MSP / Integrator'];
+  const stats = config.dashboardStats || [
+    ['90-day exposure', '$284,000', '47 managed records', 'High exposure'],
+    ['30-day critical expirations', '12', '3 above $25,000 impact', 'Urgent'],
+    ['Missing owners', '18', '14% of active portfolio', 'Needs assignment'],
+    ['Pending actions', '9', 'Emails, tasks and documents', 'Review']
+  ];
   return <section className="statsGrid" aria-label="Workspace summary">
-    {[
-      ['90-day exposure', '$284,000', '47 managed records', 'High exposure'],
-      ['30-day critical expirations', '12', '3 above $25,000 impact', 'Urgent'],
-      ['Missing owners', '18', '14% of active portfolio', 'Needs assignment'],
-      ['Pending actions', '9', 'Emails, tasks and documents', 'Review']
-    ].map(([label, value, note, badge]) => <article className="statCard" key={label}><span>{label}</span><strong>{value}</strong><p>{note}</p><Badge tone={badge}>{badge}</Badge></article>)}
+    {stats.map(([label, value, note, badge]) => <article className="statCard" key={label}><span>{label}</span><strong>{value}</strong><p>{note}</p><Badge tone={badge}>{badge}</Badge></article>)}
   </section>;
 }
 
@@ -363,9 +485,10 @@ function MobileDashboard(){
   </main>;
 }
 
-function Dashboard(){
+function Dashboard({ workspaceMode = 'MSP / Integrator' }){
   const vp = useViewport();
   if(vp === 'mobile') return <MobileDashboard />;
+  const config = modeConfig[workspaceMode] || modeConfig['MSP / Integrator'];
   const priorityRows = [
     ['Dell Support Contract','Contract','Dell','May 26, 2026','12 days','$42,800','Unassigned','Assign owner'],
     ['Microsoft 365 Renewal','License','Microsoft','Jun 1, 2026','18 days','$31,200','Ana Ruiz','Prepare renewal'],
@@ -373,7 +496,7 @@ function Dashboard(){
     ['SSL Wildcard Certificate','Certificate','DigiCert','May 23, 2026','9 days','$3,200','Unassigned','Prepare renewal'],
     ['Adobe Creative Cloud','SaaS','Adobe','Jun 11, 2026','28 days','$9,800','Carlos Vega','Review usage']
   ];
-  return <main className="content dashboardContent"><ScreenHeader active="Dashboard"><button>Import records</button><button className="primary">Review exposure</button></ScreenHeader><StatCards/><section className="dashboardStack"><article className="panel aiRiskPanel"><div><div className="panelTitle"><h2>AI Risk Summary</h2><span>Financial exposure command center</span></div><p className="insightCopy">This week, 12 records enter a critical renewal window. The highest impact item is the Dell Support Contract for $42,800, expiring in 12 days without an assigned owner. Recommended action: assign an owner and prepare the renewal email today.</p></div><div className="actionStack compactActions"><button>Review critical items</button><button>Assign owners</button><button>Prepare vendor email</button></div></article><article className="panel priorityQueuePanel"><div className="panelTitle"><h2>Priority action queue</h2><span>Records prioritized by urgency, financial value and ownership gaps.</span></div><div className="tableWrap priorityQueueWrap"><table className="priorityQueueTable"><thead><tr>{['Record','Type','Vendor','Expiry date','Days left','Value','Owner','Recommended action'].map(column=><th key={column}>{column}</th>)}</tr></thead><tbody>{priorityRows.map(row=><tr key={row[0]}>{row.map((cell,index)=><td key={index} className={cx(index===0 && 'recordCell', index===1 && 'compactCell', index===2 && 'compactCell', index===4 && 'compactCell', index===5 && 'compactCell', index===6 && 'compactCell', index===7 && 'actionCell')}>{index===6 && cell==='Unassigned' ? <Badge tone="Warning">Unassigned</Badge> : index===7 ? <button type="button" className="rowAction">{cell}</button> : cell}</td>)}</tr>)}</tbody></table></div></article></section></main>;
+  return <main className="content dashboardContent"><ScreenHeader active="Dashboard" eyebrow={config.dashboardEyebrow} subtitle={config.dashboardSubtitle}><button>Import records</button><button className="primary">Review exposure</button></ScreenHeader><StatCards workspaceMode={workspaceMode}/><section className="dashboardStack"><article className="panel aiRiskPanel"><div><div className="panelTitle"><h2>AI Risk Summary</h2><span>Financial exposure command center</span></div><p className="insightCopy">{config.aiSummary}</p></div><div className="actionStack compactActions"><button>Review critical items</button><button>Assign owners</button><button>Prepare vendor email</button></div></article><article className="panel priorityQueuePanel"><div className="panelTitle"><h2>Priority action queue</h2><span>Records prioritized by urgency, financial value and ownership gaps.</span></div><div className="tableWrap priorityQueueWrap"><table className="priorityQueueTable"><thead><tr>{['Record','Type','Vendor','Expiry date','Days left','Value','Owner','Recommended action'].map(column=><th key={column}>{column}</th>)}</tr></thead><tbody>{priorityRows.map(row=><tr key={row[0]}>{row.map((cell,index)=><td key={index} className={cx(index===0 && 'recordCell', index===1 && 'compactCell', index===2 && 'compactCell', index===4 && 'compactCell', index===5 && 'compactCell', index===6 && 'compactCell', index===7 && 'actionCell')}>{index===6 && cell==='Unassigned' ? <Badge tone="Warning">Unassigned</Badge> : index===7 ? <button type="button" className="rowAction">{cell}</button> : cell}</td>)}</tr>)}</tbody></table></div></article></section></main>;
 }
 
 function AttentionCenter(){
@@ -404,6 +527,58 @@ function CompaniesScreen(){
   const [tab, setTab] = React.useState('Companies');
   const companyRecords = [['Trend Micro renewal','Renewal','May 2, 2026','High','María Chen','Open'],['Vision One Credits','License','1,200 credits','High','María Chen','Open'],['Dell Support Contract','Contract','May 26, 2026','Critical','Unassigned','Assign owner'],['Renewal Quote.pdf','Document','Version 2','Linked','María Chen','Open']];
   return <main className="content companiesClientsPage"><ScreenHeader active="Companies / Clients" subtitle="Manage client context, contacts, ownership, renewal exposure and related records from one workspace."><button>Configure columns</button><button className="primary">Add company</button></ScreenHeader><div className="tabs" role="tablist"><button className={tab==='Companies'?'active':''} onClick={()=>setTab('Companies')}>Companies</button><button className={tab==='Contacts'?'active':''} onClick={()=>setTab('Contacts')}>Contacts</button><button>Exposure</button><button>Documents</button></div><section className="panel clientPortfolioPanel"><div className="toolbar"><input placeholder="Search companies, contacts or domains…"/><button>Saved view: High exposure</button><button>Filters</button><button>Columns</button></div>{tab==='Contacts' ? <><div className="panelTitle"><h2>Key contacts</h2><span>Technical, commercial and legal owners per client</span></div><Table columns={['Contact','Company','Role','Email','Contact type','Responsibility']} rows={contacts}/></> : <><div className="panelTitle"><h2>Client portfolio</h2><span>Client-level exposure, ownership and upcoming renewal pressure.</span></div><Table columns={['Company','Segment','Main contact','Opriva owner','Managed records','Renewal pressure','Exposure','Risk']} rows={companies}/></>}</section><section className="panel selectedClientPanel"><div className="panelTitle"><h2>Selected client preview</h2><span>Key records, documents and actions linked to the selected client.</span></div><div className="tableWrap compactClientPreview"><table><thead><tr>{['Record','Type','Detail','Risk / status','Owner','Action'].map(column=><th key={column}>{column}</th>)}</tr></thead><tbody>{companyRecords.map(row=><tr key={row[0]}>{row.map((cell,index)=><td key={index} className={cx(index===0 && 'recordCell', index===5 && 'actionCell')}>{index===3 ? <Badge tone={cell}>{cell}</Badge> : index===4 && cell==='Unassigned' ? <Badge tone="Needs assignment">Unassigned</Badge> : index===5 ? <button type="button" className="rowAction subtleRowAction">{cell}</button> : cell}</td>)}</tr>)}</tbody></table></div></section></main>;
+}
+
+function VendorsScreen({ workspaceMode = 'MSP / Integrator' }){
+  const config = modeConfig[workspaceMode] || modeConfig['MSP / Integrator'];
+  const vConfig = config.vendors || {};
+  const [tab, setTab] = React.useState('All vendors');
+  const filteredVendors = tab === 'Consolidation flag'
+    ? vendors.filter(function(v){ return v[5] === 'Consolidate'; })
+    : tab === 'Renewals 90d'
+    ? vendors.filter(function(v){ return parseInt(v[4], 10) > 0; })
+    : tab === 'Top spend'
+    ? vendors.slice(0, 8)
+    : vendors;
+  return <main className="content vendorsPage">
+    <ScreenHeader active="Vendors" eyebrow={vConfig.eyebrow} subtitle={vConfig.subtitle}>
+      <button>Export</button>
+      <button className="primary">+ Add vendor</button>
+    </ScreenHeader>
+    <section className="aiCalloutPanel" aria-label="Opriva AI insight">
+      <div className="aiCalloutHeader">
+        <div className="aiCalloutBadge">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m12 3 1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/></svg>
+          <span>Opriva AI</span>
+        </div>
+        <button type="button" className="aiCalloutReview">Review opportunities →</button>
+      </div>
+      <h3 className="aiCalloutTitle">{vConfig.aiInsightTitle}</h3>
+      <p className="aiCalloutDesc">{vConfig.aiInsightDescription}</p>
+      {vConfig.aiInsightBreakdown && vConfig.aiInsightBreakdown.length > 0 && <ul className="aiCalloutBreakdown">
+        {vConfig.aiInsightBreakdown.map(function(item){ return <li key={item}>{item}</li>; })}
+      </ul>}
+    </section>
+    <section className="panel vendorsPanel">
+      <div className="toolbar">
+        <input placeholder="Search vendors, categories or contracts…"/>
+        <button>Saved view: Top spend</button>
+        <button>Filters</button>
+        <button>Columns</button>
+      </div>
+      <div className="tabs" role="tablist">
+        <button className={tab==='All vendors'?'active':''} onClick={function(){ setTab('All vendors'); }} type="button">All vendors</button>
+        <button className={tab==='Top spend'?'active':''} onClick={function(){ setTab('Top spend'); }} type="button">Top spend</button>
+        <button className={tab==='Renewals 90d'?'active':''} onClick={function(){ setTab('Renewals 90d'); }} type="button">Renewals 90d</button>
+        <button className={tab==='Consolidation flag'?'active':''} onClick={function(){ setTab('Consolidation flag'); }} type="button">Consolidation flag</button>
+      </div>
+      <div className="panelTitle">
+        <h2>Vendor portfolio</h2>
+        <span>Annual spend, contract count, renewal exposure and consolidation flags.</span>
+      </div>
+      <Table columns={['Vendor','Category','Annual spend','Contracts','Renewals 90d','Status']} rows={filteredVendors}/>
+    </section>
+  </main>;
 }
 
 function ListScreen({ active, columns, rows, note }){
@@ -512,6 +687,32 @@ function Settings({ workspaceMode = 'MSP / Integrator', setWorkspaceMode = funct
           placeholder="Search settings..."
           aria-label="Search settings"
         />
+      </div>
+      <hr className="settingsHubDirectoryDivider" />
+      <div className="settingsOperatingModel">
+        <div className="settingsOperatingModelHeader">
+          <p className="settingsOperatingModelEyebrow">Operating Model</p>
+          <p className="settingsOperatingModelSubtitle">Opriva adapts to your operating model.</p>
+        </div>
+        <div className="settingsOperatingModelGrid">
+          {operatingModels.map(function(model){
+            var isSelected = workspaceMode === model.id;
+            return <button
+              key={model.id}
+              type="button"
+              className={cx('settingsOperatingModelCard', isSelected && 'settingsOperatingModelCardActive')}
+              onClick={function(){ setWorkspaceMode(model.id); }}
+              aria-pressed={isSelected}>
+              <span className="settingsOperatingModelCardHead">
+                <strong>{model.label}</strong>
+                {isSelected && <span className="settingsOperatingModelCardCheck" aria-hidden="true">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5L20 7"/></svg>
+                </span>}
+              </span>
+              <span className="settingsOperatingModelCardDesc">{model.description}</span>
+            </button>;
+          })}
+        </div>
       </div>
       <hr className="settingsHubDirectoryDivider" />
       {filteredGroups.length === 0
@@ -999,8 +1200,9 @@ function OprivaProductMark(){
   </span>;
 }
 
-function SidebarShell({ active, onSelect, open=false, onClose }){
+function SidebarShell({ active, onSelect, open=false, onClose, workspaceMode = 'MSP / Integrator' }){
   const handleSelect = (item) => { onSelect(item); if(onClose) onClose(); };
+  const labelOverrides = (modeConfig[workspaceMode] && modeConfig[workspaceMode].sidebarLabels) || {};
   return <aside className={cx('sidebar', open && 'sidebarOpen')}>
     <button type="button" className="sidebarCloseBtn" onClick={onClose} aria-label="Close menu">×</button>
     <div className="brand" aria-label="Opriva product identity">
@@ -1010,7 +1212,10 @@ function SidebarShell({ active, onSelect, open=false, onClose }){
     <nav>
       {SIDEBAR_GROUPS.map(group => <div className="navGroup" key={group.label}>
         <p>{group.label}</p>
-        {group.items.map(item => <button key={item} className={active === item ? 'active' : ''} onClick={() => handleSelect(item)} type="button">{getPageDisplayName(item)}</button>)}
+        {group.items.map(item => {
+          var displayLabel = labelOverrides[item] || getPageDisplayName(item);
+          return <button key={item} className={active === item ? 'active' : ''} onClick={() => handleSelect(item)} type="button">{displayLabel}</button>;
+        })}
       </div>)}
     </nav>
   </aside>;
@@ -1034,6 +1239,7 @@ function CommandPalette({ open, onClose, onNavigate, onOpenAi }){
     { id: 'Dashboard', label: 'Dashboard', desc: 'Workspace overview and AI risk summary' },
     { id: 'Attention Center', label: 'Attention Center', desc: 'Critical issues, missing owners and pending approvals' },
     { id: 'Companies / Clients', label: 'Companies / Clients', desc: 'Client portfolio and ownership' },
+    { id: 'Vendors', label: 'Vendors', desc: 'Vendor portfolio, concentration and consolidation opportunities' },
     { id: 'Expirations', label: 'Expirations', desc: 'Renewal worklist by urgency' },
     { id: 'Licenses', label: 'Licenses', desc: 'Software licenses, quantity and renewals' },
     { id: 'Contracts', label: 'Contracts', desc: 'Active contracts and obligations' },
@@ -1458,7 +1664,7 @@ const assetsRenewalsStyles = `
 .assetsRouteActive .navGroup button:not(.active):hover{background:rgba(255,255,255,.025);color:#DDE8F7}
 `;
 
-function App(){
+export default function App(){
   const [active, setActive] = React.useState('Dashboard');
   const [aiOpen, setAiOpen] = React.useState(false);
   const [eyeFollowsCursor, setEyeFollowsCursor] = React.useState(true);
@@ -1476,10 +1682,10 @@ function App(){
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, []);
-  const route = active === 'Search' ? <SearchScreen/> : active === 'Dashboard' ? <Dashboard/> : active === 'Attention Center' ? <AttentionCenter/> : active === 'Companies / Clients' ? <CompaniesScreen/> : active === 'Settings' ? <Settings workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode}/> : active === 'Expirations' ? <AssetsRenewalsScreen/> : active === 'Licenses' ? <OperationalList active="Licenses" note="Brand, product, SKU, quantity, usage, renewal status and document links stay visible." tabs={['All','High risk','Under-used','Missing document','Renewal due']} columns={['License','Brand','Company','Quantity','Renewal','Amount','Owner','Risk']} rows={licenses}/> : active === 'Contracts' ? <ContractsScreen/> : active === 'Documents' ? <DocumentsScreen/> : active === 'Tasks' ? <TasksScreen/> : active === 'Reports' ? <ReportsScreen/> : active === 'Data Import' ? <DataImportScreen/> : <Dashboard/>;
+  const route = active === 'Search' ? <SearchScreen/> : active === 'Dashboard' ? <Dashboard workspaceMode={workspaceMode}/> : active === 'Attention Center' ? <AttentionCenter/> : active === 'Companies / Clients' ? <CompaniesScreen/> : active === 'Vendors' ? <VendorsScreen workspaceMode={workspaceMode}/> : active === 'Settings' ? <Settings workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode}/> : active === 'Expirations' ? <AssetsRenewalsScreen/> : active === 'Licenses' ? <OperationalList active="Licenses" note="Brand, product, SKU, quantity, usage, renewal status and document links stay visible." tabs={['All','High risk','Under-used','Missing document','Renewal due']} columns={['License','Brand','Company','Quantity','Renewal','Amount','Owner','Risk']} rows={licenses}/> : active === 'Contracts' ? <ContractsScreen/> : active === 'Documents' ? <DocumentsScreen/> : active === 'Tasks' ? <TasksScreen/> : active === 'Reports' ? <ReportsScreen/> : active === 'Data Import' ? <DataImportScreen/> : <Dashboard workspaceMode={workspaceMode}/>;
   return <div className={cx('app', active === 'Expirations' && 'assetsRouteActive', active === 'Search' && 'searchRouteActive')}>
-    <style>{styles + aiStyles + livingAgentStyles + oprivaUpgradeStyles + assetsRenewalsStyles + aiSettingsFixStyles + settingsAdminOverrideStyles + settingsDirectoryOverrideStyles + settingsHubDirectoryStyles + responsiveStyles + commandPaletteStyles}</style>
-    <SidebarShell active={active} onSelect={handleSelect} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+    <style>{styles + aiStyles + livingAgentStyles + oprivaUpgradeStyles + assetsRenewalsStyles + aiSettingsFixStyles + settingsAdminOverrideStyles + settingsDirectoryOverrideStyles + settingsHubDirectoryStyles + responsiveStyles + commandPaletteStyles + vendorsStyles}</style>
+    <SidebarShell active={active} onSelect={handleSelect} open={sidebarOpen} onClose={() => setSidebarOpen(false)} workspaceMode={workspaceMode} />
     <div className={cx('sidebarBackdrop', sidebarOpen && 'sidebarBackdropOpen')} onClick={() => setSidebarOpen(false)} aria-hidden="true"></div>
     <section className="workspace"><TopbarShell active={active} onAlerts={() => setActive('Attention Center')} onOpenCommand={() => setCommandOpen(true)} onMenuToggle={() => setSidebarOpen(true)} onNavigate={setActive} workspaceMode={workspaceMode} />{route}</section>
     <FloatingOprivaAgentButton isOpen={aiOpen} onClick={() => setAiOpen(true)} eyeFollowsCursor={eyeFollowsCursor} />
@@ -1711,6 +1917,22 @@ const settingsHubDirectoryStyles = `
 .settingsHubSectionTitleBtn:focus-visible{outline:2px solid rgba(13,148,136,.4);outline-offset:3px;border-radius:4px}
 .settingsHubSectionDesc{margin:0;color:#66758A;font-size:14px;line-height:1.6;font-weight:400}
 .settingsDirectoryPage .settingsNoResults{color:#94A3B8;font-size:15px;margin:0;padding:24px 0}
+.settingsOperatingModel{margin:0 0 36px}
+.settingsOperatingModelHeader{margin:0 0 16px}
+.settingsOperatingModelEyebrow{margin:0 0 6px;color:#0D9488;text-transform:uppercase;font-size:11px;letter-spacing:.16em;font-weight:800}
+.settingsOperatingModelSubtitle{margin:0;color:#0F2138;font-size:15px;font-weight:600;line-height:1.4;letter-spacing:-.005em}
+.settingsOperatingModelGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.settingsOperatingModelCard{appearance:none;display:flex;flex-direction:column;gap:8px;padding:14px;border:1px solid #E5E7EB;border-radius:12px;background:#fff;text-align:left;cursor:pointer;font-family:inherit;transition:border-color .14s ease,background .14s ease,box-shadow .14s ease;box-shadow:none;width:100%}
+.settingsOperatingModelCard:hover{border-color:#CBD5E1;background:#F8FAFC}
+.settingsOperatingModelCard:focus-visible{outline:2px solid rgba(13,148,136,.3);outline-offset:2px}
+.settingsOperatingModelCardActive{border-color:#0D9488;background:#F0FDFA;box-shadow:0 0 0 3px rgba(13,148,136,.10)}
+.settingsOperatingModelCardActive:hover{background:#F0FDFA;border-color:#0D9488}
+.settingsOperatingModelCardHead{display:flex;align-items:center;justify-content:space-between;gap:8px;line-height:1}
+.settingsOperatingModelCardHead strong{color:#0F2138;font-size:14px;font-weight:800;letter-spacing:-.005em;line-height:1.2}
+.settingsOperatingModelCardCheck{width:20px;height:20px;border-radius:50%;background:#0D9488;color:#fff;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}
+.settingsOperatingModelCardDesc{color:#66758A;font-size:12.5px;line-height:1.45;font-weight:500;display:block}
+@media(max-width:1200px){.settingsOperatingModelGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.settingsOperatingModelGrid{grid-template-columns:1fr}}
 @media(max-width:1200px){.settingsHubDirectoryRow{grid-template-columns:repeat(3,minmax(0,1fr));gap:40px}}
 @media(max-width:900px){.settingsHubDirectoryRow{grid-template-columns:repeat(2,minmax(0,1fr));gap:36px}}
 @media(max-width:600px){.settingsDirectoryPage{padding:24px 20px 56px}.settingsHubDirectoryRow{grid-template-columns:1fr;gap:28px}.settingsHubDirectoryHeader{margin-bottom:28px}.settingsHubDirectorySearchBlock{margin-bottom:32px}}
@@ -1999,4 +2221,35 @@ const commandPaletteStyles = `
 }
 `;
 
-export default App;
+const vendorsStyles = `
+/* ============================================================
+   VENDORS PAGE — AI consolidation callout + vendor table
+   ============================================================ */
+.vendorsPage{padding:28px 28px 80px}
+.aiCalloutPanel{background:linear-gradient(135deg,#F0FDFA 0%,#F8FAFC 100%);border:1px solid #B4E5DD;border-radius:16px;padding:22px 26px;margin:0 0 24px;display:flex;flex-direction:column;gap:14px}
+.aiCalloutHeader{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+.aiCalloutBadge{display:inline-flex;align-items:center;gap:7px;padding:4px 10px 4px 8px;background:#fff;border:1px solid #B4E5DD;border-radius:999px;color:#0F766E;font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;line-height:1.4}
+.aiCalloutBadge svg{color:#0D9488;flex-shrink:0}
+.aiCalloutReview{appearance:none;background:transparent;border:0;color:#0F766E;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;padding:4px 0;transition:color .14s ease;box-shadow:none}
+.aiCalloutReview:hover{color:#134E4A;background:transparent;border-color:transparent}
+.aiCalloutTitle{margin:0;font-size:22px;font-weight:800;color:#0F2138;letter-spacing:-.022em;line-height:1.2}
+.aiCalloutDesc{margin:0;font-size:14px;color:#475569;line-height:1.55;max-width:720px;font-weight:400}
+.aiCalloutBreakdown{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:8px}
+.aiCalloutBreakdown li{position:relative;padding:11px 14px 11px 40px;background:#fff;border:1px solid #E5E7EB;border-radius:10px;font-size:13px;color:#334155;line-height:1.5;font-weight:500}
+.aiCalloutBreakdown li::before{content:'';position:absolute;left:14px;top:50%;transform:translateY(-50%);width:16px;height:16px;border-radius:50%;background:linear-gradient(135deg,#14B8A6,#0D9488);box-shadow:0 1px 2px rgba(13,148,136,.18)}
+.aiCalloutBreakdown li::after{content:'';position:absolute;left:18.5px;top:50%;transform:translateY(-58%) rotate(-45deg);width:6px;height:3px;border-bottom:1.6px solid #fff;border-left:1.6px solid #fff}
+
+.vendorsPanel{margin-top:0}
+
+@media(max-width:1199px){
+  .vendorsPage{padding:22px 20px 60px}
+}
+@media(max-width:768px){
+  .vendorsPage{padding:18px 14px 60px}
+  .aiCalloutPanel{padding:18px 18px;border-radius:14px;gap:12px}
+  .aiCalloutTitle{font-size:19px}
+  .aiCalloutDesc{font-size:13.5px}
+  .aiCalloutHeader{flex-direction:column;align-items:flex-start;gap:8px}
+  .aiCalloutBreakdown li{padding:10px 12px 10px 36px;font-size:12.5px}
+}
+`;

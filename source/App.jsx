@@ -495,10 +495,7 @@ function Settings({ workspaceMode = 'MSP / Integrator', setWorkspaceMode = funct
       <ul className="settingsHubSectionList">
         {group.subItems.map(function(item){
           return <li key={item}>
-            <button type="button" className="settingsHubLink" onClick={function(){ setOpenedGroupId(group.id); }}>
-              <span>{item}</span>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
-            </button>
+            <span className="settingsHubItem">{item}</span>
           </li>;
         })}
       </ul>
@@ -1460,12 +1457,8 @@ const settingsHubDirectoryStyles = `
 .settingsHubSectionDesc{margin:0 0 26px;color:#66758A;font-size:14px;line-height:1.5;font-weight:400}
 .settingsHubSectionList{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
 .settingsHubSectionList li{margin:0;padding:0}
-.settingsHubSectionList li + li .settingsHubLink{border-top:1px solid #E8EEF4}
-.settingsHubLink{appearance:none;-webkit-appearance:none;background:transparent;border:0;padding:14px 0;margin:0;width:100%;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:12px;color:#0F2138;font-size:15.5px;font-weight:700;letter-spacing:-.005em;font-family:inherit;text-align:left;box-shadow:none;border-radius:0;transition:padding .18s ease,color .16s ease}
-.settingsHubLink:hover{padding-left:8px;color:#0D9488;background:transparent;border-color:transparent;box-shadow:none}
-.settingsHubLink:focus-visible{outline:2px solid rgba(13,148,136,.4);outline-offset:4px;border-radius:4px}
-.settingsHubLink svg{color:#94A3B8;flex:0 0 auto;transition:transform .18s ease,color .16s ease}
-.settingsHubLink:hover svg{color:#0D9488;transform:translateX(3px)}
+.settingsHubSectionList li + li .settingsHubItem{border-top:1px solid #E8EEF4}
+.settingsHubItem{display:block;width:100%;padding:13px 0;color:#475569;font-size:14.5px;font-weight:600;letter-spacing:-.003em;text-align:left;cursor:default;user-select:none}
 .settingsDirectoryPage .settingsNoResults{color:#94A3B8;font-size:15px;margin:0;padding:24px 0}
 @media(max-width:1200px){.settingsHubDirectoryRow{grid-template-columns:repeat(3,minmax(0,1fr));gap:40px}}
 @media(max-width:900px){.settingsHubDirectoryRow{grid-template-columns:repeat(2,minmax(0,1fr));gap:36px}}

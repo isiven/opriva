@@ -467,13 +467,13 @@ function Settings({ workspaceMode = 'MSP / Integrator', setWorkspaceMode = funct
   const toggleModule = function(name){ setModules(function(prev){ var next = {}; Object.keys(prev).forEach(function(k){ next[k] = prev[k]; }); next[name] = !prev[name]; return next; }); };
   const normalized = query.trim().toLowerCase();
   const overviewDescriptions = {
-    company: 'Workspace mode, profile, branding and localization.',
-    access: 'Users, roles, permissions, security and SSO.',
-    data: 'Categories, custom fields, vendors, products and tags.',
-    automation: 'Notifications, escalations, approvals and alert policies.',
-    'ai-operator': 'Assistant availability, AI permissions, approval rules and behavior.',
-    governance: 'Audit log, import history, data retention and export history.',
-    integrations: 'API keys, webhooks, email connectors and external systems.'
+    company: 'Configure workspace identity, custom branding and regional defaults — including workspace profile, theme assets, logo and locale settings like currency and timezone.',
+    access: 'Manage who has access and what they can do — users and invites, custom roles and permission levels, security policies, and enterprise SSO with MFA enforcement.',
+    data: 'Define the catalogs, taxonomies and record structures used across managed assets — categories, custom fields, vendors and providers, brands, products and SKUs, and tags.',
+    automation: 'Rules that turn dates, risk and missing data into accountable action — notification rules, escalation policies, approval workflows and default alert thresholds.',
+    'ai-operator': 'Configure when and how the AI operates inside the workspace — assistant availability, action permissions, approval requirements and operator behavior preferences.',
+    governance: 'Auditability and data lifecycle controls — full audit log, import history with reversibility, data retention policies and controlled export approvals.',
+    integrations: 'Connect Opriva to external systems — generate API keys, configure outbound webhooks, set up email connectors and link third-party data sources.'
   };
   const filteredGroups = settingsAdminGroups.map(function(group){
     var overviewDescription = overviewDescriptions[group.id] || group.description;
@@ -492,13 +492,6 @@ function Settings({ workspaceMode = 'MSP / Integrator', setWorkspaceMode = funct
     return <div className="settingsHubSection" key={group.id}>
       <button type="button" className="settingsHubSectionTitleBtn" onClick={function(){ setOpenedGroupId(group.id); }}>{group.label}</button>
       <p className="settingsHubSectionDesc">{group.description}</p>
-      <ul className="settingsHubSectionList">
-        {group.subItems.map(function(item){
-          return <li key={item}>
-            <span className="settingsHubItem">{item}</span>
-          </li>;
-        })}
-      </ul>
     </div>;
   };
 
@@ -1454,11 +1447,7 @@ const settingsHubDirectoryStyles = `
 .settingsHubSectionTitleBtn{appearance:none;-webkit-appearance:none;background:transparent;border:0;padding:0;margin:0 0 10px;color:#0F2138;font-size:22px;font-weight:800;letter-spacing:-.02em;font-family:inherit;text-align:left;cursor:pointer;transition:color .16s ease;width:fit-content;box-shadow:none}
 .settingsHubSectionTitleBtn:hover{color:#0D9488;background:transparent;border-color:transparent;box-shadow:none}
 .settingsHubSectionTitleBtn:focus-visible{outline:2px solid rgba(13,148,136,.4);outline-offset:3px;border-radius:4px}
-.settingsHubSectionDesc{margin:0 0 26px;color:#66758A;font-size:14px;line-height:1.5;font-weight:400}
-.settingsHubSectionList{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
-.settingsHubSectionList li{margin:0;padding:0}
-.settingsHubSectionList li + li .settingsHubItem{border-top:1px solid #E8EEF4}
-.settingsHubItem{display:block;width:100%;padding:13px 0;color:#475569;font-size:14.5px;font-weight:600;letter-spacing:-.003em;text-align:left;cursor:default;user-select:none}
+.settingsHubSectionDesc{margin:0;color:#66758A;font-size:14px;line-height:1.6;font-weight:400}
 .settingsDirectoryPage .settingsNoResults{color:#94A3B8;font-size:15px;margin:0;padding:24px 0}
 @media(max-width:1200px){.settingsHubDirectoryRow{grid-template-columns:repeat(3,minmax(0,1fr));gap:40px}}
 @media(max-width:900px){.settingsHubDirectoryRow{grid-template-columns:repeat(2,minmax(0,1fr));gap:36px}}

@@ -1016,42 +1016,184 @@ function SidebarShell({ active, onSelect, open=false, onClose }){
   </aside>;
 }
 
-function TopbarShell({ active, onSearch, onAlerts, onOpenAi, onMenuToggle, workspaceMode = 'MSP / Integrator' }){
+function CommandPalette({ open, onClose, onNavigate, onOpenAi }){
+  const [query, setQuery] = React.useState('');
+  const [selectedIndex, setSelectedIndex] = React.useState(0);
+  const inputRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (open) {
+      setQuery('');
+      setSelectedIndex(0);
+      const t = window.setTimeout(() => { if (inputRef.current) inputRef.current.focus(); }, 30);
+      return () => window.clearTimeout(t);
+    }
+  }, [open]);
+
+  const pages = [
+    { id: 'Dashboard', label: 'Dashboard', desc: 'Workspace overview and AI risk summary' },
+    { id: 'Attention Center', label: 'Attention Center', desc: 'Critical issues, missing owners and pending approvals' },
+    { id: 'Search', label: 'Global search', desc: 'Search across the entire workspace' },
+    { id: 'Companies / Clients', label: 'Companies / Clients', desc: 'Client portfolio and ownership' },
+    { id: 'Expirations', label: 'Expirations', desc: 'Renewal worklist by urgency' },
+    { id: 'Licenses', label: 'Licenses', desc: 'Software licenses, quantity and renewals' },
+    { id: 'Contracts', label: 'Contracts', desc: 'Active contracts and obligations' },
+    { id: 'Documents', label: 'Documents', desc: 'Quotes, contracts, warranties and evidence' },
+    { id: 'Tasks', label: 'Tasks', desc: 'Open work and assignments' },
+    { id: 'Reports', label: 'Reports', desc: 'Saved and scheduled reports' },
+    { id: 'Data Import', label: 'Data Import', desc: 'Import CSV or XLSX files' },
+    { id: 'Settings', label: 'Settings', desc: 'Workspace administration' }
+  ];
+  const quickActions = [
+    { label: 'Create new record', desc: 'Add a license, contract or asset' },
+    { label: 'Assign owners to ownerless records', desc: 'Bulk owner assignment' },
+    { label: 'Switch workspace', desc: 'Change active workspace' },
+    { label: 'Invite teammate', desc: 'Add a user to the workspace' }
+  ];
+  const aiSuggestions = [
+    { label: 'Ask Opriva AI...', desc: 'Open the AI assistant', primary: true },
+    { label: 'Summarize critical items', desc: 'AI brief of urgent renewal exposure' },
+    { label: 'Draft renewal emails', desc: 'AI-generated vendor outreach' },
+    { label: 'Find ownerless high-value records', desc: 'AI analysis of risk exposure' }
+  ];
+
+  const norm = query.trim().toLowerCase();
+  const matchesQuery = function(item){ return !norm || (item.label + ' ' + (item.desc || '')).toLowerCase().includes(norm); };
+  const filteredActions = quickActions.filter(matchesQuery);
+  const filteredPages = pages.filter(matchesQuery);
+  const filteredAi = aiSuggestions.filter(matchesQuery);
+  const noResults = !filteredActions.length && !filteredPages.length && !filteredAi.length;
+
+  // Build flat list for keyboard navigation
+  const flatList = [];
+  filteredActions.forEach(function(a){ flatList.push({ kind: 'action', item: a }); });
+  filteredPages.forEach(function(p){ flatList.push({ kind: 'page', item: p }); });
+  filteredAi.forEach(function(a){ flatList.push({ kind: 'ai', item: a }); });
+
+  const runItem = function(entry){
+    if (!entry) return;
+    if (entry.kind === 'page' && onNavigate) onNavigate(entry.item.id);
+    else if (entry.kind === 'ai' && onOpenAi) onOpenAi();
+    onClose();
+  };
+
+  React.useEffect(() => {
+    if (!open) return;
+    const handler = function(e){
+      if (e.key === 'Escape') { e.preventDefault(); onClose(); return; }
+      if (e.key === 'ArrowDown') { e.preventDefault(); setSelectedIndex(function(i){ return Math.min(flatList.length - 1, i + 1); }); return; }
+      if (e.key === 'ArrowUp') { e.preventDefault(); setSelectedIndex(function(i){ return Math.max(0, i - 1); }); return; }
+      if (e.key === 'Enter') { e.preventDefault(); runItem(flatList[selectedIndex]); return; }
+    };
+    document.addEventListener('keydown', handler);
+    return function(){ document.removeEventListener('keydown', handler); };
+  }, [open, flatList.length, selectedIndex]);
+
+  React.useEffect(() => { setSelectedIndex(0); }, [norm]);
+
+  if (!open) return null;
+
+  let runningIndex = -1;
+  const renderItem = function(entry, iconNode, accentClass){
+    runningIndex += 1;
+    const idx = runningIndex;
+    const isSelected = idx === selectedIndex;
+    return <button
+      key={entry.kind + '_' + (entry.item.id || entry.item.label)}
+      type="button"
+      className={cx('cmdItem', accentClass, isSelected && 'cmdItemSelected')}
+      onClick={function(){ runItem(entry); }}
+      onMouseEnter={function(){ setSelectedIndex(idx); }}>
+      <span className="cmdItemIcon">{iconNode}</span>
+      <span className="cmdItemText">
+        <strong>{entry.item.label}</strong>
+        <span>{entry.item.desc}</span>
+      </span>
+      {isSelected && <span className="cmdItemEnter" aria-hidden="true">↵</span>}
+    </button>;
+  };
+
+  return <div className="cmdBackdrop" onClick={onClose} role="dialog" aria-modal="true" aria-label="Command palette">
+    <div className="cmdPalette" onClick={function(e){ e.stopPropagation(); }}>
+      <div className="cmdInputWrap">
+        <svg className="cmdInputIcon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input
+          ref={inputRef}
+          className="cmdInput"
+          value={query}
+          onChange={function(e){ setQuery(e.target.value); }}
+          placeholder="Search records, jump to a page, or ask Opriva AI..."
+          aria-label="Command palette search"
+          spellCheck="false"
+          autoComplete="off"
+        />
+        <kbd className="cmdEsc" aria-hidden="true">Esc</kbd>
+      </div>
+      <div className="cmdResults">
+        {filteredActions.length > 0 && <div className="cmdGroup">
+          <p className="cmdGroupLabel">Quick actions</p>
+          {filteredActions.map(function(a){
+            return renderItem({ kind: 'action', item: a },
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>,
+              null);
+          })}
+        </div>}
+        {filteredPages.length > 0 && <div className="cmdGroup">
+          <p className="cmdGroupLabel">Jump to page</p>
+          {filteredPages.map(function(p){
+            return renderItem({ kind: 'page', item: p },
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>,
+              null);
+          })}
+        </div>}
+        {filteredAi.length > 0 && <div className="cmdGroup">
+          <p className="cmdGroupLabel">Opriva AI</p>
+          {filteredAi.map(function(a){
+            return renderItem({ kind: 'ai', item: a },
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="m12 3 1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/></svg>,
+              'cmdItemAi');
+          })}
+        </div>}
+        {noResults && <div className="cmdEmpty">
+          <strong>No matches</strong>
+          <span>Try searching for a record, company or page</span>
+        </div>}
+      </div>
+      <div className="cmdFooter">
+        <span><kbd>↑</kbd><kbd>↓</kbd> Navigate</span>
+        <span><kbd>↵</kbd> Open</span>
+        <span><kbd>Esc</kbd> Close</span>
+      </div>
+    </div>
+  </div>;
+}
+
+function TopbarShell({ active, onAlerts, onOpenCommand, onMenuToggle }){
   return <header className="topbar">
     <button className="mobileHamburger" type="button" onClick={onMenuToggle} aria-label="Open menu">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
     </button>
     <button className="tenantLockup" type="button" aria-label="Open workspace menu">
       <span className="tenantLogo">B</span>
-      <span className="tenantText">
-        <span className="tenantName">Banisi Workspace</span>
-        <span className="tenantMeta">
-          <span className="tenantPage">{getPageDisplayName(active)}</span>
-          <span className="tenantModePill">{workspaceMode}</span>
-        </span>
-      </span>
+      <span className="tenantName">Banisi Workspace</span>
+      <svg className="tenantChevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
     </button>
-    <label className="globalSearch">
-      <svg className="globalSearchIcon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-      <input onFocus={onSearch} placeholder="Search records, renewals, documents, owners..." aria-label="Global search" />
-      <kbd className="globalSearchKbd" aria-hidden="true">⌘K</kbd>
-    </label>
-    <button className="mobileSearchIcon" type="button" onClick={onSearch} aria-label="Search">
+    <span className="topDivider" aria-hidden="true"></span>
+    <div className="globalSearchWrap">
+      <label className="globalSearch" onClick={onOpenCommand}>
+        <svg className="globalSearchIcon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input readOnly value="" onFocus={onOpenCommand} placeholder="Search records, renewals, documents, owners..." aria-label="Open command palette" />
+        <kbd className="globalSearchKbd" aria-hidden="true">⌘K</kbd>
+      </label>
+    </div>
+    <button className="mobileSearchIcon" type="button" onClick={onOpenCommand} aria-label="Search">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
     </button>
+    <span className="topDivider" aria-hidden="true"></span>
     <div className="topActions">
       <button type="button" className="topActionBtn topActionAlerts" onClick={onAlerts} aria-label="9 alerts">
-        <span className="topActionIcon" aria-hidden="true">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10 21a2 2 0 0 0 4 0"/></svg>
-          <span className="topActionAlertsDot" aria-hidden="true"></span>
-        </span>
-        <span className="topActionLabel">9 alerts</span>
-      </button>
-      <button type="button" className="topActionBtn topActionAi" onClick={onOpenAi} aria-label="Open Opriva AI">
-        <span className="topActionIcon" aria-hidden="true">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="m12 3 1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/></svg>
-        </span>
-        <span className="topActionLabel">Opriva AI</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10 21a2 2 0 0 0 4 0"/></svg>
+        <span className="topActionAlertsBadge" aria-hidden="true">9</span>
       </button>
       <button type="button" className="avatar" aria-label="Account menu">MC</button>
     </div>
@@ -1239,15 +1381,27 @@ function App(){
   const [eyeFollowsCursor, setEyeFollowsCursor] = React.useState(true);
   const [workspaceMode, setWorkspaceMode] = React.useState('MSP / Integrator');
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
+  const [commandOpen, setCommandOpen] = React.useState(false);
   const handleSelect = (item) => { setActive(item); setSidebarOpen(false); };
+  React.useEffect(() => {
+    const handler = (e) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        setCommandOpen(true);
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, []);
   const route = active === 'Search' ? <SearchScreen/> : active === 'Dashboard' ? <Dashboard/> : active === 'Attention Center' ? <AttentionCenter/> : active === 'Companies / Clients' ? <CompaniesScreen/> : active === 'Settings' ? <Settings workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode}/> : active === 'Expirations' ? <AssetsRenewalsScreen/> : active === 'Licenses' ? <OperationalList active="Licenses" note="Brand, product, SKU, quantity, usage, renewal status and document links stay visible." tabs={['All','High risk','Under-used','Missing document','Renewal due']} columns={['License','Brand','Company','Quantity','Renewal','Amount','Owner','Risk']} rows={licenses}/> : active === 'Contracts' ? <ContractsScreen/> : active === 'Documents' ? <DocumentsScreen/> : active === 'Tasks' ? <TasksScreen/> : active === 'Reports' ? <ReportsScreen/> : active === 'Data Import' ? <DataImportScreen/> : <Dashboard/>;
   return <div className={cx('app', active === 'Expirations' && 'assetsRouteActive', active === 'Search' && 'searchRouteActive')}>
-    <style>{styles + aiStyles + livingAgentStyles + oprivaUpgradeStyles + assetsRenewalsStyles + aiSettingsFixStyles + settingsAdminOverrideStyles + settingsDirectoryOverrideStyles + settingsHubDirectoryStyles + responsiveStyles}</style>
+    <style>{styles + aiStyles + livingAgentStyles + oprivaUpgradeStyles + assetsRenewalsStyles + aiSettingsFixStyles + settingsAdminOverrideStyles + settingsDirectoryOverrideStyles + settingsHubDirectoryStyles + responsiveStyles + commandPaletteStyles}</style>
     <SidebarShell active={active} onSelect={handleSelect} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
     <div className={cx('sidebarBackdrop', sidebarOpen && 'sidebarBackdropOpen')} onClick={() => setSidebarOpen(false)} aria-hidden="true"></div>
-    <section className="workspace"><TopbarShell active={active} onSearch={() => setActive('Search')} onAlerts={() => setActive('Attention Center')} onOpenAi={() => setAiOpen(true)} onMenuToggle={() => setSidebarOpen(true)} workspaceMode={workspaceMode} />{route}</section>
+    <section className="workspace"><TopbarShell active={active} onAlerts={() => setActive('Attention Center')} onOpenCommand={() => setCommandOpen(true)} onMenuToggle={() => setSidebarOpen(true)} />{route}</section>
     <FloatingOprivaAgentButton isOpen={aiOpen} onClick={() => setAiOpen(true)} eyeFollowsCursor={eyeFollowsCursor} />
     {aiOpen && <OprivaDrawer active={active} onClose={() => setAiOpen(false)} eyeFollowsCursor={eyeFollowsCursor} setEyeFollowsCursor={setEyeFollowsCursor} />}
+    <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} onNavigate={(id) => setActive(id)} onOpenAi={() => setAiOpen(true)} />
     <ToastStack />
   </div>;
 }
@@ -1434,7 +1588,7 @@ const settingsDirectoryOverrideStyles = `
 
 
 const oprivaUpgradeStyles = `
-.app{min-height:100vh;display:flex}.sidebar{width:282px;background:linear-gradient(180deg,#0B1F3A,#07111F);color:#EAF4F7;padding:24px 18px;position:fixed;inset:0 auto 0 0;overflow:auto}.workspace{margin-left:282px;min-width:0;flex:1;display:flex;flex-direction:column}.brand{height:62px;display:flex;align-items:center;gap:12px;margin-bottom:18px;padding:0;border-bottom:0}.brandMark{width:36px;height:36px;display:grid;place-items:center;flex:0 0 auto}.brandMark svg{width:36px;height:36px;overflow:visible}.oprivaOpenContour,.agentContour{fill:none;stroke:#24BFA6;stroke-width:2.35;stroke-linecap:round;stroke-linejoin:round}.oprivaFocusDot,.agentFocusDot{fill:#0B7D63;filter:drop-shadow(0 2px 7px rgba(13,148,136,.28))}.brandCopy{display:flex;flex-direction:column;line-height:1.05}.brandCopy strong{font-size:19px;font-weight:650;letter-spacing:.01em;color:#fff}.brandCopy span{margin-top:5px;color:#94A3B8;font-size:11px;letter-spacing:.06em;text-transform:uppercase}.navGroup{margin-top:20px}.navGroup p{margin:0 0 8px 8px;color:#8BA4BD;font-size:11px;text-transform:uppercase;letter-spacing:.1em}.navGroup button{width:100%;border:0;background:transparent;color:#C8D7E5;text-align:left;padding:10px 12px;border-radius:12px;cursor:pointer}.navGroup button:hover,.navGroup button.active{background:rgba(255,255,255,.08);color:#fff}.topbar{height:68px;background:#fff;border-bottom:1px solid var(--border);display:grid;grid-template-columns:minmax(240px,1fr) minmax(280px,560px) auto;gap:32px;align-items:center;padding:0 24px;position:sticky;top:0;z-index:5}.tenantLockup{display:flex;align-items:center;gap:12px;border:0;background:transparent;text-align:left;padding:6px 8px 6px 6px;border-radius:11px;box-shadow:none;min-width:0;max-width:100%;cursor:pointer;transition:background .14s ease}.tenantLockup:hover{background:#F7F9FC;box-shadow:none;border-color:transparent}.tenantLockup:focus-visible{outline:2px solid rgba(37,99,235,.18);outline-offset:2px}.tenantLogo{width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,#0B1F3A 0%,#1E3A5F 100%);color:#fff;font-weight:800;font-size:14px;letter-spacing:-.01em;display:grid;place-items:center;flex:0 0 auto;box-shadow:0 1px 2px rgba(11,31,58,.18),inset 0 1px 0 rgba(255,255,255,.08)}.tenantText{display:flex;flex-direction:column;min-width:0;gap:2px;line-height:1.2}.tenantName{display:block;font-size:13.5px;font-weight:700;color:#0F2138;line-height:1.2;letter-spacing:-.012em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tenantMeta{display:flex;align-items:center;gap:8px;min-width:0;line-height:1}.tenantPage{display:block;font-size:12px;color:#64748B;font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}.tenantModePill{display:inline-flex;align-items:center;height:18px;padding:0 7px;border-radius:999px;background:#F1F5F9;border:1px solid #E5EBF2;color:#64748B;font-size:10.5px;font-weight:700;letter-spacing:.02em;text-transform:none;white-space:nowrap;flex-shrink:0;line-height:1}.globalSearch{height:38px;width:100%;border:1px solid var(--border);border-radius:10px;background:#F8FAFC;display:flex;align-items:center;gap:10px;padding:0 8px 0 12px;color:#64748B;cursor:text;transition:border-color .14s ease,background .14s ease,box-shadow .14s ease}.globalSearch:hover{background:#F1F5F9;border-color:#CBD5E1}.globalSearch:focus-within{background:#fff;border-color:var(--teal);box-shadow:0 0 0 3px rgba(13,148,136,.14)}.globalSearchIcon{color:#94A3B8;flex:0 0 auto;transition:color .14s ease}.globalSearch:focus-within .globalSearchIcon{color:var(--teal)}.globalSearch input{border:0;outline:0;background:transparent;width:100%;color:var(--text);font-family:inherit;font-size:13.5px;min-width:0;padding:0}.globalSearch input::placeholder{color:#94A3B8;font-weight:400}.globalSearchKbd{display:inline-flex;align-items:center;height:22px;padding:0 7px;border-radius:6px;background:#fff;border:1px solid #E2E8F0;color:#64748B;font-size:10.5px;font-weight:700;font-family:inherit;letter-spacing:.02em;flex-shrink:0;box-shadow:0 1px 0 rgba(15,35,65,.04)}.topActions{display:flex;align-items:center;gap:8px;justify-content:flex-end}.topActions button{height:36px;border:1px solid var(--border);border-radius:9px;background:#fff;color:#475569;padding:0 12px;font-weight:600;font-size:13px;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:7px;transition:border-color .14s ease,background .14s ease,color .14s ease,box-shadow .14s ease}.topActions button:hover{background:#F8FAFC;border-color:#CBD5E1;color:#0F2138;box-shadow:none}.topActions button:focus-visible{outline:2px solid rgba(37,99,235,.18);outline-offset:2px}.topActions .topActionLabel{display:inline;line-height:1}.topActions .topActionIcon{display:none;align-items:center;justify-content:center;position:relative;line-height:1}.topActionAlertsDot{display:none;position:absolute;top:-3px;right:-3px;width:8px;height:8px;border-radius:50%;background:#DC2626;border:2px solid #fff}.topActionAi:hover{border-color:#A7F3D0;background:#F0FDFA;color:#0F766E}.topActionAi:hover svg{color:#0D9488}.topActionAi svg{color:#475569;transition:color .14s ease}.topActions .avatar{width:36px;height:36px;border-radius:50%;background:#EAF2FF;color:#1D4ED8;font-size:12px;font-weight:800;border:1px solid #DDE6F1;padding:0;margin-left:4px;display:grid;place-items:center;font-family:inherit;cursor:pointer;transition:background .14s ease,border-color .14s ease,box-shadow .14s ease}.topActions .avatar:hover{background:#DBEAFE;border-color:#BFDBFE;color:#1D4ED8;box-shadow:0 0 0 3px rgba(37,99,235,.08)}.agentWrap{position:fixed;right:24px;bottom:96px;z-index:90;display:flex;align-items:center;gap:12px}.agentTip{max-width:244px;background:#0F172A;color:#EAF4F7;padding:10px 12px;border-radius:14px;font-size:12px;box-shadow:0 18px 45px rgba(15,23,42,.2);opacity:0;transform:translateX(6px);pointer-events:none;transition:opacity .22s ease,transform .22s ease}.agentTip.isVisible{opacity:.94;transform:translateX(0)}.agentButton{width:62px;height:62px;border:1px solid rgba(13,148,136,.22);border-radius:20px;background:rgba(255,255,255,.92);box-shadow:0 16px 40px rgba(15,23,42,.16);display:grid;place-items:center;cursor:pointer;backdrop-filter:blur(18px);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}.agentButton:hover{box-shadow:0 20px 48px rgba(15,23,42,.22),0 0 0 6px rgba(45,212,191,.08);border-color:rgba(13,148,136,.45)}.agentMark{width:38px;height:38px;display:grid;place-items:center}.agentMarkSvg{width:38px;height:38px;overflow:visible}.agentContour{transform-origin:16px 16px}.agentFocusDot{transform-origin:center}.aiDrawer{position:fixed;right:24px;bottom:174px;top:auto;width:min(360px,calc(100vw - 48px));max-height:calc(100vh - 210px);overflow:auto;background:#fff;border:1px solid var(--border);border-radius:22px;box-shadow:0 24px 70px rgba(15,23,42,.2);z-index:88;padding:18px;display:block}.drawerHeader{display:flex;justify-content:space-between;gap:12px;align-items:start}.drawerHeader h2{margin:0;font-size:18px}.drawerHeader p,.drawerText,.meta{color:var(--muted);font-size:13px}.drawerHeader button{border:0;background:#F1F5F9;border-radius:10px;width:30px;height:30px;padding:0}.drawerInput{width:100%;border:1px solid var(--border);border-radius:14px;padding:12px;margin:12px 0}.drawerInput:focus{outline:0;border-color:var(--teal);box-shadow:0 0 0 3px rgba(13,148,136,.12)}.suggestions{display:grid;gap:8px}.suggestions button{border:1px solid var(--border);background:#fff;text-align:left;border-radius:12px;padding:10px}.agentSettings{margin-top:12px;padding-top:12px;border-top:1px solid #EEF2F7}.agentSettings label{display:flex;align-items:center;gap:9px;color:#334155;font-size:13px}
+.app{min-height:100vh;display:flex}.sidebar{width:282px;background:linear-gradient(180deg,#0B1F3A,#07111F);color:#EAF4F7;padding:24px 18px;position:fixed;inset:0 auto 0 0;overflow:auto}.workspace{margin-left:282px;min-width:0;flex:1;display:flex;flex-direction:column}.brand{height:62px;display:flex;align-items:center;gap:12px;margin-bottom:18px;padding:0;border-bottom:0}.brandMark{width:36px;height:36px;display:grid;place-items:center;flex:0 0 auto}.brandMark svg{width:36px;height:36px;overflow:visible}.oprivaOpenContour,.agentContour{fill:none;stroke:#24BFA6;stroke-width:2.35;stroke-linecap:round;stroke-linejoin:round}.oprivaFocusDot,.agentFocusDot{fill:#0B7D63;filter:drop-shadow(0 2px 7px rgba(13,148,136,.28))}.brandCopy{display:flex;flex-direction:column;line-height:1.05}.brandCopy strong{font-size:19px;font-weight:650;letter-spacing:.01em;color:#fff}.brandCopy span{margin-top:5px;color:#94A3B8;font-size:11px;letter-spacing:.06em;text-transform:uppercase}.navGroup{margin-top:20px}.navGroup p{margin:0 0 8px 8px;color:#8BA4BD;font-size:11px;text-transform:uppercase;letter-spacing:.1em}.navGroup button{width:100%;border:0;background:transparent;color:#C8D7E5;text-align:left;padding:10px 12px;border-radius:12px;cursor:pointer}.navGroup button:hover,.navGroup button.active{background:rgba(255,255,255,.08);color:#fff}.topbar{height:64px;background:#fff;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:18px;padding:0 22px;position:sticky;top:0;z-index:5}.tenantLockup{display:inline-flex;align-items:center;gap:10px;border:0;background:transparent;text-align:left;padding:6px 10px 6px 6px;border-radius:10px;box-shadow:none;cursor:pointer;font-family:inherit;flex:0 0 auto;transition:background .14s ease}.tenantLockup:hover{background:#F7F9FC;box-shadow:none;border-color:transparent}.tenantLockup:focus-visible{outline:2px solid rgba(13,148,136,.3);outline-offset:2px}.tenantLogo{width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,#0B1F3A 0%,#1E3A5F 100%);color:#fff;font-weight:800;font-size:12.5px;display:grid;place-items:center;flex:0 0 auto;box-shadow:0 1px 2px rgba(11,31,58,.18),inset 0 1px 0 rgba(255,255,255,.08)}.tenantName{font-size:14px;font-weight:700;color:#0F2138;letter-spacing:-.012em;white-space:nowrap;line-height:1}.tenantChevron{color:#94A3B8;flex:0 0 auto;margin-left:1px}.topDivider{width:1px;height:28px;background:var(--border);flex:0 0 auto}.globalSearchWrap{flex:1;display:flex;justify-content:center;min-width:0}.globalSearch{width:100%;max-width:560px;height:38px;border:1px solid var(--border);border-radius:10px;background:#F8FAFC;display:flex;align-items:center;gap:10px;padding:0 8px 0 13px;color:#64748B;cursor:pointer;transition:border-color .14s ease,background .14s ease,box-shadow .14s ease}.globalSearch:hover{background:#F1F5F9;border-color:#CBD5E1}.globalSearch:focus-within{background:#fff;border-color:var(--teal);box-shadow:0 0 0 3px rgba(13,148,136,.14)}.globalSearchIcon{color:#94A3B8;flex:0 0 auto;transition:color .14s ease}.globalSearch:focus-within .globalSearchIcon{color:var(--teal)}.globalSearch input{border:0;outline:0;background:transparent;width:100%;color:var(--text);font-family:inherit;font-size:13.5px;min-width:0;padding:0;cursor:pointer}.globalSearch input::placeholder{color:#94A3B8;font-weight:400}.globalSearchKbd{display:inline-flex;align-items:center;height:22px;padding:0 7px;border-radius:6px;background:#fff;border:1px solid #E2E8F0;color:#64748B;font-size:10.5px;font-weight:700;font-family:inherit;letter-spacing:.02em;flex-shrink:0;box-shadow:0 1px 0 rgba(15,35,65,.04)}.topActions{display:flex;align-items:center;gap:2px;flex:0 0 auto}.topActions button{height:auto;border:0;background:transparent;color:#475569;padding:0;font-weight:600;font-size:13px;font-family:inherit;cursor:pointer;box-shadow:none}.topActionBtn{width:36px;height:36px;border-radius:9px;display:grid;place-items:center;position:relative;transition:background .14s ease,color .14s ease}.topActionBtn:hover{background:#F1F5F9;color:#0F2138;border-color:transparent;box-shadow:none}.topActionBtn:focus-visible{outline:2px solid rgba(13,148,136,.3);outline-offset:2px}.topActionAlertsBadge{position:absolute;top:4px;right:4px;height:16px;min-width:16px;padding:0 4px;border-radius:999px;background:#DC2626;color:#fff;font-size:9.5px;font-weight:800;display:grid;place-items:center;border:2px solid #fff;font-family:inherit;letter-spacing:0;line-height:1}.topActions .avatar{width:34px;height:34px;border-radius:50%;background:#EAF2FF;color:#1D4ED8;font-size:12px;font-weight:800;border:1px solid #DDE6F1;padding:0;margin-left:6px;display:grid;place-items:center;font-family:inherit;cursor:pointer;transition:background .14s ease,border-color .14s ease,box-shadow .14s ease;flex:0 0 auto}.topActions .avatar:hover{background:#DBEAFE;border-color:#BFDBFE;color:#1D4ED8;box-shadow:0 0 0 3px rgba(37,99,235,.08)}.topActions .avatar:focus-visible{outline:2px solid rgba(37,99,235,.4);outline-offset:2px}.agentWrap{position:fixed;right:24px;bottom:96px;z-index:90;display:flex;align-items:center;gap:12px}.agentTip{max-width:244px;background:#0F172A;color:#EAF4F7;padding:10px 12px;border-radius:14px;font-size:12px;box-shadow:0 18px 45px rgba(15,23,42,.2);opacity:0;transform:translateX(6px);pointer-events:none;transition:opacity .22s ease,transform .22s ease}.agentTip.isVisible{opacity:.94;transform:translateX(0)}.agentButton{width:62px;height:62px;border:1px solid rgba(13,148,136,.22);border-radius:20px;background:rgba(255,255,255,.92);box-shadow:0 16px 40px rgba(15,23,42,.16);display:grid;place-items:center;cursor:pointer;backdrop-filter:blur(18px);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}.agentButton:hover{box-shadow:0 20px 48px rgba(15,23,42,.22),0 0 0 6px rgba(45,212,191,.08);border-color:rgba(13,148,136,.45)}.agentMark{width:38px;height:38px;display:grid;place-items:center}.agentMarkSvg{width:38px;height:38px;overflow:visible}.agentContour{transform-origin:16px 16px}.agentFocusDot{transform-origin:center}.aiDrawer{position:fixed;right:24px;bottom:174px;top:auto;width:min(360px,calc(100vw - 48px));max-height:calc(100vh - 210px);overflow:auto;background:#fff;border:1px solid var(--border);border-radius:22px;box-shadow:0 24px 70px rgba(15,23,42,.2);z-index:88;padding:18px;display:block}.drawerHeader{display:flex;justify-content:space-between;gap:12px;align-items:start}.drawerHeader h2{margin:0;font-size:18px}.drawerHeader p,.drawerText,.meta{color:var(--muted);font-size:13px}.drawerHeader button{border:0;background:#F1F5F9;border-radius:10px;width:30px;height:30px;padding:0}.drawerInput{width:100%;border:1px solid var(--border);border-radius:14px;padding:12px;margin:12px 0}.drawerInput:focus{outline:0;border-color:var(--teal);box-shadow:0 0 0 3px rgba(13,148,136,.12)}.suggestions{display:grid;gap:8px}.suggestions button{border:1px solid var(--border);background:#fff;text-align:left;border-radius:12px;padding:10px}.agentSettings{margin-top:12px;padding-top:12px;border-top:1px solid #EEF2F7}.agentSettings label{display:flex;align-items:center;gap:9px;color:#334155;font-size:13px}
 /* Final Settings overview polish */
 .settingsOverviewCards{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;max-width:980px}
 .settingsOverviewCard{border:1px solid #E6EDF4;background:#fff;border-radius:16px;padding:16px 16px 15px;box-shadow:0 1px 2px rgba(15,35,65,.035);display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:18px}
@@ -1521,13 +1675,12 @@ const responsiveStyles = `
   .navGroup button{min-height:44px}
 
   /* Topbar adjustments */
-  .topbar{padding:12px 16px !important;gap:10px !important;height:auto !important;min-height:64px;display:flex !important;flex-wrap:nowrap !important;align-items:center !important;grid-template-columns:none !important}
-  .topbar .globalSearch{min-width:0 !important;flex:1;max-width:none}
+  .topbar{padding:12px 16px !important;gap:10px !important;height:auto !important;min-height:64px;display:flex !important;flex-wrap:nowrap !important;align-items:center !important}
+  .topbar .globalSearchWrap{flex:1;min-width:0}
+  .topbar .globalSearch{min-width:0 !important;max-width:none}
   .tenantLockup{flex:0 0 auto;min-width:0}
-  .tenantLockup div{min-width:0;overflow:hidden}
-  .tenantLockup strong{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}
-  .tenantLockup span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .tenantModePill{display:none !important}
+  .tenantName{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}
+  .topDivider{display:none !important}
   .globalSearchKbd{display:none !important}
 
   /* AI Drawer adjust */
@@ -1541,19 +1694,16 @@ const responsiveStyles = `
 
   /* Topbar compaction */
   .topbar{padding:10px 12px !important;gap:8px !important;min-height:58px}
+  .topbar .globalSearchWrap{display:none !important}
   .topbar .globalSearch{display:none !important}
   .mobileSearchIcon{display:inline-flex;appearance:none;width:38px;height:38px;border-radius:50%;border:1px solid #E2E8F0;background:#fff;color:#0F2138;cursor:pointer;align-items:center;justify-content:center;flex:0 0 auto;padding:0;font-family:inherit}
   .mobileSearchIcon:hover{background:#F8FAFC}
   .tenantLockup{padding:4px !important;gap:9px !important}
   .tenantName{font-size:13px !important;max-width:120px}
-  .tenantPage{font-size:11px !important;max-width:120px}
   .tenantLogo{width:32px !important;height:32px !important;font-size:12px !important;border-radius:9px !important}
-  .topActions{gap:6px !important}
-  .topActions .topActionBtn{height:38px !important;width:38px !important;padding:0 !important;border-radius:50% !important;display:grid !important;place-items:center;gap:0 !important}
-  .topActions .topActionLabel{display:none !important}
-  .topActions .topActionIcon{display:inline-flex !important}
-  .topActionAlertsDot{display:block !important}
-  .topActions .avatar{width:36px !important;height:36px !important;margin-left:0}
+  .tenantChevron{display:none}
+  .topActions{gap:2px !important;margin-left:auto}
+  .topActions .avatar{width:36px !important;height:36px !important;margin-left:4px !important}
 
   /* Content padding */
   .content{padding:14px !important;gap:12px !important}
@@ -1711,6 +1861,56 @@ const responsiveStyles = `
 .mdBrowseCard:hover{border-color:#CBD5E1;box-shadow:0 6px 16px rgba(15,35,65,.05);background:#fff}
 .mdBrowseCard strong{color:#0F2138;font-size:14px;font-weight:750;letter-spacing:-.012em}
 .mdBrowseCard span{color:#94A3B8;font-size:11.5px;font-weight:600}
+`;
+
+const commandPaletteStyles = `
+/* ============================================================
+   COMMAND PALETTE — ⌘K modal
+   ============================================================ */
+.cmdBackdrop{position:fixed;inset:0;background:rgba(11,31,58,.45);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);z-index:200;display:flex;align-items:flex-start;justify-content:center;padding:120px 20px 20px;animation:cmdFadeIn .14s ease-out}
+@keyframes cmdFadeIn{from{opacity:0}to{opacity:1}}
+
+.cmdPalette{width:100%;max-width:640px;background:#fff;border:1px solid var(--border);border-radius:14px;box-shadow:0 32px 90px rgba(11,31,58,.32);overflow:hidden;display:flex;flex-direction:column;max-height:calc(100vh - 160px);animation:cmdSlideIn .18s cubic-bezier(.32,.72,0,1)}
+@keyframes cmdSlideIn{from{opacity:0;transform:translateY(-8px) scale(.99)}to{opacity:1;transform:translateY(0) scale(1)}}
+
+.cmdInputWrap{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid #EEF2F7;flex-shrink:0}
+.cmdInputIcon{color:#94A3B8;flex:0 0 auto}
+.cmdInput{flex:1;border:0;outline:0;background:transparent;font-family:inherit;font-size:15px;color:var(--text);min-width:0;padding:0}
+.cmdInput::placeholder{color:#94A3B8;font-weight:400}
+.cmdEsc{display:inline-flex;align-items:center;height:22px;padding:0 7px;border-radius:6px;background:#F8FAFC;border:1px solid #E2E8F0;color:#64748B;font-size:10.5px;font-weight:700;font-family:inherit;flex-shrink:0;letter-spacing:.02em}
+
+.cmdResults{flex:1;overflow-y:auto;padding:6px 8px;min-height:0}
+.cmdGroup{padding:6px 0}
+.cmdGroup + .cmdGroup{border-top:1px solid #F1F5F9;margin-top:2px;padding-top:8px}
+.cmdGroupLabel{margin:4px 8px 6px;color:#94A3B8;text-transform:uppercase;font-size:10.5px;letter-spacing:.14em;font-weight:800}
+
+.cmdItem{appearance:none;display:flex;align-items:center;gap:11px;width:100%;border:0;background:transparent;text-align:left;padding:9px 10px;border-radius:8px;cursor:pointer;font-family:inherit;color:#475569;transition:background .12s ease,color .12s ease;box-shadow:none}
+.cmdItem:hover,.cmdItemSelected{background:#F1F5F9;color:#0F2138}
+.cmdItem:focus-visible{outline:none}
+.cmdItemIcon{width:28px;height:28px;border-radius:8px;background:#F1F5F9;color:#475569;display:grid;place-items:center;flex:0 0 auto;transition:background .12s ease,color .12s ease}
+.cmdItemSelected .cmdItemIcon{background:#fff;color:#0F2138;border:1px solid #E2E8F0}
+.cmdItemAi .cmdItemIcon{background:#F0FDFA;color:#0D9488}
+.cmdItemAi.cmdItemSelected .cmdItemIcon{background:#fff;color:#0F766E;border-color:#A7F3D0}
+.cmdItemText{display:flex;flex-direction:column;gap:1px;min-width:0;flex:1}
+.cmdItemText strong{font-size:13.5px;font-weight:700;color:#0F2138;letter-spacing:-.005em;line-height:1.3}
+.cmdItemText span{font-size:11.5px;color:#64748B;font-weight:500;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cmdItemEnter{font-size:13px;color:#94A3B8;font-weight:700;flex:0 0 auto;margin-left:8px;line-height:1}
+
+.cmdEmpty{display:flex;flex-direction:column;gap:4px;align-items:center;padding:32px 16px;text-align:center}
+.cmdEmpty strong{color:#0F2138;font-size:14px;font-weight:700}
+.cmdEmpty span{color:#94A3B8;font-size:12.5px;font-weight:500}
+
+.cmdFooter{display:flex;align-items:center;gap:18px;padding:10px 16px;background:#FAFCFF;border-top:1px solid #EEF2F7;flex-shrink:0;color:#64748B;font-size:11.5px;font-weight:600}
+.cmdFooter kbd{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 4px;border-radius:4px;background:#fff;border:1px solid #E2E8F0;color:#475569;font-size:10px;font-weight:800;font-family:inherit;letter-spacing:0;margin:0 3px 0 0;line-height:1;box-shadow:0 1px 0 rgba(15,35,65,.04)}
+.cmdFooter span{display:inline-flex;align-items:center}
+
+@media(max-width:600px){
+  .cmdBackdrop{padding:60px 12px 12px;align-items:stretch}
+  .cmdPalette{max-height:calc(100vh - 80px)}
+  .cmdInputWrap{padding:12px 14px}
+  .cmdInput{font-size:14px}
+  .cmdFooter{padding:9px 14px;gap:12px;font-size:11px}
+}
 `;
 
 export default App;

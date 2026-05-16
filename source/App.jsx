@@ -1016,20 +1016,45 @@ function SidebarShell({ active, onSelect, open=false, onClose }){
   </aside>;
 }
 
-function TopbarShell({ active, onSearch, onAlerts, onMenuToggle }){
+function TopbarShell({ active, onSearch, onAlerts, onOpenAi, onMenuToggle, workspaceMode = 'MSP / Integrator' }){
   return <header className="topbar">
     <button className="mobileHamburger" type="button" onClick={onMenuToggle} aria-label="Open menu">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
     </button>
     <button className="tenantLockup" type="button" aria-label="Open workspace menu">
       <span className="tenantLogo">B</span>
-      <div><strong>Banisi Workspace</strong><span>{getPageDisplayName(active)}</span></div>
+      <span className="tenantText">
+        <span className="tenantName">Banisi Workspace</span>
+        <span className="tenantMeta">
+          <span className="tenantPage">{getPageDisplayName(active)}</span>
+          <span className="tenantModePill">{workspaceMode}</span>
+        </span>
+      </span>
     </button>
-    <label className="globalSearch"><span aria-hidden="true">⌘K</span><input onFocus={onSearch} placeholder="Search records, renewals, documents..." aria-label="Global Search" /></label>
+    <label className="globalSearch">
+      <svg className="globalSearchIcon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <input onFocus={onSearch} placeholder="Search records, renewals, documents, owners..." aria-label="Global search" />
+      <kbd className="globalSearchKbd" aria-hidden="true">⌘K</kbd>
+    </label>
     <button className="mobileSearchIcon" type="button" onClick={onSearch} aria-label="Search">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
     </button>
-    <div className="topActions"><button type="button" onClick={onAlerts} aria-label="Open alerts"><span className="topActionLabel">9 alerts</span><span className="topActionIcon" aria-hidden="true">🔔</span></button><span className="avatar">MC</span></div>
+    <div className="topActions">
+      <button type="button" className="topActionBtn topActionAlerts" onClick={onAlerts} aria-label="9 alerts">
+        <span className="topActionIcon" aria-hidden="true">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10 21a2 2 0 0 0 4 0"/></svg>
+          <span className="topActionAlertsDot" aria-hidden="true"></span>
+        </span>
+        <span className="topActionLabel">9 alerts</span>
+      </button>
+      <button type="button" className="topActionBtn topActionAi" onClick={onOpenAi} aria-label="Open Opriva AI">
+        <span className="topActionIcon" aria-hidden="true">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="m12 3 1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/></svg>
+        </span>
+        <span className="topActionLabel">Opriva AI</span>
+      </button>
+      <button type="button" className="avatar" aria-label="Account menu">MC</button>
+    </div>
   </header>;
 }
 
@@ -1220,7 +1245,7 @@ function App(){
     <style>{styles + aiStyles + livingAgentStyles + oprivaUpgradeStyles + assetsRenewalsStyles + aiSettingsFixStyles + settingsAdminOverrideStyles + settingsDirectoryOverrideStyles + settingsHubDirectoryStyles + responsiveStyles}</style>
     <SidebarShell active={active} onSelect={handleSelect} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
     <div className={cx('sidebarBackdrop', sidebarOpen && 'sidebarBackdropOpen')} onClick={() => setSidebarOpen(false)} aria-hidden="true"></div>
-    <section className="workspace"><TopbarShell active={active} onSearch={() => setActive('Search')} onAlerts={() => setActive('Attention Center')} onMenuToggle={() => setSidebarOpen(true)} />{route}</section>
+    <section className="workspace"><TopbarShell active={active} onSearch={() => setActive('Search')} onAlerts={() => setActive('Attention Center')} onOpenAi={() => setAiOpen(true)} onMenuToggle={() => setSidebarOpen(true)} workspaceMode={workspaceMode} />{route}</section>
     <FloatingOprivaAgentButton isOpen={aiOpen} onClick={() => setAiOpen(true)} eyeFollowsCursor={eyeFollowsCursor} />
     {aiOpen && <OprivaDrawer active={active} onClose={() => setAiOpen(false)} eyeFollowsCursor={eyeFollowsCursor} setEyeFollowsCursor={setEyeFollowsCursor} />}
     <ToastStack />
@@ -1409,7 +1434,7 @@ const settingsDirectoryOverrideStyles = `
 
 
 const oprivaUpgradeStyles = `
-.app{min-height:100vh;display:flex}.sidebar{width:282px;background:linear-gradient(180deg,#0B1F3A,#07111F);color:#EAF4F7;padding:24px 18px;position:fixed;inset:0 auto 0 0;overflow:auto}.workspace{margin-left:282px;min-width:0;flex:1;display:flex;flex-direction:column}.brand{height:62px;display:flex;align-items:center;gap:12px;margin-bottom:18px;padding:0;border-bottom:0}.brandMark{width:36px;height:36px;display:grid;place-items:center;flex:0 0 auto}.brandMark svg{width:36px;height:36px;overflow:visible}.oprivaOpenContour,.agentContour{fill:none;stroke:#24BFA6;stroke-width:2.35;stroke-linecap:round;stroke-linejoin:round}.oprivaFocusDot,.agentFocusDot{fill:#0B7D63;filter:drop-shadow(0 2px 7px rgba(13,148,136,.28))}.brandCopy{display:flex;flex-direction:column;line-height:1.05}.brandCopy strong{font-size:19px;font-weight:650;letter-spacing:.01em;color:#fff}.brandCopy span{margin-top:5px;color:#94A3B8;font-size:11px;letter-spacing:.06em;text-transform:uppercase}.navGroup{margin-top:20px}.navGroup p{margin:0 0 8px 8px;color:#8BA4BD;font-size:11px;text-transform:uppercase;letter-spacing:.1em}.navGroup button{width:100%;border:0;background:transparent;color:#C8D7E5;text-align:left;padding:10px 12px;border-radius:12px;cursor:pointer}.navGroup button:hover,.navGroup button.active{background:rgba(255,255,255,.08);color:#fff}.topbar{height:68px;background:#fff;border-bottom:1px solid var(--border);display:grid;grid-template-columns:250px minmax(260px,560px) auto;gap:24px;align-items:center;padding:0 28px;position:sticky;top:0;z-index:5}.tenantLockup{display:flex;align-items:center;gap:11px;border:0;background:transparent;text-align:left;padding:0;box-shadow:none}.tenantLockup:hover{background:transparent;box-shadow:none}.tenantLogo,.avatar{display:grid;place-items:center;border-radius:50%;background:#EEF6FF;color:#184E94;font-weight:700}.tenantLogo{width:38px;height:38px}.avatar{width:34px;height:34px;font-size:12px}.tenantLockup div{display:flex;flex-direction:column}.tenantLockup strong{font-size:14px;color:#0F2138}.tenantLockup span{font-size:12px;color:var(--muted)}.globalSearch{height:40px;border:1px solid var(--border);border-radius:999px;background:#F8FAFC;display:flex;align-items:center;gap:10px;padding:0 14px;color:#64748B}.globalSearch input{border:0;outline:0;background:transparent;width:100%;color:var(--text)}.globalSearch:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.12)}.topActions{display:flex;align-items:center;gap:12px;justify-content:end}.topActions button{height:34px;border:1px solid var(--border);border-radius:999px;background:#fff;color:#0F766E;padding:0 12px}.agentWrap{position:fixed;right:24px;bottom:96px;z-index:90;display:flex;align-items:center;gap:12px}.agentTip{max-width:244px;background:#0F172A;color:#EAF4F7;padding:10px 12px;border-radius:14px;font-size:12px;box-shadow:0 18px 45px rgba(15,23,42,.2);opacity:0;transform:translateX(6px);pointer-events:none;transition:opacity .22s ease,transform .22s ease}.agentTip.isVisible{opacity:.94;transform:translateX(0)}.agentButton{width:62px;height:62px;border:1px solid rgba(13,148,136,.22);border-radius:20px;background:rgba(255,255,255,.92);box-shadow:0 16px 40px rgba(15,23,42,.16);display:grid;place-items:center;cursor:pointer;backdrop-filter:blur(18px);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}.agentButton:hover{box-shadow:0 20px 48px rgba(15,23,42,.22),0 0 0 6px rgba(45,212,191,.08);border-color:rgba(13,148,136,.45)}.agentMark{width:38px;height:38px;display:grid;place-items:center}.agentMarkSvg{width:38px;height:38px;overflow:visible}.agentContour{transform-origin:16px 16px}.agentFocusDot{transform-origin:center}.aiDrawer{position:fixed;right:24px;bottom:174px;top:auto;width:min(360px,calc(100vw - 48px));max-height:calc(100vh - 210px);overflow:auto;background:#fff;border:1px solid var(--border);border-radius:22px;box-shadow:0 24px 70px rgba(15,23,42,.2);z-index:88;padding:18px;display:block}.drawerHeader{display:flex;justify-content:space-between;gap:12px;align-items:start}.drawerHeader h2{margin:0;font-size:18px}.drawerHeader p,.drawerText,.meta{color:var(--muted);font-size:13px}.drawerHeader button{border:0;background:#F1F5F9;border-radius:10px;width:30px;height:30px;padding:0}.drawerInput{width:100%;border:1px solid var(--border);border-radius:14px;padding:12px;margin:12px 0}.drawerInput:focus{outline:0;border-color:var(--teal);box-shadow:0 0 0 3px rgba(13,148,136,.12)}.suggestions{display:grid;gap:8px}.suggestions button{border:1px solid var(--border);background:#fff;text-align:left;border-radius:12px;padding:10px}.agentSettings{margin-top:12px;padding-top:12px;border-top:1px solid #EEF2F7}.agentSettings label{display:flex;align-items:center;gap:9px;color:#334155;font-size:13px}
+.app{min-height:100vh;display:flex}.sidebar{width:282px;background:linear-gradient(180deg,#0B1F3A,#07111F);color:#EAF4F7;padding:24px 18px;position:fixed;inset:0 auto 0 0;overflow:auto}.workspace{margin-left:282px;min-width:0;flex:1;display:flex;flex-direction:column}.brand{height:62px;display:flex;align-items:center;gap:12px;margin-bottom:18px;padding:0;border-bottom:0}.brandMark{width:36px;height:36px;display:grid;place-items:center;flex:0 0 auto}.brandMark svg{width:36px;height:36px;overflow:visible}.oprivaOpenContour,.agentContour{fill:none;stroke:#24BFA6;stroke-width:2.35;stroke-linecap:round;stroke-linejoin:round}.oprivaFocusDot,.agentFocusDot{fill:#0B7D63;filter:drop-shadow(0 2px 7px rgba(13,148,136,.28))}.brandCopy{display:flex;flex-direction:column;line-height:1.05}.brandCopy strong{font-size:19px;font-weight:650;letter-spacing:.01em;color:#fff}.brandCopy span{margin-top:5px;color:#94A3B8;font-size:11px;letter-spacing:.06em;text-transform:uppercase}.navGroup{margin-top:20px}.navGroup p{margin:0 0 8px 8px;color:#8BA4BD;font-size:11px;text-transform:uppercase;letter-spacing:.1em}.navGroup button{width:100%;border:0;background:transparent;color:#C8D7E5;text-align:left;padding:10px 12px;border-radius:12px;cursor:pointer}.navGroup button:hover,.navGroup button.active{background:rgba(255,255,255,.08);color:#fff}.topbar{height:68px;background:#fff;border-bottom:1px solid var(--border);display:grid;grid-template-columns:minmax(240px,1fr) minmax(280px,560px) auto;gap:32px;align-items:center;padding:0 24px;position:sticky;top:0;z-index:5}.tenantLockup{display:flex;align-items:center;gap:12px;border:0;background:transparent;text-align:left;padding:6px 8px 6px 6px;border-radius:11px;box-shadow:none;min-width:0;max-width:100%;cursor:pointer;transition:background .14s ease}.tenantLockup:hover{background:#F7F9FC;box-shadow:none;border-color:transparent}.tenantLockup:focus-visible{outline:2px solid rgba(37,99,235,.18);outline-offset:2px}.tenantLogo{width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,#0B1F3A 0%,#1E3A5F 100%);color:#fff;font-weight:800;font-size:14px;letter-spacing:-.01em;display:grid;place-items:center;flex:0 0 auto;box-shadow:0 1px 2px rgba(11,31,58,.18),inset 0 1px 0 rgba(255,255,255,.08)}.tenantText{display:flex;flex-direction:column;min-width:0;gap:2px;line-height:1.2}.tenantName{display:block;font-size:13.5px;font-weight:700;color:#0F2138;line-height:1.2;letter-spacing:-.012em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tenantMeta{display:flex;align-items:center;gap:8px;min-width:0;line-height:1}.tenantPage{display:block;font-size:12px;color:#64748B;font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}.tenantModePill{display:inline-flex;align-items:center;height:18px;padding:0 7px;border-radius:999px;background:#F1F5F9;border:1px solid #E5EBF2;color:#64748B;font-size:10.5px;font-weight:700;letter-spacing:.02em;text-transform:none;white-space:nowrap;flex-shrink:0;line-height:1}.globalSearch{height:38px;width:100%;border:1px solid var(--border);border-radius:10px;background:#F8FAFC;display:flex;align-items:center;gap:10px;padding:0 8px 0 12px;color:#64748B;cursor:text;transition:border-color .14s ease,background .14s ease,box-shadow .14s ease}.globalSearch:hover{background:#F1F5F9;border-color:#CBD5E1}.globalSearch:focus-within{background:#fff;border-color:var(--teal);box-shadow:0 0 0 3px rgba(13,148,136,.14)}.globalSearchIcon{color:#94A3B8;flex:0 0 auto;transition:color .14s ease}.globalSearch:focus-within .globalSearchIcon{color:var(--teal)}.globalSearch input{border:0;outline:0;background:transparent;width:100%;color:var(--text);font-family:inherit;font-size:13.5px;min-width:0;padding:0}.globalSearch input::placeholder{color:#94A3B8;font-weight:400}.globalSearchKbd{display:inline-flex;align-items:center;height:22px;padding:0 7px;border-radius:6px;background:#fff;border:1px solid #E2E8F0;color:#64748B;font-size:10.5px;font-weight:700;font-family:inherit;letter-spacing:.02em;flex-shrink:0;box-shadow:0 1px 0 rgba(15,35,65,.04)}.topActions{display:flex;align-items:center;gap:8px;justify-content:flex-end}.topActions button{height:36px;border:1px solid var(--border);border-radius:9px;background:#fff;color:#475569;padding:0 12px;font-weight:600;font-size:13px;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:7px;transition:border-color .14s ease,background .14s ease,color .14s ease,box-shadow .14s ease}.topActions button:hover{background:#F8FAFC;border-color:#CBD5E1;color:#0F2138;box-shadow:none}.topActions button:focus-visible{outline:2px solid rgba(37,99,235,.18);outline-offset:2px}.topActions .topActionLabel{display:inline;line-height:1}.topActions .topActionIcon{display:none;align-items:center;justify-content:center;position:relative;line-height:1}.topActionAlertsDot{display:none;position:absolute;top:-3px;right:-3px;width:8px;height:8px;border-radius:50%;background:#DC2626;border:2px solid #fff}.topActionAi:hover{border-color:#A7F3D0;background:#F0FDFA;color:#0F766E}.topActionAi:hover svg{color:#0D9488}.topActionAi svg{color:#475569;transition:color .14s ease}.topActions .avatar{width:36px;height:36px;border-radius:50%;background:#EAF2FF;color:#1D4ED8;font-size:12px;font-weight:800;border:1px solid #DDE6F1;padding:0;margin-left:4px;display:grid;place-items:center;font-family:inherit;cursor:pointer;transition:background .14s ease,border-color .14s ease,box-shadow .14s ease}.topActions .avatar:hover{background:#DBEAFE;border-color:#BFDBFE;color:#1D4ED8;box-shadow:0 0 0 3px rgba(37,99,235,.08)}.agentWrap{position:fixed;right:24px;bottom:96px;z-index:90;display:flex;align-items:center;gap:12px}.agentTip{max-width:244px;background:#0F172A;color:#EAF4F7;padding:10px 12px;border-radius:14px;font-size:12px;box-shadow:0 18px 45px rgba(15,23,42,.2);opacity:0;transform:translateX(6px);pointer-events:none;transition:opacity .22s ease,transform .22s ease}.agentTip.isVisible{opacity:.94;transform:translateX(0)}.agentButton{width:62px;height:62px;border:1px solid rgba(13,148,136,.22);border-radius:20px;background:rgba(255,255,255,.92);box-shadow:0 16px 40px rgba(15,23,42,.16);display:grid;place-items:center;cursor:pointer;backdrop-filter:blur(18px);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}.agentButton:hover{box-shadow:0 20px 48px rgba(15,23,42,.22),0 0 0 6px rgba(45,212,191,.08);border-color:rgba(13,148,136,.45)}.agentMark{width:38px;height:38px;display:grid;place-items:center}.agentMarkSvg{width:38px;height:38px;overflow:visible}.agentContour{transform-origin:16px 16px}.agentFocusDot{transform-origin:center}.aiDrawer{position:fixed;right:24px;bottom:174px;top:auto;width:min(360px,calc(100vw - 48px));max-height:calc(100vh - 210px);overflow:auto;background:#fff;border:1px solid var(--border);border-radius:22px;box-shadow:0 24px 70px rgba(15,23,42,.2);z-index:88;padding:18px;display:block}.drawerHeader{display:flex;justify-content:space-between;gap:12px;align-items:start}.drawerHeader h2{margin:0;font-size:18px}.drawerHeader p,.drawerText,.meta{color:var(--muted);font-size:13px}.drawerHeader button{border:0;background:#F1F5F9;border-radius:10px;width:30px;height:30px;padding:0}.drawerInput{width:100%;border:1px solid var(--border);border-radius:14px;padding:12px;margin:12px 0}.drawerInput:focus{outline:0;border-color:var(--teal);box-shadow:0 0 0 3px rgba(13,148,136,.12)}.suggestions{display:grid;gap:8px}.suggestions button{border:1px solid var(--border);background:#fff;text-align:left;border-radius:12px;padding:10px}.agentSettings{margin-top:12px;padding-top:12px;border-top:1px solid #EEF2F7}.agentSettings label{display:flex;align-items:center;gap:9px;color:#334155;font-size:13px}
 /* Final Settings overview polish */
 .settingsOverviewCards{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;max-width:980px}
 .settingsOverviewCard{border:1px solid #E6EDF4;background:#fff;border-radius:16px;padding:16px 16px 15px;box-shadow:0 1px 2px rgba(15,35,65,.035);display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:18px}
@@ -1502,6 +1527,8 @@ const responsiveStyles = `
   .tenantLockup div{min-width:0;overflow:hidden}
   .tenantLockup strong{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}
   .tenantLockup span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tenantModePill{display:none !important}
+  .globalSearchKbd{display:none !important}
 
   /* AI Drawer adjust */
   .aiDrawer{width:min(380px,calc(100vw - 36px)) !important}
@@ -1517,13 +1544,16 @@ const responsiveStyles = `
   .topbar .globalSearch{display:none !important}
   .mobileSearchIcon{display:inline-flex;appearance:none;width:38px;height:38px;border-radius:50%;border:1px solid #E2E8F0;background:#fff;color:#0F2138;cursor:pointer;align-items:center;justify-content:center;flex:0 0 auto;padding:0;font-family:inherit}
   .mobileSearchIcon:hover{background:#F8FAFC}
-  .tenantLockup strong{font-size:13px;max-width:120px}
-  .tenantLockup span{font-size:11px}
-  .tenantLogo{width:32px !important;height:32px !important;font-size:12px !important}
-  .topActions button{height:38px !important;width:38px !important;padding:0 !important;border-radius:50% !important;display:grid !important;place-items:center}
-  .topActions .topActionLabel{display:none}
-  .topActions .topActionIcon{display:block;font-size:15px}
-  .avatar{width:34px !important;height:34px !important}
+  .tenantLockup{padding:4px !important;gap:9px !important}
+  .tenantName{font-size:13px !important;max-width:120px}
+  .tenantPage{font-size:11px !important;max-width:120px}
+  .tenantLogo{width:32px !important;height:32px !important;font-size:12px !important;border-radius:9px !important}
+  .topActions{gap:6px !important}
+  .topActions .topActionBtn{height:38px !important;width:38px !important;padding:0 !important;border-radius:50% !important;display:grid !important;place-items:center;gap:0 !important}
+  .topActions .topActionLabel{display:none !important}
+  .topActions .topActionIcon{display:inline-flex !important}
+  .topActionAlertsDot{display:block !important}
+  .topActions .avatar{width:36px !important;height:36px !important;margin-left:0}
 
   /* Content padding */
   .content{padding:14px !important;gap:12px !important}

@@ -154,6 +154,10 @@ Hooks must remain before any conditional returns in React components. React erro
 
 Reports is Opriva's executive distribution layer. It packages Dashboard KPIs, Attention Center risks, Data Import completeness and Tasks execution status into outputs for leadership, finance, account management and compliance.
 
+## 14d. Contracts as Obligation and Evidence Layer
+
+Contracts tracks counterparty obligations, notice periods, document evidence and approval blockers. In MSP / Integrator it surfaces client/provider contract risk and commercial renewal actions. In Internal IT it surfaces department/provider exposure, approval gaps and evidence requirements.
+
 ## 15. Next Steps
 
 Safe Phase 1 candidates:
@@ -193,3 +197,4 @@ Later:
 - 2026-05-19: Tasks execution context improved. Tasks now include Source, Impact and task-specific Action columns so MSP and Internal IT work queues better reflect Opriva's operational execution layer. Kanban secondary lines now show impact context instead of priority label. No layout, runtime, routing, sidebar, topbar, workspaceMode or Floating AI changes.
 - 2026-05-19: MSP Tasks execution copy refined. Source, impact and kanban context were tightened to make client renewal tasks more operational without changing layout, runtime, routing, sidebar, topbar, workspaceMode or Floating AI.
 - 2026-05-19: Reports made workspace-aware. Report templates, export center labels and scheduled/generated report rows now adapt to MSP / Integrator and Internal IT without changing layout, runtime, routing, sidebar, topbar, workspaceMode or Floating AI.
+- 2026-05-19: Contracts made workspace-aware. Contract columns, tabs, AI Insight, toolbar copy and mock rows now adapt to MSP / Integrator and Internal IT without changing layout, runtime, routing, sidebar, topbar, workspaceMode or Floating AI.

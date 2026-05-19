@@ -547,23 +547,55 @@ function CompaniesScreen({ workspaceMode = 'MSP / Integrator' }){
   return <main className="content companiesClientsPage"><ScreenHeader active="Companies / Clients" subtitle="Manage client context, contacts, ownership, renewal exposure and related records from one workspace."><button>Configure columns</button><button className="primary">Add company</button></ScreenHeader><div className="tabs" role="tablist"><button className={tab==='Companies'?'active':''} onClick={()=>setTab('Companies')}>Companies</button><button className={tab==='Contacts'?'active':''} onClick={()=>setTab('Contacts')}>Contacts</button><button>Exposure</button><button>Documents</button></div><section className="panel clientPortfolioPanel"><div className="toolbar"><input placeholder="Search companies, contacts or domains…"/><button>Saved view: High exposure</button><button>Filters</button><button>Columns</button></div>{tab==='Contacts' ? <><div className="panelTitle"><h2>Key contacts</h2><span>Technical, commercial and legal owners per client</span></div><Table columns={['Contact','Company','Role','Email','Contact type','Responsibility']} rows={contacts}/></> : <><div className="panelTitle"><h2>Client portfolio</h2><span>Client-level exposure, ownership and upcoming renewal pressure.</span></div><Table columns={['Company','Segment','Main contact','Opriva owner','Managed records','Renewal pressure','Exposure','Risk']} rows={companies}/></>}</section><section className="panel selectedClientPanel"><div className="panelTitle"><h2>Selected client preview</h2><span>Key records, documents and actions linked to the selected client.</span></div><div className="tableWrap compactClientPreview"><table><thead><tr>{['Record','Type','Detail','Risk / status','Owner','Action'].map(column=><th key={column}>{column}</th>)}</tr></thead><tbody>{companyRecords.map(row=><tr key={row[0]}>{row.map((cell,index)=><td key={index} className={cx(index===0 && 'recordCell', index===5 && 'actionCell')}>{index===3 ? <Badge tone={cell}>{cell}</Badge> : index===4 && cell==='Unassigned' ? <Badge tone="Needs assignment">Unassigned</Badge> : index===5 ? <button type="button" className="rowAction subtleRowAction">{cell}</button> : cell}</td>)}</tr>)}</tbody></table></div></section></main>;
 }
 
-function OperationalList({ active, columns, rows, note, tabs=['All','Critical','30 days','Overdue','Missing owner'], ai='Opriva AI can summarize blockers, owners and next actions for this queue.' }){
+function OperationalList({ active, columns, rows, note, tabs=['All','Critical','30 days','Overdue','Missing owner'], ai='Opriva AI can summarize blockers, owners and next actions for this queue.', placeholder='' }){
   const safeRows = Array.isArray(rows) ? rows : [];
+  const inputPlaceholder = placeholder || `Filter ${active.toLowerCase()} by company, owner, vendor or risk…`;
   return <main className="content">
     <ScreenHeader active={active} subtitle={note}><button>Bulk actions</button><button>Configure columns</button><button className="primary">New record</button></ScreenHeader>
     <AiInsightBar active={active}/>
     <section className="panel worklistPanel">
       <div className="tabs">{tabs.map((tab,i)=><button key={tab} className={i===0?'active':''}>{tab}</button>)}</div>
-      <div className="toolbar"><input placeholder={`Filter ${active.toLowerCase()} by company, owner, vendor or risk…`}/><button>Saved view: Operational risk</button><button>Advanced filters</button><button>AI summary</button></div>
+      <div className="toolbar"><input placeholder={inputPlaceholder}/><button>Saved view: Operational risk</button><button>Advanced filters</button><button>AI summary</button></div>
       <div className="panelTitle"><h2>{active} worklist</h2><span>{ai}</span></div>
       <Table columns={columns} rows={safeRows}/>
     </section>
   </main>;
 }
 
-function ContractsScreen(){
-  const rows = [['Gold Support Contract','Support agreement','Banisi','Nextcom','María Chen','Signed PDF missing','Auto-renews','60 days','Legal review','Confirm signed document','High risk'],['Microsoft Enterprise Agreement','Software agreement','Canal Bank','Microsoft','Rafael Soto','Signed','Manual renewal','90 days','Approved','Prepare true-up','Medium risk'],['SOC Monitoring MSA','Managed service','Grupo Regency','SecureOps','Luis Mora','Signed','Auto-renews','45 days','Counterparty review','Validate SLA credits','Medium risk']];
-  return <OperationalList active="Contracts" note="Counterparty, legal, notice-period and renewal obligations stay visible." tabs={['All','High risk','Notice period','Auto-renewal','Missing document']} columns={['Contract','Type','Company','Counterparty','Owner','Document','Renewal','Notice','Legal status','Next action','Risk']} rows={rows}/>;
+const contractsMsp = [
+  ['Gold Support Contract','Support agreement','Banisi','Nextcom','María Chen','Signed PDF missing','Auto-renews','60 days','Legal review','Confirm signed document','High risk'],
+  ['Microsoft Enterprise Agreement','Software agreement','Canal Bank','Microsoft','Rafael Soto','Signed','Manual renewal','90 days','Approved','Prepare true-up','Medium risk'],
+  ['SOC Monitoring MSA','Managed service','Grupo Regency','SecureOps','Luis Mora','Signed','Auto-renews','45 days','Counterparty review','Validate SLA credits','Medium risk'],
+  ['Trend Micro Vision One','Vendor renewal','Nova Finance','Trend Micro','Ana Ríos','Pending signature','Manual renewal','30 days','Pending approval','Send renewal proposal','High risk']
+];
+const contractsInternalIT = [
+  ['Microsoft 365 Enterprise Agreement','Software agreement','Finance','Microsoft Direct','Carlos Vega','Signed','Manual renewal','90 days','CIO approval pending','Submit for approval','High risk'],
+  ['Fortinet Unified Threat Mgmt','Support contract','Infrastructure','Fortinet / Nextcom','Luis Mora','Signed','Auto-renews','60 days','Approved','Monitor auto-renewal','Low risk'],
+  ['Oracle POS Support','Support agreement','Retail Operations','Oracle Direct','Unassigned','Missing evidence','Manual renewal','45 days','Owner gap','Assign department owner','Critical risk'],
+  ['CrowdStrike Endpoint Protection','License agreement','IT Security','CrowdStrike','Ana Ruiz','Signed','Manual renewal','30 days','Budget review','Request budget approval','Medium risk']
+];
+
+function ContractsScreen({ workspaceMode = 'MSP / Integrator' }){
+  const isInternalIT = workspaceMode === 'Internal IT';
+  const contractsNote = isInternalIT
+    ? 'Track provider contracts, department exposure, notice periods, approval blockers and required evidence.'
+    : workspaceMode === 'MSP / Integrator'
+    ? 'Track client contract obligations, notice periods, legal evidence and renewal actions across your portfolio.'
+    : 'Track contracts, obligations, notice periods, documents and renewal actions across the workspace.';
+  const contractsTabs = isInternalIT
+    ? ['All','CIO approval needed','Notice period','Auto-renewal','Missing evidence']
+    : ['All','High risk','Notice period','Auto-renewal','Missing document'];
+  const contractsColumns = isInternalIT
+    ? ['Contract','Type','Department','Provider','Owner','Document','Renewal','Notice','Approval status','Next action','Risk']
+    : ['Contract','Type','Client','Provider / Distributor','Owner','Document','Renewal','Notice','Legal status','Next action','Risk'];
+  const contractsAi = isInternalIT
+    ? 'Opriva AI can surface approval blockers, provider dependency risks and missing evidence across IT contracts.'
+    : 'Opriva AI can identify auto-renewal risks, notice period gaps and missing contract evidence across your client portfolio.';
+  const contractsPlaceholder = isInternalIT
+    ? 'Filter contracts by department, provider, owner or approval status…'
+    : 'Filter contracts by client, provider, owner or risk…';
+  const contractsRows = isInternalIT ? contractsInternalIT : contractsMsp;
+  return <OperationalList active="Contracts" note={contractsNote} tabs={contractsTabs} columns={contractsColumns} ai={contractsAi} placeholder={contractsPlaceholder} rows={contractsRows}/>;
 }
 
 function DocumentsScreen(){
@@ -1872,7 +1904,7 @@ function App(){
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, []);
-  const route = active === 'Search' ? <SearchScreen/> : active === 'Dashboard' ? <Dashboard workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode}/> : active === 'Attention Center' ? <AttentionCenter workspaceMode={workspaceMode}/> : active === 'Companies / Clients' ? <CompaniesScreen workspaceMode={workspaceMode}/> : active === 'Settings' ? <Settings workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode}/> : active === 'Expirations' ? <AssetsRenewalsScreen workspaceMode={workspaceMode}/> : active === 'Licenses' ? (workspaceMode === 'Internal IT' ? <VendorIntelligenceScreen/> : workspaceMode === 'MSP / Integrator' ? <MspVendorIntelligenceScreen/> : <OperationalList active="Licenses" note="Brand, product, SKU, quantity, usage, renewal status and document links stay visible." tabs={['All','High risk','Under-used','Missing document','Renewal due']} columns={['License','Brand','Company','Quantity','Renewal','Amount','Owner','Risk']} rows={licenses}/>) : active === 'Contracts' ? <ContractsScreen/> : active === 'Documents' ? <DocumentsScreen/> : active === 'Tasks' ? <TasksScreen workspaceMode={workspaceMode}/> : active === 'Reports' ? <ReportsScreen workspaceMode={workspaceMode}/> : active === 'Data Import' ? <DataImportScreen workspaceMode={workspaceMode}/> : <Dashboard workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode}/>;
+  const route = active === 'Search' ? <SearchScreen/> : active === 'Dashboard' ? <Dashboard workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode}/> : active === 'Attention Center' ? <AttentionCenter workspaceMode={workspaceMode}/> : active === 'Companies / Clients' ? <CompaniesScreen workspaceMode={workspaceMode}/> : active === 'Settings' ? <Settings workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode}/> : active === 'Expirations' ? <AssetsRenewalsScreen workspaceMode={workspaceMode}/> : active === 'Licenses' ? (workspaceMode === 'Internal IT' ? <VendorIntelligenceScreen/> : workspaceMode === 'MSP / Integrator' ? <MspVendorIntelligenceScreen/> : <OperationalList active="Licenses" note="Brand, product, SKU, quantity, usage, renewal status and document links stay visible." tabs={['All','High risk','Under-used','Missing document','Renewal due']} columns={['License','Brand','Company','Quantity','Renewal','Amount','Owner','Risk']} rows={licenses}/>) : active === 'Contracts' ? <ContractsScreen workspaceMode={workspaceMode}/> : active === 'Documents' ? <DocumentsScreen/> : active === 'Tasks' ? <TasksScreen workspaceMode={workspaceMode}/> : active === 'Reports' ? <ReportsScreen workspaceMode={workspaceMode}/> : active === 'Data Import' ? <DataImportScreen workspaceMode={workspaceMode}/> : <Dashboard workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode}/>;
   return <div className={cx('app', sidebarCollapsed && 'appSidebarCollapsed', active === 'Expirations' && 'assetsRouteActive', active === 'Search' && 'searchRouteActive')}>
     <style>{styles + aiStyles + livingAgentStyles + oprivaUpgradeStyles + assetsRenewalsStyles + sidebarCollapseStyles + aiSettingsFixStyles + settingsAdminOverrideStyles + settingsDirectoryOverrideStyles + settingsHubDirectoryStyles + responsiveStyles + commandPaletteStyles}</style>
     <SidebarShell active={active} onSelect={handleSelect} open={sidebarOpen} onClose={() => setSidebarOpen(false)} workspaceMode={workspaceMode} collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed(value => !value)} />

@@ -160,3 +160,4 @@ Later:
 - Audit confirmed `source/App.jsx` contains `workspaceMode`, `sidebarCollapsed`, `Internal IT`, `MSP / Integrator`, and the current `ReactDOM.createRoot(...)` mount.
 - Audit confirmed the current branch is intended for healthcheck and documentation work.
 - 2026-05-19: Fase 1A terminology cleanup applied: legacy Corexi AI copy replaced with Opriva AI, Internal IT supplier/vendor terminology normalized toward Provider where safe, and MSP import template terminology aligned toward Distributor. No layout, runtime, routing, sidebar, topbar, workspaceMode or Floating AI changes.
+- 2026-05-19: Fase 1B cleanup removed confirmed unused mocks/components without changing runtime, layout, routing, sidebar, topbar, workspaceMode or Floating AI.

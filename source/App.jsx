@@ -114,13 +114,6 @@ const commercialRelationshipModel = {
   }
 };
 
-const riskItems = [
-  ['SSL certificate expires in 12 days', 'Critical', 'Grupo Regency', 'Assign owner and renew certificate', 'Luis Mora'],
-  ['Dell PowerEdge R750 warranty expired', 'Critical', 'Metro Retail Group', 'Approve replacement coverage', 'Ana Ríos'],
-  ['Trend Micro renewal quote pending', 'High', 'Banisi', 'Send quote to Paola Medina', 'María Chen'],
-  ['Microsoft true-up needs finance approval', 'Medium', 'Canal Bank', 'Approve 480-seat renewal', 'Elena Ruiz']
-];
-
 const companies = [
   ['Banisi', 'Financial services', 'Paola Medina', 'María Chen', '42 records', '7 expiring in 60 days', '$486K', 'High'],
   ['Grupo Regency', 'Hospitality', 'Ricardo Solís', 'Luis Mora', '31 records', '5 expiring in 30 days', '$214K', 'Critical'],
@@ -135,32 +128,11 @@ const contacts = [
   ['Sofía Torres', 'Metro Retail Group', 'Infrastructure Manager', 'sofia.torres@metroretail.co', 'Technical', 'Warranty owner']
 ];
 
-const expirations = [
-  ['Trend Micro Vision One Credits', 'Software license', 'Banisi', 'May 2, 2026', '28 days', 'High', 'María Chen', 'Send renewal quote'],
-  ['Wildcard SSL Certificate', 'SSL certificate', 'Grupo Regency', 'Apr 16, 2026', '12 days', 'Critical', 'Luis Mora', 'Assign owner and renew'],
-  ['Dell R750 Warranty', 'Hardware warranty', 'Metro Retail Group', 'Mar 30, 2026', 'Expired', 'Critical', 'Ana Ríos', 'Approve replacement coverage'],
-  ['Gold Support Contract', 'Support agreement', 'Banisi', 'Jul 3, 2026', '90 days', 'Low', 'Diego Paredes', 'Schedule QBR']
-];
-
 const licenses = [
   ['Trend Micro Vision One Credits', 'Trend Micro', 'Banisi', '1,200 credits', 'Expires May 2, 2026', '$42,800', 'María Chen', 'High risk'],
   ['Microsoft 365 Business Premium', 'Microsoft', 'Canal Bank', '480 seats', 'Renews Jun 3, 2026', '$63,360', 'Elena Ruiz', 'Approval needed'],
   ['Veeam Backup for Microsoft 365', 'Veeam', 'Nova Finance', '250 mailboxes', 'Renews May 19, 2026', '$18,900', 'Tomás Vega', 'Usage review'],
   ['FortiGate UTP Support', 'Fortinet', 'Global Logistics Panamá', '8 appliances', 'Renews Aug 17, 2026', '$24,100', 'Diego Paredes', 'Healthy']
-];
-
-const contracts = [
-  ['Gold Support Contract', 'Support agreement', 'Banisi', 'Nextcom', 'Ends May 2, 2026', '$42,800', 'High risk'],
-  ['Data Processing Addendum', 'Legal compliance', 'Nova Finance', 'CloudSecure Ltd.', 'Ends Jun 15, 2026', '$12,500', 'Legal review'],
-  ['Managed Network Agreement', 'Service agreement', 'Grupo Regency', 'NetOps Panamá', 'Auto-renews Apr 28, 2026', '$58,200', 'Owner missing'],
-  ['Hardware Support MSA', 'Master services', 'Metro Retail Group', 'Dell Technologies', 'Ends Sep 9, 2026', '$31,400', 'Active']
-];
-
-const documents = [
-  ['Trend Micro Renewal Quote.pdf', 'Quote', 'Trend Micro Vision One renewal', 'Banisi', 'Uploaded by María', 'Version 2'],
-  ['Gold Support Contract Signed.pdf', 'Contract', 'Support agreement with Nextcom', 'Banisi', 'Uploaded by Legal', 'Version 4'],
-  ['Dell Warranty Coverage.xlsx', 'Coverage evidence', 'R750 warranty inventory', 'Metro Retail Group', 'Uploaded by Ana', 'Version 1'],
-  ['Regency SSL CSR.txt', 'Certificate', 'Wildcard certificate renewal', 'Grupo Regency', 'Uploaded by Luis', 'Version 3']
 ];
 
 const tasks = [
@@ -265,8 +237,6 @@ const AI_CONTEXTS = {
 };
 
 const AI_WORKFLOWS = ['90-day renewal review','Missing owner cleanup','Missing documents cleanup','Client meeting brief','Executive report generator','Contract review','Import mapping assistant','Renewal follow-up drafts'];
-const AI_CONFIRMATION = 'Opriva AI will create 8 tasks assigned to 3 users. Review before applying?';
-
 function cx(...values){ return values.filter(Boolean).join(' '); }
 function asArray(data){ return Array.isArray(data) ? data : []; }
 function safeText(value, fallback='Not specified'){ return value || fallback; }
@@ -274,7 +244,6 @@ function riskClass(value){ const v = String(value || '').toLowerCase(); return v
 function initials(name){ return String(name || 'Opriva').split(/\s+/).filter(Boolean).slice(0,2).map(x => x[0] || '').join('').toUpperCase() || 'OP'; }
 
 function Badge({ children, tone }){ const badgeTone = riskClass(tone || children); return <span className={cx('badge', badgeTone)}>{safeText(children)}</span>; }
-function Avatar({ name }){ return <span className="avatar" aria-hidden="true">{initials(name)}</span>; }
 function EmptyState({ title, message, action }){ return <div className="stateBox emptyState" role="status"><strong>{title || 'No records found'}</strong><span>{message || 'Adjust filters or create a new record to continue.'}</span>{action && <button>{action}</button>}</div>; }
 function ErrorState({ title, message }){ return <div className="stateBox errorState" role="alert"><strong>{title || 'Data could not be loaded'}</strong><span>{message || 'Retry the request or contact support if the problem continues.'}</span><div><button>Retry</button><button className="ghostBtn">Contact support</button></div></div>; }
 function LoadingRows({ columns }){ const safeColumns = asArray(columns); return <tbody aria-busy="true">{[0,1,2].map(i => <tr className="skeletonRow" key={i}>{safeColumns.map((c,j)=><td key={c || j}><span className="skeletonLine" /></td>)}</tr>)}</tbody>; }
@@ -540,10 +509,6 @@ function CompaniesScreen({ workspaceMode = 'MSP / Integrator' }){
   return <main className="content companiesClientsPage"><ScreenHeader active="Companies / Clients" subtitle="Manage client context, contacts, ownership, renewal exposure and related records from one workspace."><button>Configure columns</button><button className="primary">Add company</button></ScreenHeader><div className="tabs" role="tablist"><button className={tab==='Companies'?'active':''} onClick={()=>setTab('Companies')}>Companies</button><button className={tab==='Contacts'?'active':''} onClick={()=>setTab('Contacts')}>Contacts</button><button>Exposure</button><button>Documents</button></div><section className="panel clientPortfolioPanel"><div className="toolbar"><input placeholder="Search companies, contacts or domains…"/><button>Saved view: High exposure</button><button>Filters</button><button>Columns</button></div>{tab==='Contacts' ? <><div className="panelTitle"><h2>Key contacts</h2><span>Technical, commercial and legal owners per client</span></div><Table columns={['Contact','Company','Role','Email','Contact type','Responsibility']} rows={contacts}/></> : <><div className="panelTitle"><h2>Client portfolio</h2><span>Client-level exposure, ownership and upcoming renewal pressure.</span></div><Table columns={['Company','Segment','Main contact','Opriva owner','Managed records','Renewal pressure','Exposure','Risk']} rows={companies}/></>}</section><section className="panel selectedClientPanel"><div className="panelTitle"><h2>Selected client preview</h2><span>Key records, documents and actions linked to the selected client.</span></div><div className="tableWrap compactClientPreview"><table><thead><tr>{['Record','Type','Detail','Risk / status','Owner','Action'].map(column=><th key={column}>{column}</th>)}</tr></thead><tbody>{companyRecords.map(row=><tr key={row[0]}>{row.map((cell,index)=><td key={index} className={cx(index===0 && 'recordCell', index===5 && 'actionCell')}>{index===3 ? <Badge tone={cell}>{cell}</Badge> : index===4 && cell==='Unassigned' ? <Badge tone="Needs assignment">Unassigned</Badge> : index===5 ? <button type="button" className="rowAction subtleRowAction">{cell}</button> : cell}</td>)}</tr>)}</tbody></table></div></section></main>;
 }
 
-function ListScreen({ active, columns, rows, note }){
-  return <main className="content"><ScreenHeader active={active} subtitle={note}/><section className="panel"><div className="panelTitle"><h2>{active} records</h2><span>Sample rows use meaningful business values for the module.</span></div><Table columns={columns} rows={rows}/></section></main>;
-}
-
 function OperationalList({ active, columns, rows, note, tabs=['All','Critical','30 days','Overdue','Missing owner'], ai='Opriva AI can summarize blockers, owners and next actions for this queue.' }){
   const safeRows = Array.isArray(rows) ? rows : [];
   return <main className="content">
@@ -580,14 +545,6 @@ function ReportsScreen(){
 function DataImportScreen(){
   const steps = ['Upload file','Select module','Map columns','Validate fields','Detect duplicates','Fix errors','AI suggestions','Confirm','Summary'];
   return <main className="content"><ScreenHeader active="Data Import" subtitle="A full import workflow from file upload through validation, duplicate detection and confirmation."><button>Download template</button><button className="primary">Start import</button></ScreenHeader><section className="panel"><div className="panelTitle"><h2>Import history</h2><span>Landing page with recent jobs and operational status</span></div><Table columns={['Import','File','Rows','Duplicate prevention','Status']} rows={importRows}/></section><section className="panel"><div className="panelTitle"><h2>Import wizard</h2><span>Guided steps prevent bad data before records are created</span></div><div className="wizardSteps">{steps.map((step,i)=><div className={cx('wizardStep',i<3&&'done',i===3&&'active')} key={step}><strong>{i+1}</strong><span>{step}</span></div>)}</div><Table columns={['Validation area','Finding','AI suggestion','Action']} rows={[["Column mapping",'Expiration Date matched with 94% confidence','Map to expiration_date','Review mapping'],['Duplicates','12 vendors resemble existing catalog entries','Use Trend Micro existing vendor','Merge suggestions'],['Required fields','7 license rows missing owner','Assign María Chen based on company history','Apply suggestion']]}/><div className="miniState loadingState" role="status"><span className="spinner"/>Import processing: validating 1,248 rows before confirmation.</div><ErrorState title="Failed import" message="The uploaded workbook contains an invalid file format in one sheet. Retry with CSV/XLSX or open help." /><ValidationPanel /></section></main>;
-}
-
-function SettingsHealthBar(){
-  return <div className="settingsHealthBar" role="status" aria-label="Configuration health">
-    <span className="settingsHealthDot" aria-hidden="true" />
-    <span className="settingsHealthText"><strong>Configuration health: 71%</strong> &nbsp;·&nbsp; 2 required-field gaps found</span>
-    <button type="button" className="settingsHealthBtn">Review setup</button>
-  </div>;
 }
 
 function Settings({ workspaceMode = 'MSP / Integrator', setWorkspaceMode = function(){} }){
@@ -722,7 +679,6 @@ function SettingsGroupPanel({ group, workspaceMode, setWorkspaceMode, modules, t
     Hybrid: 'For teams managing both internal assets and external client-facing obligations.'
   };
     selectedModeExplanation.Custom = 'For teams configuring Opriva around their own structure and enabled modules.';
-  var labelSummary = terminologyPreview[activeMode].map(function(row){ return row[1]; }).slice(0, 3).join(', ');
   return <div className="settingsDetailPanel settingsFocusedPanel">
     <div className="settingsDetailHeader">
       <span className="eyebrow">{isCompany ? 'Workspace setup' : group.label}</span>
@@ -1889,12 +1845,6 @@ const settingsDirectoryOverrideStyles = `
 .settingsDirectoryPage{gap:22px;padding-bottom:52px}
 .settingsHub{display:grid;gap:28px}
 .settingsHubRow{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
-.settingsHealthBar{display:flex;align-items:center;gap:8px;padding:7px 12px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;white-space:nowrap;flex-shrink:0}
-.settingsHealthDot{width:7px;height:7px;border-radius:50%;background:#D97706;flex-shrink:0}
-.settingsHealthText{font-size:13px;color:#78350F;line-height:1}
-.settingsHealthText strong{font-weight:800}
-.settingsHealthBtn{height:24px;padding:0 9px;font-size:12px;font-weight:700;border-radius:6px;border:1px solid #FCD34D;color:#92400E;background:#fff;box-shadow:none;white-space:nowrap;cursor:pointer}
-.settingsHealthBtn:hover{background:#FFFBEB;box-shadow:none}
 .modeSelectedSummary{margin:10px 0 0;max-width:760px;color:#334155;font-size:13px;line-height:1.45;background:#F8FAFC;border:1px solid #E8EEF4;border-radius:10px;padding:9px 12px}
 .modePreviewUnified{margin-top:12px;border:1px solid #E6EDF4;border-radius:14px;background:#FCFEFF;padding:13px}
 .modePreviewUnifiedHeader{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding-bottom:10px;border-bottom:1px solid #EEF2F7}

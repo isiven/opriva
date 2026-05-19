@@ -159,6 +159,7 @@ Medium-risk Phase 2 candidates:
 - Separate workspace mock data.
 - ~~Improve Command Palette labels by workspace while preserving route ids.~~ **Completed 2026-05-19.**
 - Consolidate duplicated style layers after visual regression checks.
+- Departments currently groups Brands & Providers in one column. Phase 2 should separate Brand and Provider into structured fields once mock data is normalized.
 
 Later:
 
@@ -177,3 +178,4 @@ Later:
 - 2026-05-19: Search / Command Palette made workspace-aware. Placeholder, quick actions, AI suggestions and page labels now adapt to MSP / Integrator, Internal IT, Hybrid and Custom without changing layout, runtime, routing, sidebar, topbar, workspaceMode or Floating AI.
 - 2026-05-19: Settings → Operating Model refined as the declared workspaceMode source of truth. Terminology, navigation and import previews now reflect MSP / Integrator, Internal IT, Hybrid and Custom commercial models without changing layout, runtime, routing, sidebar, topbar, workspaceMode or Floating AI.
 - 2026-05-19: Settings Operating Model preview clarified for real user comprehension. The preview now explains operating logic, sidebar navigation and import template structure per workspace mode instead of showing abstract label mappings.
+- 2026-05-19: Departments Internal IT terminology refined. Ambiguous Vendor wording was replaced with Brands & Providers in the Internal IT Departments screen across subtitle, toolbar, AI Insight, table headers and detail cards without changing layout, runtime, routing, sidebar, topbar, workspaceMode or Floating AI.

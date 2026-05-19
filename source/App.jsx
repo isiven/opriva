@@ -598,9 +598,40 @@ function ContractsScreen({ workspaceMode = 'MSP / Integrator' }){
   return <OperationalList active="Contracts" note={contractsNote} tabs={contractsTabs} columns={contractsColumns} ai={contractsAi} placeholder={contractsPlaceholder} rows={contractsRows}/>;
 }
 
-function DocumentsScreen(){
-  const rows = [['Trend Micro Renewal Quote.pdf','Quote','Trend Micro Vision One renewal','Banisi','María','Version 2','Internal','Linked','Approved'],['Gold Support Contract.pdf','Contract','Gold Support Contract','Banisi','Nadia','Missing signed version','Restricted','Required','Missing'],['R750 Warranty Evidence.pdf','Warranty proof','Dell PowerEdge R750 Warranty','Canal Bank','Luis','Version 1','Internal','Linked','Valid']];
-  return <OperationalList active="Documents" note="Govern evidence, versions, access and required document gaps." tabs={['All','Required missing','Restricted','Pending review','Linked records']} columns={['Document','Type','Linked record','Company','Uploaded by','Version','Access','Requirement','Status']} rows={rows}/>;
+const documentsMsp = [
+  ['Trend Micro Renewal Quote.pdf','Quote','Trend Micro Vision One renewal','Banisi','María Chen','Version 2','Internal','Linked','Approved'],
+  ['Gold Support Contract.pdf','Contract','Gold Support Contract','Banisi','Nadia Brooks','Missing signed version','Restricted','Required','Missing'],
+  ['R750 Warranty Evidence.pdf','Warranty proof','Dell PowerEdge R750 Warranty','Canal Bank','Luis Mora','Version 1','Internal','Linked','Valid'],
+  ['CloudSecure DPA Amendment.pdf','Legal amendment','CloudSecure contract','Nova Finance','Nadia Brooks','Pending','Restricted','Required','Pending review']
+];
+const documentsInternalIT = [
+  ['Microsoft 365 CIO Approval.pdf','Approval form','Microsoft 365 Enterprise Agreement','Finance','Carlos Vega','Pending signature','Restricted','Required','Missing'],
+  ['Fortinet Support Evidence.pdf','Support proof','Fortinet Unified Threat Mgmt','Infrastructure','Luis Mora','Version 1','Internal','Linked','Valid'],
+  ['Oracle POS Contract.pdf','Contract','Oracle POS Support','Retail Operations','Unassigned','Missing version','Restricted','Required','Missing'],
+  ['CrowdStrike Budget Authorization.pdf','Budget approval','CrowdStrike Endpoint Protection','IT Security','Ana Ruiz','Version 1','Internal','Required','Pending review']
+];
+
+function DocumentsScreen({ workspaceMode = 'MSP / Integrator' }){
+  const isInternalIT = workspaceMode === 'Internal IT';
+  const documentsNote = isInternalIT
+    ? 'Govern approval evidence, support documents, signed contracts, budget authorizations and required document gaps across IT departments.'
+    : workspaceMode === 'MSP / Integrator'
+    ? 'Govern client evidence, signed contracts, distributor quotes, warranties and required document gaps.'
+    : 'Govern evidence, versions, access and required document gaps.';
+  const documentsTabs = isInternalIT
+    ? ['All','Required missing','Restricted','Pending approval','Linked records']
+    : ['All','Required missing','Restricted','Pending review','Linked records'];
+  const documentsColumns = isInternalIT
+    ? ['Document','Type','Linked record','Department','Uploaded by','Version','Access','Requirement','Status']
+    : ['Document','Type','Linked record','Client','Uploaded by','Version','Access','Requirement','Status'];
+  const documentsAi = isInternalIT
+    ? 'Opriva AI can surface missing approval documents, unsigned contracts and evidence gaps across IT departments.'
+    : 'Opriva AI can identify missing contract evidence, unsigned documents and access gaps across your client portfolio.';
+  const documentsPlaceholder = isInternalIT
+    ? 'Filter documents by department, record, type or status…'
+    : 'Filter documents by client, record, type or status…';
+  const documentsRows = isInternalIT ? documentsInternalIT : documentsMsp;
+  return <OperationalList active="Documents" note={documentsNote} tabs={documentsTabs} columns={documentsColumns} ai={documentsAi} placeholder={documentsPlaceholder} rows={documentsRows}/>;
 }
 
 function TasksScreen({ workspaceMode = 'MSP / Integrator' }){
@@ -1904,7 +1935,7 @@ function App(){
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, []);
-  const route = active === 'Search' ? <SearchScreen/> : active === 'Dashboard' ? <Dashboard workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode}/> : active === 'Attention Center' ? <AttentionCenter workspaceMode={workspaceMode}/> : active === 'Companies / Clients' ? <CompaniesScreen workspaceMode={workspaceMode}/> : active === 'Settings' ? <Settings workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode}/> : active === 'Expirations' ? <AssetsRenewalsScreen workspaceMode={workspaceMode}/> : active === 'Licenses' ? (workspaceMode === 'Internal IT' ? <VendorIntelligenceScreen/> : workspaceMode === 'MSP / Integrator' ? <MspVendorIntelligenceScreen/> : <OperationalList active="Licenses" note="Brand, product, SKU, quantity, usage, renewal status and document links stay visible." tabs={['All','High risk','Under-used','Missing document','Renewal due']} columns={['License','Brand','Company','Quantity','Renewal','Amount','Owner','Risk']} rows={licenses}/>) : active === 'Contracts' ? <ContractsScreen workspaceMode={workspaceMode}/> : active === 'Documents' ? <DocumentsScreen/> : active === 'Tasks' ? <TasksScreen workspaceMode={workspaceMode}/> : active === 'Reports' ? <ReportsScreen workspaceMode={workspaceMode}/> : active === 'Data Import' ? <DataImportScreen workspaceMode={workspaceMode}/> : <Dashboard workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode}/>;
+  const route = active === 'Search' ? <SearchScreen/> : active === 'Dashboard' ? <Dashboard workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode}/> : active === 'Attention Center' ? <AttentionCenter workspaceMode={workspaceMode}/> : active === 'Companies / Clients' ? <CompaniesScreen workspaceMode={workspaceMode}/> : active === 'Settings' ? <Settings workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode}/> : active === 'Expirations' ? <AssetsRenewalsScreen workspaceMode={workspaceMode}/> : active === 'Licenses' ? (workspaceMode === 'Internal IT' ? <VendorIntelligenceScreen/> : workspaceMode === 'MSP / Integrator' ? <MspVendorIntelligenceScreen/> : <OperationalList active="Licenses" note="Brand, product, SKU, quantity, usage, renewal status and document links stay visible." tabs={['All','High risk','Under-used','Missing document','Renewal due']} columns={['License','Brand','Company','Quantity','Renewal','Amount','Owner','Risk']} rows={licenses}/>) : active === 'Contracts' ? <ContractsScreen workspaceMode={workspaceMode}/> : active === 'Documents' ? <DocumentsScreen workspaceMode={workspaceMode}/> : active === 'Tasks' ? <TasksScreen workspaceMode={workspaceMode}/> : active === 'Reports' ? <ReportsScreen workspaceMode={workspaceMode}/> : active === 'Data Import' ? <DataImportScreen workspaceMode={workspaceMode}/> : <Dashboard workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode}/>;
   return <div className={cx('app', sidebarCollapsed && 'appSidebarCollapsed', active === 'Expirations' && 'assetsRouteActive', active === 'Search' && 'searchRouteActive')}>
     <style>{styles + aiStyles + livingAgentStyles + oprivaUpgradeStyles + assetsRenewalsStyles + sidebarCollapseStyles + aiSettingsFixStyles + settingsAdminOverrideStyles + settingsDirectoryOverrideStyles + settingsHubDirectoryStyles + responsiveStyles + commandPaletteStyles}</style>
     <SidebarShell active={active} onSelect={handleSelect} open={sidebarOpen} onClose={() => setSidebarOpen(false)} workspaceMode={workspaceMode} collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed(value => !value)} />

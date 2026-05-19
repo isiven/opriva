@@ -40,7 +40,7 @@ const SIDEBAR_GROUPS = [
 const moduleMeta = {
   Dashboard: ['Operational command center', 'Know what expires. Know what it costs not to act. Act on time.'],
   'Attention Center': ['Operational issue center', 'Resolve critical renewals, ownership gaps, missing evidence and approval blockers before they become financial or operational risk.'],
-  Search: ['Global command search', 'Find records, clients, vendors, documents, owners, tasks and renewal risks.'],
+  Search: ['Global command search', 'Find records, owners, documents and renewal intelligence across the workspace.'],
   'Companies / Clients': ['Client operating model', 'Manage client context, contacts, ownership, renewal exposure and related records from one workspace.'],
   Expirations: ['Renewal calendar', 'Prioritize upcoming dates and missing actions.'],
   Licenses: ['Software and SaaS licenses', 'Track products, quantities, spend and risk.'],
@@ -1194,7 +1194,7 @@ function SidebarShell({ active, onSelect, open=false, onClose, workspaceMode = '
   </aside>;
 }
 
-function CommandPalette({ open, onClose, onNavigate, onOpenAi }){
+function CommandPalette({ open, onClose, onNavigate, onOpenAi, workspaceMode = 'MSP / Integrator' }){
   const [query, setQuery] = React.useState('');
   const [selectedIndex, setSelectedIndex] = React.useState(0);
   const inputRef = React.useRef(null);
@@ -1208,31 +1208,87 @@ function CommandPalette({ open, onClose, onNavigate, onOpenAi }){
     }
   }, [open]);
 
-  const pages = [
-    { id: 'Dashboard', label: 'Dashboard', desc: 'Workspace overview and AI risk summary' },
-    { id: 'Attention Center', label: 'Attention Center', desc: 'Critical issues, missing owners and pending approvals' },
-    { id: 'Companies / Clients', label: 'Companies / Clients', desc: 'Client portfolio and ownership' },
-    { id: 'Expirations', label: 'Expirations', desc: 'Renewal worklist by urgency' },
-    { id: 'Licenses', label: 'Licenses', desc: 'Software licenses, quantity and renewals' },
-    { id: 'Contracts', label: 'Contracts', desc: 'Active contracts and obligations' },
-    { id: 'Documents', label: 'Documents', desc: 'Quotes, contracts, warranties and evidence' },
-    { id: 'Tasks', label: 'Tasks', desc: 'Open work and assignments' },
-    { id: 'Reports', label: 'Reports', desc: 'Saved and scheduled reports' },
-    { id: 'Data Import', label: 'Data Import', desc: 'Import CSV or XLSX files' },
-    { id: 'Settings', label: 'Settings', desc: 'Workspace administration' }
-  ];
-  const quickActions = [
-    { label: 'Create new record', desc: 'Add a license, contract or asset' },
-    { label: 'Assign owners to ownerless records', desc: 'Bulk owner assignment' },
-    { label: 'Switch workspace', desc: 'Change active workspace' },
-    { label: 'Invite teammate', desc: 'Add a user to the workspace' }
-  ];
-  const aiSuggestions = [
-    { label: 'Ask Opriva AI...', desc: 'Open the AI assistant', primary: true },
-    { label: 'Summarize critical items', desc: 'AI brief of urgent renewal exposure' },
-    { label: 'Draft renewal emails', desc: 'AI-generated vendor outreach' },
-    { label: 'Find ownerless high-value records', desc: 'AI analysis of risk exposure' }
-  ];
+  const cmdPlaceholder = workspaceMode === 'MSP / Integrator'
+    ? 'Search clients, products, owners, distributors, or ask Opriva AI...'
+    : workspaceMode === 'Internal IT'
+    ? 'Search departments, brands, budgets, approvals, or ask Opriva AI...'
+    : workspaceMode === 'Hybrid'
+    ? 'Search records, contacts, owners, or ask Opriva AI...'
+    : 'Search records, jump to a page, or ask Opriva AI...';
+
+  const pageIds = ['Dashboard', 'Attention Center', 'Companies / Clients', 'Expirations', 'Licenses', 'Contracts', 'Documents', 'Tasks', 'Reports', 'Data Import', 'Settings'];
+  const pageDescs = {
+    Dashboard: 'Workspace overview and AI risk summary',
+    'Attention Center': 'Critical issues, missing owners and pending approvals',
+    'Companies / Clients': workspaceMode === 'Internal IT' ? 'Department portfolio and ownership' : 'Client portfolio and ownership',
+    Expirations: workspaceMode === 'Internal IT' ? 'Renewal forecast by department and budget impact' : 'Renewal worklist by urgency',
+    Licenses: 'Software licenses, quantity and renewals',
+    Contracts: 'Active contracts and obligations',
+    Documents: 'Quotes, contracts, warranties and evidence',
+    Tasks: 'Open work and assignments',
+    Reports: 'Saved and scheduled reports',
+    'Data Import': 'Import CSV or XLSX files',
+    Settings: 'Workspace administration'
+  };
+  const pages = pageIds.map(function(id){
+    return { id: id, label: getPageDisplayName(id, workspaceMode), desc: pageDescs[id] || '' };
+  });
+
+  const quickActionsMap = {
+    'MSP / Integrator': [
+      { label: 'Create renewal record for a client', desc: 'Add a client renewal, contract or license' },
+      { label: 'Assign account owner', desc: 'Set ownership on an unowned renewal record' },
+      { label: 'Request distributor quote', desc: 'Initiate a quote from the distributor' },
+      { label: 'Switch workspace', desc: 'Change active workspace' }
+    ],
+    'Internal IT': [
+      { label: 'Create renewal record for a department', desc: 'Add a renewal, contract or license to a department' },
+      { label: 'Assign budget owner', desc: 'Set ownership on an unowned budget item' },
+      { label: 'Submit approval request', desc: 'Route a renewal for budget approval' },
+      { label: 'Switch workspace', desc: 'Change active workspace' }
+    ],
+    Hybrid: [
+      { label: 'Create renewal record', desc: 'Add a license, contract or asset' },
+      { label: 'Assign owner', desc: 'Set ownership on an unowned renewal record' },
+      { label: 'Review operational risk', desc: 'Open pending risk items' },
+      { label: 'Switch workspace', desc: 'Change active workspace' }
+    ],
+    Custom: [
+      { label: 'Create new record', desc: 'Add a license, contract or asset' },
+      { label: 'Assign owners to ownerless records', desc: 'Bulk owner assignment' },
+      { label: 'Switch workspace', desc: 'Change active workspace' },
+      { label: 'Invite teammate', desc: 'Add a user to the workspace' }
+    ]
+  };
+  const quickActions = quickActionsMap[workspaceMode] || quickActionsMap['Custom'];
+
+  const aiSuggestionsMap = {
+    'MSP / Integrator': [
+      { label: 'Ask Opriva AI...', desc: 'Open the AI assistant', primary: true },
+      { label: 'Find clients with renewals in 30 days', desc: 'AI view of upcoming client renewal exposure' },
+      { label: 'Show unowned renewal records', desc: 'AI analysis of ownership gaps' },
+      { label: 'Draft distributor outreach', desc: 'AI-generated distributor communication' }
+    ],
+    'Internal IT': [
+      { label: 'Ask Opriva AI...', desc: 'Open the AI assistant', primary: true },
+      { label: 'Find departments with approval blockers', desc: 'AI triage of pending approvals by department' },
+      { label: 'Show budget exposure by brand', desc: 'AI analysis of brand-level spend risk' },
+      { label: 'Find renewal risks without owner', desc: 'AI analysis of unowned renewal exposure' }
+    ],
+    Hybrid: [
+      { label: 'Ask Opriva AI...', desc: 'Open the AI assistant', primary: true },
+      { label: 'Summarize critical renewal risk', desc: 'AI brief of urgent renewal exposure' },
+      { label: 'Find ownerless high-value records', desc: 'AI analysis of risk exposure' },
+      { label: 'Review upcoming exposure', desc: 'AI view of renewal windows in 30–90 days' }
+    ],
+    Custom: [
+      { label: 'Ask Opriva AI...', desc: 'Open the AI assistant', primary: true },
+      { label: 'Summarize critical items', desc: 'AI brief of urgent renewal exposure' },
+      { label: 'Find ownerless high-value records', desc: 'AI analysis of risk exposure' },
+      { label: 'Review upcoming exposure', desc: 'AI view of renewal windows in 30–90 days' }
+    ]
+  };
+  const aiSuggestions = aiSuggestionsMap[workspaceMode] || aiSuggestionsMap['Custom'];
 
   const norm = query.trim().toLowerCase();
   const matchesQuery = function(item){ return !norm || (item.label + ' ' + (item.desc || '')).toLowerCase().includes(norm); };
@@ -1299,7 +1355,7 @@ function CommandPalette({ open, onClose, onNavigate, onOpenAi }){
           className="cmdInput"
           value={query}
           onChange={function(e){ setQuery(e.target.value); }}
-          placeholder="Search records, jump to a page, or ask Opriva AI..."
+          placeholder={cmdPlaceholder}
           aria-label="Command palette search"
           spellCheck="false"
           autoComplete="off"
@@ -1766,7 +1822,7 @@ function App(){
     <section className="workspace"><TopbarShell active={active} onAlerts={() => setActive('Attention Center')} onOpenCommand={() => setCommandOpen(true)} onMenuToggle={() => setSidebarOpen(true)} onNavigate={setActive} workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode} />{route}</section>
     <FloatingOprivaAgentButton isOpen={aiOpen} onClick={() => setAiOpen(true)} eyeFollowsCursor={eyeFollowsCursor} />
     {aiOpen && <OprivaDrawer active={active} onClose={() => setAiOpen(false)} eyeFollowsCursor={eyeFollowsCursor} setEyeFollowsCursor={setEyeFollowsCursor} />}
-    <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} onNavigate={(id) => setActive(id)} onOpenAi={() => setAiOpen(true)} />
+    <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} onNavigate={(id) => setActive(id)} onOpenAi={() => setAiOpen(true)} workspaceMode={workspaceMode} />
     <ToastStack />
   </div>;
 }

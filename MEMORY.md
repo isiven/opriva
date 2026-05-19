@@ -158,6 +158,12 @@ Reports is Opriva's executive distribution layer. It packages Dashboard KPIs, At
 
 Documents is Opriva's evidence layer. It tracks required documents, signed contracts, quotes, warranty proof, approval forms, versions and access status. Missing required evidence feeds Attention Center, Tasks and Reports.
 
+## 14f. Licenses — Per-Record License Portfolio
+
+Licenses must represent per-record license/product inventory. Brand / Provider / Distributor Intelligence is valuable but should become a Phase 2 analytics or portfolio intelligence view, not the primary Licenses screen.
+
+`MspVendorIntelligenceScreen` and `VendorIntelligenceScreen` are preserved in code as Phase 2 candidates for a future Brand Intelligence / Portfolio Intelligence / Analytics view. They are not connected to any active route.
+
 ## 14d. Contracts as Obligation and Evidence Layer
 
 Contracts tracks counterparty obligations, notice periods, document evidence and approval blockers. In MSP / Integrator it surfaces client/provider contract risk and commercial renewal actions. In Internal IT it surfaces department/provider exposure, approval gaps and evidence requirements.
@@ -203,3 +209,4 @@ Later:
 - 2026-05-19: Reports made workspace-aware. Report templates, export center labels and scheduled/generated report rows now adapt to MSP / Integrator and Internal IT without changing layout, runtime, routing, sidebar, topbar, workspaceMode or Floating AI.
 - 2026-05-19: Contracts made workspace-aware. Contract columns, tabs, AI Insight, toolbar copy and mock rows now adapt to MSP / Integrator and Internal IT without changing layout, runtime, routing, sidebar, topbar, workspaceMode or Floating AI.
 - 2026-05-19: Documents made workspace-aware. Document columns, tabs, AI Insight, toolbar copy and mock rows now adapt to MSP / Integrator and Internal IT without changing layout, runtime, routing, sidebar, topbar, workspaceMode or Floating AI.
+- 2026-05-19: Licenses route corrected to render a true workspace-aware License Portfolio. MSP / Integrator now shows client license records with brand, distributor, value, margin and owner context. Internal IT now shows internal license records with brand, provider, department, approval status and owner context. Previous Brand Intelligence screens were preserved in code as Phase 2 candidates but disconnected from the Licenses route.

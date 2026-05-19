@@ -128,11 +128,21 @@ const contacts = [
   ['Sofía Torres', 'Metro Retail Group', 'Infrastructure Manager', 'sofia.torres@metroretail.co', 'Technical', 'Warranty owner']
 ];
 
-const licenses = [
-  ['Trend Micro Vision One Credits', 'Trend Micro', 'Banisi', '1,200 credits', 'Expires May 2, 2026', '$42,800', 'María Chen', 'High risk'],
-  ['Microsoft 365 Business Premium', 'Microsoft', 'Canal Bank', '480 seats', 'Renews Jun 3, 2026', '$63,360', 'Elena Ruiz', 'Approval needed'],
-  ['Veeam Backup for Microsoft 365', 'Veeam', 'Nova Finance', '250 mailboxes', 'Renews May 19, 2026', '$18,900', 'Tomás Vega', 'Usage review'],
-  ['FortiGate UTP Support', 'Fortinet', 'Global Logistics Panamá', '8 appliances', 'Renews Aug 17, 2026', '$24,100', 'Diego Paredes', 'Healthy']
+const licensesMsp = [
+  ['Trend Micro Vision One', 'Banisi', 'Trend Micro', 'TD Synnex', '700 credits', 'May 26, 2026', '$42,800', '$11,500', 'María Chen', 'Expiring soon', 'Prepare proposal'],
+  ['Microsoft 365 Enterprise', 'Canal Bank', 'Microsoft', 'Licencias Online', '450 seats', 'Jun 30, 2026', '$142,000', '$24,000', 'Rafael Soto', 'Renewal window', 'Request true-up'],
+  ['Veeam Backup & Replication', 'Nova Finance', 'Veeam', 'Ingram Micro', '28 workloads', 'Jul 12, 2026', '$18,900', '$4,600', 'Ana Ríos', 'Missing document', 'Request evidence'],
+  ['FortiGate Security Bundle', 'Global Logistics', 'Fortinet', 'Intcomex', '12 devices', 'Jun 7, 2026', '$26,400', '$5,900', 'Luis Mora', 'Quote needed', 'Request quote'],
+  ['DigiCert Wildcard SSL', 'Grupo Regency', 'DigiCert', 'Intcomex', '8 certificates', 'May 23, 2026', '$3,200', '$850', 'Unassigned', 'Critical', 'Assign owner'],
+  ['CloudSecure SaaS', 'Metro Retail Group', 'CloudSecure', 'Direct', '1 subscription', 'Aug 18, 2026', '$22,400', '$3,800', 'María Chen', 'Legal review', 'Review DPA']
+];
+const licensesInternalIT = [
+  ['Microsoft 365 Enterprise', 'Microsoft', 'Nextcom', 'Finance', '450 seats', 'Jun 30, 2026', '$142,000', 'CIO approval pending', 'Carlos Vega', 'Renewal window', 'Submit approval'],
+  ['Kaspersky Endpoint Security', 'Kaspersky', 'Local Security Provider', 'IT Security', '900 endpoints', 'Jun 22, 2026', '$82,000', 'Budget review', 'Ana Ruiz', 'Consolidation candidate', 'Compare options'],
+  ['Oracle POS Support', 'Oracle', 'Oracle Direct', 'Retail Operations', '62 terminals', 'Jul 18, 2026', '$96,000', 'Owner gap', 'Unassigned', 'Critical', 'Assign owner'],
+  ['Fortinet Security Bundle', 'Fortinet', 'Nextcom', 'Infrastructure', '14 devices', 'Jul 5, 2026', '$48,000', 'Approved', 'Luis Mora', 'Quote required', 'Request quote'],
+  ['CrowdStrike Endpoint Protection', 'CrowdStrike', 'Direct', 'IT Security', '800 endpoints', 'Aug 10, 2026', '$119,000', 'Budget review', 'Ana Ruiz', 'Approval needed', 'Request approval'],
+  ['DigiCert SSL Certificates', 'DigiCert', 'Nextcom', 'Digital Channels', '12 certificates', 'May 23, 2026', '$3,200', 'Evidence missing', 'Unassigned', 'Critical', 'Request evidence']
 ];
 
 const tasksMsp = [
@@ -1810,6 +1820,30 @@ function OprivaDrawer({ active, onClose, eyeFollowsCursor, setEyeFollowsCursor }
 }
 
 
+function LicensePortfolioScreen({ workspaceMode = 'MSP / Integrator' }){
+  const isInternalIT = workspaceMode === 'Internal IT';
+  const licenseNote = isInternalIT
+    ? 'Track internal licenses, providers, departments, renewal dates, approval status, budget exposure and ownership.'
+    : workspaceMode === 'MSP / Integrator'
+    ? 'Track client licenses, renewal dates, distributor relationships, value, margin and commercial ownership.'
+    : 'Track licenses, renewal dates, ownership and risk across the workspace.';
+  const licenseTabs = isInternalIT
+    ? ['All','Expiring soon','CIO approval needed','Missing evidence','Unassigned']
+    : ['All','Expiring soon','High margin risk','Missing document','Unassigned'];
+  const licenseColumns = isInternalIT
+    ? ['License / Product','Brand','Provider','Department','Quantity','Renewal','Value','Approval status','Owner','Status','Action']
+    : ['License / Product','Client','Brand','Distributor','Quantity','Renewal','Value','Margin','Owner','Status','Action'];
+  const licenseAi = isInternalIT
+    ? 'Opriva AI can identify expiring licenses, approval blockers and missing evidence across IT departments.'
+    : 'Opriva AI can identify margin risks, expiring client licenses and missing renewal documents across your portfolio.';
+  const licensePlaceholder = isInternalIT
+    ? 'Filter licenses by brand, provider, department, owner or approval status…'
+    : 'Filter licenses by client, brand, distributor, owner or status…';
+  const licenseRows = isInternalIT ? licensesInternalIT : licensesMsp;
+  const licenseTitle = isInternalIT ? 'Internal License Portfolio' : workspaceMode === 'MSP / Integrator' ? 'Client License Portfolio' : 'License Portfolio';
+  return <OperationalList active={licenseTitle} note={licenseNote} tabs={licenseTabs} columns={licenseColumns} ai={licenseAi} placeholder={licensePlaceholder} rows={licenseRows}/>;
+}
+
 function MspVendorIntelligenceScreen(){
   const rows = [
     { brand: 'Microsoft', category: 'Productivity / SaaS', distributor: 'Licencias Online', clients: 'Grupo Regency, Banisi', records: '18', renewalValue: '$220K', costExposure: '$184K', marginExposure: '$36K', risk: 'Medium', action: 'Prepare renewal' },
@@ -1935,7 +1969,7 @@ function App(){
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, []);
-  const route = active === 'Search' ? <SearchScreen/> : active === 'Dashboard' ? <Dashboard workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode}/> : active === 'Attention Center' ? <AttentionCenter workspaceMode={workspaceMode}/> : active === 'Companies / Clients' ? <CompaniesScreen workspaceMode={workspaceMode}/> : active === 'Settings' ? <Settings workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode}/> : active === 'Expirations' ? <AssetsRenewalsScreen workspaceMode={workspaceMode}/> : active === 'Licenses' ? (workspaceMode === 'Internal IT' ? <VendorIntelligenceScreen/> : workspaceMode === 'MSP / Integrator' ? <MspVendorIntelligenceScreen/> : <OperationalList active="Licenses" note="Brand, product, SKU, quantity, usage, renewal status and document links stay visible." tabs={['All','High risk','Under-used','Missing document','Renewal due']} columns={['License','Brand','Company','Quantity','Renewal','Amount','Owner','Risk']} rows={licenses}/>) : active === 'Contracts' ? <ContractsScreen workspaceMode={workspaceMode}/> : active === 'Documents' ? <DocumentsScreen workspaceMode={workspaceMode}/> : active === 'Tasks' ? <TasksScreen workspaceMode={workspaceMode}/> : active === 'Reports' ? <ReportsScreen workspaceMode={workspaceMode}/> : active === 'Data Import' ? <DataImportScreen workspaceMode={workspaceMode}/> : <Dashboard workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode}/>;
+  const route = active === 'Search' ? <SearchScreen/> : active === 'Dashboard' ? <Dashboard workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode}/> : active === 'Attention Center' ? <AttentionCenter workspaceMode={workspaceMode}/> : active === 'Companies / Clients' ? <CompaniesScreen workspaceMode={workspaceMode}/> : active === 'Settings' ? <Settings workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode}/> : active === 'Expirations' ? <AssetsRenewalsScreen workspaceMode={workspaceMode}/> : active === 'Licenses' ? <LicensePortfolioScreen workspaceMode={workspaceMode}/> : active === 'Contracts' ? <ContractsScreen workspaceMode={workspaceMode}/> : active === 'Documents' ? <DocumentsScreen workspaceMode={workspaceMode}/> : active === 'Tasks' ? <TasksScreen workspaceMode={workspaceMode}/> : active === 'Reports' ? <ReportsScreen workspaceMode={workspaceMode}/> : active === 'Data Import' ? <DataImportScreen workspaceMode={workspaceMode}/> : <Dashboard workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode}/>;
   return <div className={cx('app', sidebarCollapsed && 'appSidebarCollapsed', active === 'Expirations' && 'assetsRouteActive', active === 'Search' && 'searchRouteActive')}>
     <style>{styles + aiStyles + livingAgentStyles + oprivaUpgradeStyles + assetsRenewalsStyles + sidebarCollapseStyles + aiSettingsFixStyles + settingsAdminOverrideStyles + settingsDirectoryOverrideStyles + settingsHubDirectoryStyles + responsiveStyles + commandPaletteStyles}</style>
     <SidebarShell active={active} onSelect={handleSelect} open={sidebarOpen} onClose={() => setSidebarOpen(false)} workspaceMode={workspaceMode} collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed(value => !value)} />

@@ -32,7 +32,7 @@ const DEPARTMENT_TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
 
 const SIDEBAR_GROUPS = [
   { label: 'Overview', items: ['Dashboard', 'Attention Center'] },
-  { label: 'Manage', items: ['Companies / Clients', 'Expirations', 'Licenses', 'Contracts', 'Documents'] },
+  { label: 'Manage', items: ['Companies / Clients', 'Expirations', 'Licenses', 'Hardware', 'Contracts', 'Documents'] },
   { label: 'Work', items: ['Tasks', 'Reports'] },
   { label: 'Admin', items: ['Data Import', 'Settings'] }
 ];
@@ -44,6 +44,7 @@ const moduleMeta = {
   'Companies / Clients': ['Client operating model', 'Manage client context, contacts, ownership, renewal exposure and related records from one workspace.'],
   Expirations: ['Renewal calendar', 'Prioritize upcoming dates and missing actions.'],
   Licenses: ['Software and SaaS licenses', 'Track products, quantities, spend and risk.'],
+  Hardware: ['Physical asset inventory', 'Track physical assets, serials, warranty dates, support coverage and renewal actions.'],
   Contracts: ['Commercial agreements', 'Track obligations, parties, value and status.'],
   Documents: ['Record document vault', 'Find quotes, agreements, warranties and evidence.'],
   Tasks: ['Operational work queue', 'Assign and close renewal work.'],
@@ -570,6 +571,46 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
       <Table columns={columns} rows={safeRows}/>
     </section>
   </main>;
+}
+
+const hardwareMsp = [
+  ['PowerEdge R750','Server','Banisi','Dell','PowerEdge R750','SN-7X4K2','May 26, 2026','Gold Support','María Chen','Expiring','Request renewal'],
+  ['FortiGate 200F','Firewall','Canal Bank','Fortinet','FG-200F','FGT-A91023','Jun 30, 2026','FortiCare','Luis Mora','Active','Review contract'],
+  ['PowerEdge R640','Server','Grupo Regency','Dell','PowerEdge R640','SN-4M2L9','Jul 15, 2026','ProSupport','Rafael Soto','Active','Prepare true-up'],
+  ['UPS Smart-UPS','UPS','Nova Finance','APC','Smart-UPS 3000','SU-003421','Apr 18, 2026','No support','Ana Ríos','Missing support','Assign support'],
+  ['HP ProLiant DL380','Server','Metro Retail Group','HP','DL380 Gen10','HPE-9928X','Aug 10, 2026','Foundation Care','Unassigned','Warranty gap','Assign owner'],
+  ['Cisco Catalyst 9300','Switch','Global Logistics','Cisco','Cat 9300-48P','CSC-88217','May 23, 2026','SNTC','Diego Paredes','Expiring','Request quote']
+];
+const hardwareInternalIT = [
+  ['PowerEdge R750','Server','Dell','PowerEdge R750','SN-7X4K2','Infrastructure','Nextcom','May 26, 2026','CIO approval pending','Luis Mora','Expiring','Submit approval'],
+  ['FortiGate 200F','Firewall','Fortinet','FG-200F','FGT-A91023','Infrastructure','Nextcom','Jun 30, 2026','Approved','Luis Mora','Active','Monitor'],
+  ['HP ProLiant DL380','Server','HP','DL380 Gen10','HPE-9928X','Retail Operations','Oracle Direct','Jul 5, 2026','Owner gap','Unassigned','Missing owner','Assign owner'],
+  ['UPS Smart-UPS 3000','UPS','APC','Smart-UPS 3000','SU-003421','Finance','Local reseller','Apr 18, 2026','Budget review','Carlos Vega','Missing support','Request budget'],
+  ['Cisco Catalyst 9300','Switch','Cisco','Cat 9300-48P','CSC-88217','Digital Channels','Nextcom','May 23, 2026','Approval needed','Ana Ruiz','Expiring','Request renewal'],
+  ['MacBook Pro M3 fleet','Endpoint','Apple','MacBook Pro M3','FLEET-2024','Corporate IT','Apple Direct','Aug 10, 2026','Approved','Carlos Vega','Active','Review lifecycle']
+];
+
+function HardwareScreen({ workspaceMode = 'MSP / Integrator' }){
+  const isInternalIT = workspaceMode === 'Internal IT';
+  const hardwareNote = isInternalIT
+    ? 'Track IT hardware assets, warranty end dates, support contracts, department ownership and approval status.'
+    : workspaceMode === 'MSP / Integrator'
+    ? 'Track client hardware assets, warranty dates, support contracts and renewal obligations across your portfolio.'
+    : 'Track hardware assets, warranty dates, support coverage and ownership across the workspace.';
+  const hardwareTabs = isInternalIT
+    ? ['All','Warranty expiring','Missing support','CIO approval needed','Unassigned']
+    : ['All','Warranty expiring','Missing support','Unassigned','High value'];
+  const hardwareColumns = isInternalIT
+    ? ['Asset','Type','Brand','Model','Serial','Department','Provider','Warranty end','Approval status','Owner','Status','Action']
+    : ['Asset','Type','Client','Brand','Model','Serial','Warranty end','Support','Owner','Status','Action'];
+  const hardwareAi = isInternalIT
+    ? 'Opriva AI can surface hardware assets with expiring warranties, missing support coverage and approval blockers across IT departments.'
+    : 'Opriva AI can identify hardware assets with expiring warranties, missing support contracts and unassigned ownership across your client portfolio.';
+  const hardwarePlaceholder = isInternalIT
+    ? 'Filter hardware by brand, department, provider, owner or warranty status…'
+    : 'Filter hardware by client, brand, model, owner or warranty status…';
+  const hardwareRows = isInternalIT ? hardwareInternalIT : hardwareMsp;
+  return <OperationalList active="Hardware" note={hardwareNote} tabs={hardwareTabs} columns={hardwareColumns} ai={hardwareAi} placeholder={hardwarePlaceholder} rows={hardwareRows}/>;
 }
 
 const contractsMsp = [
@@ -1274,6 +1315,7 @@ function SidebarNavIcon({ item }){
     'Vendors': <svg {...common}><circle cx="6" cy="7" r="3"/><circle cx="18" cy="7" r="3"/><circle cx="12" cy="17" r="3"/><path d="M8.6 9.4l2 4.2M15.4 9.4l-2 4.2"/></svg>,
     'Expirations': <svg {...common}><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/><path d="M8 15h5"/></svg>,
     'Licenses': <svg {...common}><circle cx="7.5" cy="14.5" r="3.5"/><path d="M10 12l9-9"/><path d="M15 3h4v4"/></svg>,
+    'Hardware': <svg {...common}><rect x="2" y="3" width="20" height="5" rx="1.5"/><rect x="2" y="10" width="20" height="5" rx="1.5"/><rect x="2" y="17" width="20" height="4" rx="1.5"/><circle cx="18" cy="5.5" r="1"/><circle cx="18" cy="12.5" r="1"/></svg>,
     'Contracts': <svg {...common}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg>,
     'Documents': <svg {...common}><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>,
     'Tasks': <svg {...common}><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>,
@@ -1969,7 +2011,7 @@ function App(){
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, []);
-  const route = active === 'Search' ? <SearchScreen/> : active === 'Dashboard' ? <Dashboard workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode}/> : active === 'Attention Center' ? <AttentionCenter workspaceMode={workspaceMode}/> : active === 'Companies / Clients' ? <CompaniesScreen workspaceMode={workspaceMode}/> : active === 'Settings' ? <Settings workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode}/> : active === 'Expirations' ? <AssetsRenewalsScreen workspaceMode={workspaceMode}/> : active === 'Licenses' ? <LicensePortfolioScreen workspaceMode={workspaceMode}/> : active === 'Contracts' ? <ContractsScreen workspaceMode={workspaceMode}/> : active === 'Documents' ? <DocumentsScreen workspaceMode={workspaceMode}/> : active === 'Tasks' ? <TasksScreen workspaceMode={workspaceMode}/> : active === 'Reports' ? <ReportsScreen workspaceMode={workspaceMode}/> : active === 'Data Import' ? <DataImportScreen workspaceMode={workspaceMode}/> : <Dashboard workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode}/>;
+  const route = active === 'Search' ? <SearchScreen/> : active === 'Dashboard' ? <Dashboard workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode}/> : active === 'Attention Center' ? <AttentionCenter workspaceMode={workspaceMode}/> : active === 'Companies / Clients' ? <CompaniesScreen workspaceMode={workspaceMode}/> : active === 'Settings' ? <Settings workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode}/> : active === 'Expirations' ? <AssetsRenewalsScreen workspaceMode={workspaceMode}/> : active === 'Licenses' ? <LicensePortfolioScreen workspaceMode={workspaceMode}/> : active === 'Hardware' ? <HardwareScreen workspaceMode={workspaceMode}/> : active === 'Contracts' ? <ContractsScreen workspaceMode={workspaceMode}/> : active === 'Documents' ? <DocumentsScreen workspaceMode={workspaceMode}/> : active === 'Tasks' ? <TasksScreen workspaceMode={workspaceMode}/> : active === 'Reports' ? <ReportsScreen workspaceMode={workspaceMode}/> : active === 'Data Import' ? <DataImportScreen workspaceMode={workspaceMode}/> : <Dashboard workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode}/>;
   return <div className={cx('app', sidebarCollapsed && 'appSidebarCollapsed', active === 'Expirations' && 'assetsRouteActive', active === 'Search' && 'searchRouteActive')}>
     <style>{styles + aiStyles + livingAgentStyles + oprivaUpgradeStyles + assetsRenewalsStyles + sidebarCollapseStyles + aiSettingsFixStyles + settingsAdminOverrideStyles + settingsDirectoryOverrideStyles + settingsHubDirectoryStyles + responsiveStyles + commandPaletteStyles}</style>
     <SidebarShell active={active} onSelect={handleSelect} open={sidebarOpen} onClose={() => setSidebarOpen(false)} workspaceMode={workspaceMode} collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed(value => !value)} />

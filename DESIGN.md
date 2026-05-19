@@ -87,6 +87,25 @@ Tables are the primary product surface.
 For MSP tables, include Client and Distributor when relevant.
 For Internal IT tables, include Department and Provider when relevant.
 
+## 8a. Enterprise Table Rule
+
+Every major Opriva table must be configurable by the user. Users should be able to show/hide columns, reorder columns, apply filters, save views, perform bulk actions and export data. In the MVP, this behavior can be represented visually through controls such as Configure columns, Saved view, Filters and Bulk actions. Full persistence and advanced table customization are Phase 2.
+
+Columns should not be considered fixed forever. The default table view should be optimized for the selected workspace mode, but users should eventually be able to adapt the table to their operational needs.
+
+Applies to:
+- Dashboard queues
+- Attention Center
+- Departments
+- Renewals Forecast
+- Licenses
+- Hardware
+- Contracts
+- Documents
+- Tasks
+- Reports
+- Data Import validation tables
+
 ## 9. AI Insight Rules
 
 Opriva AI should support prioritization, not dominate the screen.

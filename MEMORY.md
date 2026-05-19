@@ -158,6 +158,20 @@ Reports is Opriva's executive distribution layer. It packages Dashboard KPIs, At
 
 Documents is Opriva's evidence layer. It tracks required documents, signed contracts, quotes, warranty proof, approval forms, versions and access status. Missing required evidence feeds Attention Center, Tasks and Reports.
 
+## 14h. Enterprise Table Rule
+
+Every major Opriva table must be configurable by the user. Users should be able to show/hide columns, reorder columns, apply filters, save views, perform bulk actions and export data. In the MVP, this behavior can be represented visually through controls such as Configure columns, Saved view, Filters and Bulk actions. Full persistence and advanced table customization are Phase 2.
+
+Columns should not be considered fixed forever. The default table view should be optimized for the selected workspace mode, but users should eventually be able to adapt the table to their operational needs.
+
+Applies to: Dashboard queues, Attention Center, Departments, Renewals Forecast, Licenses, Hardware, Contracts, Documents, Tasks, Reports, Data Import validation tables.
+
+## 14g. Hardware as Physical Asset Layer
+
+Hardware is Opriva's physical asset layer. Warranties live inside Hardware as warranty end date, support coverage and renewal status. Contracts can link to hardware or licenses. Warranties as a standalone module remain Phase 2.
+
+Hardware detail views, asset lifecycle history, location/rack fields and bidirectional links to Contracts/Documents are Phase 2. Brand Intelligence / Provider Intelligence also remains a Phase 2 analytics candidate.
+
 ## 14f. Licenses — Per-Record License Portfolio
 
 Licenses must represent per-record license/product inventory. Brand / Provider / Distributor Intelligence is valuable but should become a Phase 2 analytics or portfolio intelligence view, not the primary Licenses screen.
@@ -209,4 +223,6 @@ Later:
 - 2026-05-19: Reports made workspace-aware. Report templates, export center labels and scheduled/generated report rows now adapt to MSP / Integrator and Internal IT without changing layout, runtime, routing, sidebar, topbar, workspaceMode or Floating AI.
 - 2026-05-19: Contracts made workspace-aware. Contract columns, tabs, AI Insight, toolbar copy and mock rows now adapt to MSP / Integrator and Internal IT without changing layout, runtime, routing, sidebar, topbar, workspaceMode or Floating AI.
 - 2026-05-19: Documents made workspace-aware. Document columns, tabs, AI Insight, toolbar copy and mock rows now adapt to MSP / Integrator and Internal IT without changing layout, runtime, routing, sidebar, topbar, workspaceMode or Floating AI.
+- 2026-05-19: Enterprise Table Rule added. All major Opriva tables should support configurable columns, filters, saved views, bulk actions and export behavior. MVP may represent these controls visually while full persistence is deferred to Phase 2.
+- 2026-05-19: Hardware module added as a first-class sidebar route. Hardware tracks physical IT assets, serials, models, warranty end dates, support coverage, ownership, approval status and renewal actions across MSP / Integrator and Internal IT workspaces without changing runtime, layout, topbar, Floating AI or existing routes.
 - 2026-05-19: Licenses route corrected to render a true workspace-aware License Portfolio. MSP / Integrator now shows client license records with brand, distributor, value, margin and owner context. Internal IT now shows internal license records with brand, provider, department, approval status and owner context. Previous Brand Intelligence screens were preserved in code as Phase 2 candidates but disconnected from the Licenses route.

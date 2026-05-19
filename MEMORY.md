@@ -150,6 +150,10 @@ The following structures inside `SettingsGroupPanel` must be kept in sync with t
 
 Hooks must remain before any conditional returns in React components. React error #300 must not appear. The app must not show a white screen.
 
+## 14c. Reports as Distribution Layer
+
+Reports is Opriva's executive distribution layer. It packages Dashboard KPIs, Attention Center risks, Data Import completeness and Tasks execution status into outputs for leadership, finance, account management and compliance.
+
 ## 15. Next Steps
 
 Safe Phase 1 candidates:
@@ -188,3 +192,4 @@ Later:
 - 2026-05-19: Tasks made workspace-aware. Column labels, subtitle, toolbar placeholder, mock task rows and kanban cards now adapt to MSP / Integrator and Internal IT without changing layout, runtime, routing, sidebar, topbar, workspaceMode or Floating AI.
 - 2026-05-19: Tasks execution context improved. Tasks now include Source, Impact and task-specific Action columns so MSP and Internal IT work queues better reflect Opriva's operational execution layer. Kanban secondary lines now show impact context instead of priority label. No layout, runtime, routing, sidebar, topbar, workspaceMode or Floating AI changes.
 - 2026-05-19: MSP Tasks execution copy refined. Source, impact and kanban context were tightened to make client renewal tasks more operational without changing layout, runtime, routing, sidebar, topbar, workspaceMode or Floating AI.
+- 2026-05-19: Reports made workspace-aware. Report templates, export center labels and scheduled/generated report rows now adapt to MSP / Integrator and Internal IT without changing layout, runtime, routing, sidebar, topbar, workspaceMode or Floating AI.

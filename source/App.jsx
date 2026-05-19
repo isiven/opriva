@@ -135,11 +135,17 @@ const licenses = [
   ['FortiGate UTP Support', 'Fortinet', 'Global Logistics Panamá', '8 appliances', 'Renews Aug 17, 2026', '$24,100', 'Diego Paredes', 'Healthy']
 ];
 
-const tasks = [
-  ['Send renewal proposal', 'Banisi', 'Trend Micro renewal', 'María Chen', 'High', 'Apr 12', 'In progress'],
-  ['Assign DNS approver', 'Grupo Regency', 'SSL certificate renewal', 'Luis Mora', 'Critical', 'Today', 'Blocked'],
-  ['Review DPA amendment', 'Nova Finance', 'CloudSecure contract', 'Nadia Brooks', 'Medium', 'Apr 18', 'Waiting legal'],
-  ['Approve warranty coverage', 'Metro Retail Group', 'Dell R750 support', 'Ana Ríos', 'Critical', 'Overdue', 'Escalated']
+const tasksMsp = [
+  ['Send renewal proposal', 'Banisi', 'Trend Micro renewal', 'Renewal proposal', '$11,500 margin', 'María Chen', 'High', 'Apr 12', 'In progress', 'Prepare proposal'],
+  ['Assign DNS approver', 'Grupo Regency', 'SSL certificate renewal', 'Owner gap', 'Renewal at risk', 'Luis Mora', 'Critical', 'Today', 'Blocked', 'Assign owner'],
+  ['Review DPA amendment', 'Nova Finance', 'CloudSecure contract', 'Renewal forecast', '$3,800 margin', 'Nadia Brooks', 'Medium', 'Apr 18', 'Waiting legal', 'Review DPA'],
+  ['Approve warranty coverage', 'Metro Retail Group', 'Dell R750 support', 'Quote blocker', '$24,000 margin', 'Ana Ríos', 'Critical', 'Overdue', 'Escalated', 'Validate warranty']
+];
+const tasksInternalIT = [
+  ['Confirm budget owner', 'Retail Operations', 'Oracle POS Support', 'Missing owner', '$96,000 exposure', 'Unassigned', 'Critical', 'Today', 'Blocked', 'Assign owner'],
+  ['Submit CIO approval', 'Finance', 'Microsoft 365 Enterprise', 'Approval blocker', '$142,000 exposure', 'Carlos Vega', 'High', 'May 22', 'Waiting approval', 'Submit approval'],
+  ['Review consolidation options', 'IT Security', 'Endpoint security overlap', 'Renewal forecast', 'CIO approval blocked', 'Ana Ruiz', 'High', 'May 25', 'In progress', 'Review options'],
+  ['Request provider quote', 'Infrastructure', 'Fortinet renewal', 'Evidence gap', 'Service continuity risk', 'Luis Mora', 'Medium', 'May 28', 'To do', 'Request quote']
 ];
 
 const reports = [
@@ -558,9 +564,28 @@ function DocumentsScreen(){
   return <OperationalList active="Documents" note="Govern evidence, versions, access and required document gaps." tabs={['All','Required missing','Restricted','Pending review','Linked records']} columns={['Document','Type','Linked record','Company','Uploaded by','Version','Access','Requirement','Status']} rows={rows}/>;
 }
 
-function TasksScreen(){
-  const board = [['To do','Request signed Trend Micro quote','Banisi','María Chen','High'],['In progress','Assign SSL certificate owner','Grupo Regency','Luis Mora','Critical'],['Blocked','Legal approval for support contract','Banisi','Nadia Brooks','High']];
-  return <main className="content"><ScreenHeader active="Tasks" subtitle="Tasks support both list execution and board-style operational follow-up."><button>Saved view</button><button className="primary">New task</button></ScreenHeader><section className="panel"><div className="tabs"><button className="active">List view</button><button>Board view</button><button>My tasks</button><button>Overdue</button></div><div className="toolbar"><input placeholder="Filter tasks by owner, company, record or status…"/><button>Bulk update</button><button>Group by owner</button></div><Table columns={['Task','Company','Record','Owner','Priority','Due','Status']} rows={tasks}/></section><section className="panel"><div className="panelTitle"><h2>Kanban board snapshot</h2><span>Board view for execution without losing list precision</span></div><div className="kanban">{['To do','In progress','Blocked'].map(status=><div className="kanbanCol" key={status}><h3>{status}</h3>{board.filter(card=>card[0]===status).map(card=><article className="taskCard" key={card[1]}><strong>{card[1]}</strong><span>{card[2]} · {card[3]}</span><Badge tone={card[4]}>{card[4]}</Badge></article>)}</div>)}</div></section></main>;
+function TasksScreen({ workspaceMode = 'MSP / Integrator' }){
+  const isInternalIT = workspaceMode === 'Internal IT';
+  const taskSubtitle = isInternalIT
+    ? 'Manage renewal approvals, department ownership gaps, budget reviews and evidence requests across IT operations.'
+    : workspaceMode === 'MSP / Integrator'
+    ? 'Manage renewal follow-up, client approvals, quote requests and ownership assignments across your client portfolio.'
+    : 'Manage renewal work, owner assignments and operational follow-up across the workspace.';
+  const taskColumns = isInternalIT
+    ? ['Task','Department','Record','Source','Impact','Owner','Priority','Due','Status','Action']
+    : workspaceMode === 'MSP / Integrator'
+    ? ['Task','Client','Record','Source','Impact','Owner','Priority','Due','Status','Action']
+    : ['Task','Company','Record','Source','Impact','Owner','Priority','Due','Status','Action'];
+  const taskPlaceholder = isInternalIT
+    ? 'Filter tasks by owner, department, record or status…'
+    : workspaceMode === 'MSP / Integrator'
+    ? 'Filter tasks by owner, client, record or status…'
+    : 'Filter tasks by owner, company, record or status…';
+  const taskRows = isInternalIT ? tasksInternalIT : tasksMsp;
+  const boardMsp = [['To do','Request signed Trend Micro quote','Banisi','High','$11,500 margin · Proposal pending'],['In progress','Assign SSL certificate owner','Grupo Regency','Critical','Owner gap · Renewal at risk'],['Blocked','Legal approval for support contract','Banisi','Medium','$3,800 margin · Legal blocker']];
+  const boardInternalIT = [['To do','Request Fortinet renewal quote','Infrastructure','Medium','Service continuity risk'],['In progress','Review endpoint security consolidation','IT Security','High','CIO approval blocked'],['Blocked','Submit CIO approval for Microsoft 365','Finance','High','$142,000 exposure']];
+  const board = isInternalIT ? boardInternalIT : boardMsp;
+  return <main className="content"><ScreenHeader active="Tasks" subtitle={taskSubtitle}><button>Saved view</button><button className="primary">New task</button></ScreenHeader><section className="panel"><div className="tabs"><button className="active">List view</button><button>Board view</button><button>My tasks</button><button>Overdue</button></div><div className="toolbar"><input placeholder={taskPlaceholder}/><button>Bulk update</button><button>Group by owner</button></div><Table columns={taskColumns} rows={taskRows}/></section><section className="panel"><div className="panelTitle"><h2>Kanban board snapshot</h2><span>Board view for execution without losing list precision</span></div><div className="kanban">{['To do','In progress','Blocked'].map(status=><div className="kanbanCol" key={status}><h3>{status}</h3>{board.filter(card=>card[0]===status).map(card=><article className="taskCard" key={card[1]}><strong>{card[1]}</strong><span>{card[2]} · {card[4]}</span><Badge tone={card[3]}>{card[3]}</Badge></article>)}</div>)}</div></section></main>;
 }
 
 function ReportsScreen(){
@@ -1827,7 +1852,7 @@ function App(){
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, []);
-  const route = active === 'Search' ? <SearchScreen/> : active === 'Dashboard' ? <Dashboard workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode}/> : active === 'Attention Center' ? <AttentionCenter workspaceMode={workspaceMode}/> : active === 'Companies / Clients' ? <CompaniesScreen workspaceMode={workspaceMode}/> : active === 'Settings' ? <Settings workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode}/> : active === 'Expirations' ? <AssetsRenewalsScreen workspaceMode={workspaceMode}/> : active === 'Licenses' ? (workspaceMode === 'Internal IT' ? <VendorIntelligenceScreen/> : workspaceMode === 'MSP / Integrator' ? <MspVendorIntelligenceScreen/> : <OperationalList active="Licenses" note="Brand, product, SKU, quantity, usage, renewal status and document links stay visible." tabs={['All','High risk','Under-used','Missing document','Renewal due']} columns={['License','Brand','Company','Quantity','Renewal','Amount','Owner','Risk']} rows={licenses}/>) : active === 'Contracts' ? <ContractsScreen/> : active === 'Documents' ? <DocumentsScreen/> : active === 'Tasks' ? <TasksScreen/> : active === 'Reports' ? <ReportsScreen/> : active === 'Data Import' ? <DataImportScreen workspaceMode={workspaceMode}/> : <Dashboard workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode}/>;
+  const route = active === 'Search' ? <SearchScreen/> : active === 'Dashboard' ? <Dashboard workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode}/> : active === 'Attention Center' ? <AttentionCenter workspaceMode={workspaceMode}/> : active === 'Companies / Clients' ? <CompaniesScreen workspaceMode={workspaceMode}/> : active === 'Settings' ? <Settings workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode}/> : active === 'Expirations' ? <AssetsRenewalsScreen workspaceMode={workspaceMode}/> : active === 'Licenses' ? (workspaceMode === 'Internal IT' ? <VendorIntelligenceScreen/> : workspaceMode === 'MSP / Integrator' ? <MspVendorIntelligenceScreen/> : <OperationalList active="Licenses" note="Brand, product, SKU, quantity, usage, renewal status and document links stay visible." tabs={['All','High risk','Under-used','Missing document','Renewal due']} columns={['License','Brand','Company','Quantity','Renewal','Amount','Owner','Risk']} rows={licenses}/>) : active === 'Contracts' ? <ContractsScreen/> : active === 'Documents' ? <DocumentsScreen/> : active === 'Tasks' ? <TasksScreen workspaceMode={workspaceMode}/> : active === 'Reports' ? <ReportsScreen/> : active === 'Data Import' ? <DataImportScreen workspaceMode={workspaceMode}/> : <Dashboard workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode}/>;
   return <div className={cx('app', sidebarCollapsed && 'appSidebarCollapsed', active === 'Expirations' && 'assetsRouteActive', active === 'Search' && 'searchRouteActive')}>
     <style>{styles + aiStyles + livingAgentStyles + oprivaUpgradeStyles + assetsRenewalsStyles + sidebarCollapseStyles + aiSettingsFixStyles + settingsAdminOverrideStyles + settingsDirectoryOverrideStyles + settingsHubDirectoryStyles + responsiveStyles + commandPaletteStyles}</style>
     <SidebarShell active={active} onSelect={handleSelect} open={sidebarOpen} onClose={() => setSidebarOpen(false)} workspaceMode={workspaceMode} collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed(value => !value)} />

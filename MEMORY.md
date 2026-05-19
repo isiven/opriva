@@ -131,7 +131,13 @@ Do not touch without an explicit implementation phase:
 - Dashboard MSP column model
 - Dashboard Internal IT Brand / Provider model
 
-## 14a. Settings → Operating Model Source of Truth
+## 14a. Tasks as Execution Layer
+
+Tasks is the execution layer for Opriva. Attention Center identifies blockers and risks; Tasks tracks assigned work to resolve them. MSP tasks focus on client follow-up, distributor quotes and commercial ownership. Internal IT tasks focus on department owners, approvals, budget reviews, provider quotes and evidence requests.
+
+Each task should clearly communicate why it exists (Source), what impact it carries (Impact) and what action should happen next (Action). Tasks columns include Source and Impact so the list view functions as an operational queue, not just a to-do list.
+
+## 14b. Settings → Operating Model Source of Truth
 
 `Settings → Company → Operating Model` is the declared source of truth for `workspaceMode`. Workspace Mode is selected during onboarding/registration as part of workspace setup. Settings → Operating Model is the administrative surface for reviewing or adjusting that configuration. The topbar Mode selector remains a temporary design preview control and must not be treated as the production workflow.
 
@@ -179,3 +185,6 @@ Later:
 - 2026-05-19: Settings → Operating Model refined as the declared workspaceMode source of truth. Terminology, navigation and import previews now reflect MSP / Integrator, Internal IT, Hybrid and Custom commercial models without changing layout, runtime, routing, sidebar, topbar, workspaceMode or Floating AI.
 - 2026-05-19: Settings Operating Model preview clarified for real user comprehension. The preview now explains operating logic, sidebar navigation and import template structure per workspace mode instead of showing abstract label mappings.
 - 2026-05-19: Departments Internal IT terminology refined. Ambiguous Vendor wording was replaced with Brands & Providers in the Internal IT Departments screen across subtitle, toolbar, AI Insight, table headers and detail cards without changing layout, runtime, routing, sidebar, topbar, workspaceMode or Floating AI.
+- 2026-05-19: Tasks made workspace-aware. Column labels, subtitle, toolbar placeholder, mock task rows and kanban cards now adapt to MSP / Integrator and Internal IT without changing layout, runtime, routing, sidebar, topbar, workspaceMode or Floating AI.
+- 2026-05-19: Tasks execution context improved. Tasks now include Source, Impact and task-specific Action columns so MSP and Internal IT work queues better reflect Opriva's operational execution layer. Kanban secondary lines now show impact context instead of priority label. No layout, runtime, routing, sidebar, topbar, workspaceMode or Floating AI changes.
+- 2026-05-19: MSP Tasks execution copy refined. Source, impact and kanban context were tightened to make client renewal tasks more operational without changing layout, runtime, routing, sidebar, topbar, workspaceMode or Floating AI.

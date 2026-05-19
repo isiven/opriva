@@ -161,3 +161,4 @@ Later:
 - Audit confirmed the current branch is intended for healthcheck and documentation work.
 - 2026-05-19: Fase 1A terminology cleanup applied: legacy Corexi AI copy replaced with Opriva AI, Internal IT supplier/vendor terminology normalized toward Provider where safe, and MSP import template terminology aligned toward Distributor. No layout, runtime, routing, sidebar, topbar, workspaceMode or Floating AI changes.
 - 2026-05-19: Fase 1B cleanup removed confirmed unused mocks/components without changing runtime, layout, routing, sidebar, topbar, workspaceMode or Floating AI.
+- 2026-05-19: Fase 1C Data Import workspace-aware copy and mock data applied. Data Import now distinguishes MSP client/brand/product/distributor/margin import language from Internal IT brand/provider/department/approval language without changing layout, runtime, routing, sidebar, topbar, workspaceMode or Floating AI.

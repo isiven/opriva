@@ -127,9 +127,20 @@ Do not touch without an explicit implementation phase:
 - sidebar collapse behavior
 - Floating Opriva AI
 - internal route ids
-- Topbar Mode selector
+- Topbar Mode selector — **temporary design control, do not remove without explicit approval. Final workspaceMode configuration lives in Settings → Company → Operating Model.**
 - Dashboard MSP column model
 - Dashboard Internal IT Brand / Provider model
+
+## 14a. Settings → Operating Model Source of Truth
+
+`Settings → Company → Operating Model` is the declared source of truth for `workspaceMode`. Workspace Mode is selected during onboarding/registration as part of workspace setup. Settings → Operating Model is the administrative surface for reviewing or adjusting that configuration. The topbar Mode selector remains a temporary design preview control and must not be treated as the production workflow.
+
+The following structures inside `SettingsGroupPanel` must be kept in sync with the commercial model:
+
+- `terminologyPreview` — entity labels per workspace mode
+- `navigationPreview` — navigation items per workspace mode
+- `importTemplatePreview` — import field order per workspace mode
+- `selectedModeExplanation` — mode description per workspace mode
 
 Hooks must remain before any conditional returns in React components. React error #300 must not appear. The app must not show a white screen.
 
@@ -146,7 +157,7 @@ Safe Phase 1 candidates:
 Medium-risk Phase 2 candidates:
 
 - Separate workspace mock data.
-- Improve Command Palette labels by workspace while preserving route ids.
+- ~~Improve Command Palette labels by workspace while preserving route ids.~~ **Completed 2026-05-19.**
 - Consolidate duplicated style layers after visual regression checks.
 
 Later:
@@ -164,3 +175,5 @@ Later:
 - 2026-05-19: Fase 1C Data Import workspace-aware copy and mock data applied. Data Import now distinguishes MSP client/brand/product/distributor/margin import language from Internal IT brand/provider/department/approval language without changing layout, runtime, routing, sidebar, topbar, workspaceMode or Floating AI.
 - 2026-05-19: MSP Attention Center refined into a commercial renewal operations view for MSP / Integrator. MSP now uses client, brand/product, distributor, value, margin, owner, quote blocker and follow-up terminology while preserving Internal IT behavior and shell/runtime stability.
 - 2026-05-19: Search / Command Palette made workspace-aware. Placeholder, quick actions, AI suggestions and page labels now adapt to MSP / Integrator, Internal IT, Hybrid and Custom without changing layout, runtime, routing, sidebar, topbar, workspaceMode or Floating AI.
+- 2026-05-19: Settings → Operating Model refined as the declared workspaceMode source of truth. Terminology, navigation and import previews now reflect MSP / Integrator, Internal IT, Hybrid and Custom commercial models without changing layout, runtime, routing, sidebar, topbar, workspaceMode or Floating AI.
+- 2026-05-19: Settings Operating Model preview clarified for real user comprehension. The preview now explains operating logic, sidebar navigation and import template structure per workspace mode instead of showing abstract label mappings.

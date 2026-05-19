@@ -176,7 +176,7 @@ const settingsAdminGroups = [
   { id: 'data', label: 'Data', title: 'Data', description: 'Catalogs, fields and record structures used across managed assets.', items: [
     ['Categories', 'Record categories and required-field rules by type.', '10 active', 'Manage'],
     ['Custom fields', 'Tenant-specific fields by module, category and workflow.', '27 fields', 'Configure'],
-    ['Vendors / Providers', 'Provider catalog with duplicate prevention and ownership.', '186 records', 'Open'],
+    ['Providers & Distributors', 'Provider and distributor catalog with duplicate prevention and ownership.', '186 records', 'Open'],
     ['Brands / Manufacturers', 'Brand catalog linked to products, assets and warranties.', '74 records', 'Open'],
     ['Products & SKUs', 'Product templates, SKUs, quantities and renewal defaults.', '412 SKUs', 'Review'],
     ['Tags', 'Governed tags for reporting, filtering and segmentation.', '32 tags', 'Manage']
@@ -215,7 +215,7 @@ const MODULE_LIST = [
   ['Tasks',             'Operational work queue and follow-up tracking.'],
   ['Reports',           'Executive and governance reporting.'],
   ['Data Import',       'Spreadsheet onboarding and bulk record import.'],
-  ['Vendors / Providers', 'Vendor catalog and supplier management.'],
+  ['Providers & Distributors', 'Provider and distributor catalog with duplicate prevention and ownership.'],
   ['Assets / Hardware', 'Optional detailed hardware inventory and warranty tracking.'],
 ];
 
@@ -589,7 +589,7 @@ function Settings({ workspaceMode = 'MSP / Integrator', setWorkspaceMode = funct
   const [modules, setModules] = React.useState({
     'Assets & Renewals': true, 'Licenses': true, 'Contracts': true,
     'Documents': true, 'Tasks': true, 'Reports': true,
-    'Data Import': true, 'Vendors / Providers': true, 'Assets / Hardware': false
+    'Data Import': true, 'Providers & Distributors': true, 'Assets / Hardware': false
   });
   const toggleModule = function(name){ setModules(function(prev){ var next = {}; Object.keys(prev).forEach(function(k){ next[k] = prev[k]; }); next[name] = !prev[name]; return next; }); };
   const normalized = query.trim().toLowerCase();
@@ -672,49 +672,63 @@ function SettingsGroupPanel({ group, workspaceMode, setWorkspaceMode, modules, t
   var items = Array.isArray(group.items) ? group.items : [];
   var terminologyPreview = {
     'MSP / Integrator': [
-      ['Organizations', 'Companies / Clients'],
-      ['People', 'Contacts'],
-      ['Owner', 'Account Owner / Opriva Owner'],
+      ['Commercial model', 'Client + Brand + Product + Distributor + Value + Margin + Owner + Action'],
+      ['Client label', 'Companies / Clients'],
+      ['Contact label', 'Contacts'],
+      ['Owner label', 'Account Owner / Opriva Owner'],
+      ['Distributor label', 'Distributor'],
       ['Records label', 'Assets & Renewals']
     ],
     'Internal IT': [
-      ['Organizations label', 'Organization'],
-      ['People label', 'People'],
-      ['Owner label', 'Department Owner'], 
-      ['Records label', 'Assets & Renewals']
+      ['Commercial model', 'Brand + Provider + Department + Budget / Approval / Risk'],
+      ['Organization label', 'Organization / Business Unit'],
+      ['Department label', 'Department'],
+      ['Provider label', 'Provider'],
+      ['Budget label', 'Budget'],
+      ['Owner label', 'Department Owner'],
+      ['Records label', 'Renewals Forecast / Assets & Renewals']
     ],
     Hybrid: [
-      ['Organizations label', 'Organizations'],
+      ['Commercial model', 'Organizations + People + Owner + Scope + Value + Risk'],
+      ['Organization label', 'Organizations'],
       ['People label', 'People / Contacts'],
       ['Owner label', 'Owner'],
+      ['Scope label', 'Internal + External obligations'],
       ['Records label', 'Assets & Renewals']
     ]
   };
     terminologyPreview.Custom = [
-      ['Organizations label', 'Configurable'],
-      ['People label', 'Configurable'],
-      ['Owner label', 'Configurable'],
-      ['Records label', 'Configurable']
+      ['Commercial model', 'Configurable'],
+      ['Entity labels', 'Configurable'],
+      ['Ownership model', 'Configurable'],
+      ['Records model', 'Configurable'],
+      ['Import fields', 'Configurable']
     ];
+  var operatingLogic = {
+    'MSP / Integrator': { view: 'Client renewal operations', rel: 'Client → Brand → Product → Distributor → Margin → Account owner' },
+    'Internal IT': { view: 'Department-based IT renewal management', rel: 'Brand → Provider → Department → Budget owner → Approval status' },
+    Hybrid: { view: 'Mixed internal and client renewal operations', rel: 'Organization → Scope → Owner → Value → Risk' },
+    Custom: { view: 'Configurable operating structure', rel: 'Defined by workspace administrator' }
+  };
   var navigationPreview = {
-    'MSP / Integrator': ['Companies / Clients', 'Assets & Renewals', 'Licenses', 'Contracts'],
-    'Internal IT': ['Organization', 'Departments', 'Locations', 'People', 'Assets & Renewals'],
-    Hybrid: ['Organizations', 'People / Contacts', 'Departments', 'Locations', 'Assets & Renewals']
+    'MSP / Integrator': ['Dashboard', 'Attention Center', 'Companies / Clients', 'Assets & Renewals', 'Licenses', 'Contracts', 'Documents', 'Tasks', 'Reports', 'Data Import', 'Settings'],
+    'Internal IT': ['Dashboard', 'Attention Center', 'Departments', 'Renewals Forecast', 'Licenses', 'Contracts', 'Documents', 'Tasks', 'Reports', 'Data Import', 'Settings'],
+    Hybrid: ['Dashboard', 'Attention Center', 'Organizations', 'People / Contacts', 'Assets & Renewals', 'Departments', 'Tasks', 'Reports', 'Data Import', 'Settings']
   };
-    navigationPreview.Custom = ['Configurable structure', 'Assets & Renewals', 'Enabled modules', 'Reports'];
+    navigationPreview.Custom = ['Configurable navigation based on enabled modules'];
   var importTemplatePreview = {
-    'MSP / Integrator': ['Client', 'Contact', 'Account owner', 'Distributor', 'Product', 'Expiry date'],
-    'Internal IT': ['Organization', 'Department', 'Location', 'Owner', 'Expiry date', 'Value'],
-    Hybrid: ['Organization', 'Scope', 'Person / Contact', 'Owner', 'Expiry date', 'Value']
+    'MSP / Integrator': ['Client', 'Contact', 'Brand', 'Product', 'Distributor', 'Renewal date', 'Value', 'Margin', 'Account owner'],
+    'Internal IT': ['Department', 'Brand', 'Provider', 'Renewal date', 'Value', 'Budget owner', 'Approval status', 'Risk'],
+    Hybrid: ['Organization', 'Scope', 'Person / Contact', 'Owner', 'Renewal date', 'Value', 'Risk']
   };
-    importTemplatePreview.Custom = ['Configurable field', 'Owner', 'Vendor', 'Expiry date', 'Value', 'Status'];
+    importTemplatePreview.Custom = ['Configurable fields defined in Data settings'];
   var activeMode = terminologyPreview[workspaceMode] ? workspaceMode : 'MSP / Integrator';
   var selectedModeExplanation = {
-    'MSP / Integrator': 'For teams managing multiple client accounts, contacts, renewals, contracts and vendor relationships.',
-    'Internal IT': 'For companies managing their own departments, locations, people, assets, contracts and renewals.',
-    Hybrid: 'For teams managing both internal assets and external client-facing obligations.'
+    'MSP / Integrator': 'Designed for service providers and integrators managing renewals across multiple clients, technology brands, products, distributors, margin exposure and commercial owners.',
+    'Internal IT': 'Designed for enterprises managing their own IT renewals across brands, providers, departments, budgets, approvals and operational risk.',
+    Hybrid: 'Designed for teams managing both internal IT obligations and external client renewal operations in the same workspace.'
   };
-    selectedModeExplanation.Custom = 'For teams configuring Opriva around their own structure and enabled modules.';
+    selectedModeExplanation.Custom = 'Designed for organizations that need to configure Opriva around their own categories, terminology, ownership and renewal workflows.';
   return <div className="settingsDetailPanel settingsFocusedPanel">
     <div className="settingsDetailHeader">
       <span className="eyebrow">{isCompany ? 'Workspace setup' : group.label}</span>
@@ -723,7 +737,7 @@ function SettingsGroupPanel({ group, workspaceMode, setWorkspaceMode, modules, t
     </div>
     {isCompany && <div className="settingsDetailSection workspaceModeSection">
       <p className="settingsSectionLabel">Operating Model</p>
-      <p className="settingsWorkspaceModeDesc">Official workspace configuration will be managed here.</p>
+      <p className="settingsWorkspaceModeDesc">Operating Model defines how this workspace was configured during onboarding. It controls terminology, navigation, import templates, dashboards and reporting logic. Workspace administrators can review or adjust this configuration here.</p>
       <div className="workspaceModeSegment" role="group" aria-label="Select workspace mode">
         {['MSP / Integrator', 'Internal IT', 'Hybrid', 'Custom'].map(function(mode){
           return <button key={mode} type="button"
@@ -735,24 +749,23 @@ function SettingsGroupPanel({ group, workspaceMode, setWorkspaceMode, modules, t
       <p className="modeSelectedSummary">{selectedModeExplanation[activeMode]}</p>
       <section className="modePreviewUnified" aria-label="Workspace mode preview">
         <div className="modePreviewUnifiedHeader">
-          <h3>What your team will see</h3>
-          <p>A quick preview of the labels, navigation and import fields for this mode.</p>
+          <h3>Workspace preview</h3>
+          <p>See how this operating model changes the workspace logic, sidebar navigation and import structure.</p>
         </div>
         <div className="modePreviewColumns">
           <div className="modePreviewColumn">
-            <h4>Labels</h4>
+            <h4>Operating logic</h4>
             <div className="modeLabelList">
-              {terminologyPreview[activeMode].map(function(row){
-                return <div className="modeLabelLine" key={row[0]}><span>{row[0].replace(' label', '')}</span><strong>{row[1]}</strong></div>;
-              })}
+              <div className="modeLabelLine"><span>Primary view</span><strong>{operatingLogic[activeMode].view}</strong></div>
+              <div className="modeLabelLine"><span>Key relationship</span><strong>{operatingLogic[activeMode].rel}</strong></div>
             </div>
           </div>
           <div className="modePreviewColumn">
-            <h4>Navigation</h4>
+            <h4>Sidebar navigation</h4>
             <p className="modePreviewText">{navigationPreview[activeMode].join(' · ')}</p>
           </div>
           <div className="modePreviewColumn">
-            <h4>Import fields</h4>
+            <h4>Import template</h4>
             <p className="modePreviewText">{importTemplatePreview[activeMode].join(' · ')}</p>
           </div>
         </div>
@@ -1467,7 +1480,7 @@ function TopbarShell({ active, onAlerts, onOpenCommand, onMenuToggle, onNavigate
         className="workspaceModePill"
         style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 34, padding: '0 10px', border: '1px solid #E5E7EB', borderRadius: 999, background: '#FFFFFF', color: '#64748B', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', boxShadow: '0 1px 2px rgba(15,35,65,.03)' }}
         aria-label="Temporary workspace mode selector"
-        title="Temporary design control. Final configuration lives in Settings → Operating Model."
+        title="Temporary design preview. In production, workspace mode is selected during onboarding and managed in Settings → Operating Model."
       >
         <span style={{ color: '#94A3B8', fontWeight: 700 }}>Mode:</span>
         <select

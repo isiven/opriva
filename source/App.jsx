@@ -440,24 +440,28 @@ function AttentionCenter({ workspaceMode = 'MSP / Integrator' }){
     ['Missing evidence', '7', 'Contracts or documents required', 'Evidence needed'],
     ['Pending approvals', '9', 'Budget or CIO approvals waiting', 'Review']
   ] : [
-    ['Critical issues', '12', '$84,600 exposed in 30 days', 'Urgent'],
-    ['Missing owners', '18', '14% of active portfolio', 'Assign'],
-    ['Missing evidence', '7', 'Contracts or documents required', 'Evidence needed'],
-    ['Pending approvals', '9', 'AI drafts and tasks waiting', 'Review']
+    ['Client renewals at risk', '12', '$84,600 exposed in 30 days', 'Urgent'],
+    ['Margin at risk', '$18,400', 'Estimated gross margin exposure', 'Review'],
+    ['Unassigned owners', '18', 'Need commercial owner', 'Assign'],
+    ['Distributor quote blockers', '7', 'Quotes required before proposal', 'Request quotes']
   ];
   const aiInsightText = isInternalIt
     ? 'Opriva found 12 critical renewal issues. The fastest risk reduction path is to assign 5 owners, request 7 missing documents and open approval blockers for high-value records.'
-    : 'Opriva found 12 critical renewal issues. Assigning 5 missing owners and requesting 7 documents would reduce the fastest operational risk.';
-  const aiInsightThirdAction = isInternalIt ? 'Open blockers' : 'Create tasks';
+    : 'Opriva found 12 client renewals needing commercial action. $64K margin is at risk across owner gaps, missing distributor quotes and overdue client follow-up. Start by assigning owners and requesting distributor quotes for high-value renewals.';
+  const aiInsightActions = isInternalIt
+    ? ['Assign owners', 'Request documents', 'Open blockers']
+    : ['Assign owners', 'Request distributor quotes', 'Prepare client follow-up'];
   const workflowTabs = isInternalIt
     ? ['Critical','Approval blockers','Missing owners','Missing evidence','Escalations']
-    : ['Critical','Escalations','Missing owners','Missing evidence','Pending approvals'];
+    : ['Critical','Margin at risk','Missing owners','Distributor quotes','Client follow-up'];
   const workflowFilterPlaceholder = isInternalIt
     ? 'Filter issues by record, brand, provider, department, owner or status…'
-    : 'Filter issues, records, vendors or owners…';
+    : 'Filter client renewals by client, brand, product, distributor, owner or status...';
+  const workflowSavedView = isInternalIt ? 'Saved view: Critical this week' : 'Saved view: Critical renewals this week';
+  const workflowFilters = isInternalIt ? ['Severity', 'Owner', 'Bulk actions'] : ['Severity', 'Owner', 'Distributor', 'Bulk actions'];
   const workflowColumns = isInternalIt
     ? ['Issue / Record','Brand','Provider','Impact','Due','Owner','Recommended action','Status']
-    : ['Issue / Record','Vendor','Impact','Due','Owner','Recommended action','Status'];
+    : ['Issue / Client Renewal','Client','Brand / Product','Distributor','Value','Margin','Due','Owner','Recommended action','Status'];
   const workflowRows = isInternalIt ? [
     ['Renewal expires in 12 days','Oracle POS Support','Oracle','Oracle Direct / Nextcom','$96,000','Jul 18, 2026','Unassigned','Confirm budget owner','Critical'],
     ['Approval blocker','Microsoft 365 Enterprise','Microsoft','Nextcom','$142,000','Jun 30, 2026','Ana Ruiz','Prepare CIO approval','High'],
@@ -465,21 +469,29 @@ function AttentionCenter({ workspaceMode = 'MSP / Integrator' }){
     ['Provider quote required','Fortinet Firewall Warranty','Fortinet','Nextcom','$48,000','Jul 5, 2026','Luis Mora','Request renewal quote','High'],
     ['Consolidation candidate','Kaspersky Endpoint Security','Kaspersky','Local Security Provider','$82,000','Jun 22, 2026','Ana Ruiz','Compare consolidation','High']
   ] : [
-    ['Renewal expires in 12 days','Dell Support Contract','Dell','$42,800','May 26, 2026','Unassigned','Assign owner','Critical'],
-    ['Certificate expires in 9 days','SSL Wildcard Certificate','DigiCert','$3,200','May 23, 2026','Unassigned','Prepare renewal','Critical'],
-    ['Renewal quote not requested','Microsoft 365 Renewal','Microsoft','$31,200','Jun 1, 2026','Ana Ruiz','Prepare vendor email','High'],
-    ['Warranty expires in 24 days','Fortinet Warranty','Fortinet','$18,600','Jun 7, 2026','Luis Mora','Request quote','High']
+    ['Owner missing','Grupo Regency','Microsoft / M365 Enterprise','Licencias Online','$142,000','$24,000','Jun 30, 2026','Unassigned','Assign commercial owner','Critical'],
+    ['Distributor quote needed','Banisi','Trend Micro / Vision One','TD Synnex','$42,800','$11,500','May 26, 2026','María Chen','Request distributor quote','High'],
+    ['Margin review required','EYCA','Fortinet / FortiGate','Ingram Micro','$18,600','$4,200','Jun 7, 2026','Luis Mora','Validate margin','High'],
+    ['Warranty renewal follow-up','Metro Retail Group','Dell / Server Warranty','Dell Direct','$22,400','$3,800','Jul 18, 2026','María Chen','Confirm client approval','Medium'],
+    ['Certificate renewal urgent','Multiple Clients','DigiCert / SSL Certs','Intcomex','$3,200','$850','May 23, 2026','Unassigned','Renew certificates','Critical']
   ];
   const issueGroupsHelper = isInternalIt
     ? 'Grouped by approval blockers, provider dependency, evidence gaps and department exposure.'
-    : 'Grouped by financial impact, urgency and blocker type.';
+    : 'Grouped by margin exposure, distributor blockers, owner gaps and client follow-up urgency.';
   const issueGroupsRowsIt = [
     ['Approval blockers for high-value renewals','3','CIO approval delay','Finance','Escalate today'],
     ['Missing contract evidence','7','Audit and renewal risk','IT Operations','Request documents'],
     ['Provider quote dependency','4','Renewal preparation delay','Procurement','Request quotes'],
     ['Endpoint security consolidation','3','Cost optimization opportunity','IT Security','Compare providers']
   ];
-  return <main className="content attentionContent"><ScreenHeader active="Attention Center" subtitle="Resolve critical renewals, ownership gaps, missing evidence and approval blockers before they become financial or operational risk."><button>Assign owners</button><button className="primary">Create task</button></ScreenHeader><section className="statsGrid attentionSummaryGrid" aria-label="Attention Center summary">{attentionSummary.map(([label, value, note, badge]) => <article className="statCard" key={label}><span>{label}</span><strong>{value}</strong><p>{note}</p><Badge tone={badge}>{badge}</Badge></article>)}</section><div className="aiInsightBar attentionInsightBar" aria-label="Attention Center AI insight"><div className="aiInsightBarLeft"><span className="aiInsightBarLabel">AI insight</span><p className="aiInsightBarText">{aiInsightText}</p></div><div className="aiInsightBarActions"><button>Assign owners</button><button>Request documents</button><button>{aiInsightThirdAction}</button></div></div><section className="panel"><div className="panelTitle"><h2>Attention workflow</h2><span>Saved views, issue grouping and bulk operations</span></div><div className="tabs">{workflowTabs.map((label, idx) => <button key={label} className={idx === 0 ? 'active' : ''}>{label}</button>)}</div><div className="toolbar"><input placeholder={workflowFilterPlaceholder}/><button>Saved view: Critical this week</button><button>Severity</button><button>Owner</button><button>Bulk actions</button></div><div className="tableWrap attentionWorkflowWrap"><table className={cx('attentionWorkflowTable', isInternalIt && 'attentionWorkflowTableIt')}><thead><tr>{workflowColumns.map(column => <th key={column}>{column}</th>)}</tr></thead><tbody>{workflowRows.map(row => isInternalIt ? <tr key={row[1]}><td className="issueRecordCell"><span>{row[0]}</span><strong>{row[1]}</strong></td><td className="compactCell">{row[2]}</td><td className="compactCell">{row[3]}</td><td className="compactCell">{row[4]}</td><td className="dateCell">{row[5]}</td><td className="compactCell">{row[6]==='Unassigned' ? <Badge tone="Needs assignment">Unassigned</Badge> : row[6]}</td><td className="actionCell"><button type="button" className="rowAction">{row[7]}</button></td><td className="compactCell"><Badge tone={row[8]}>{row[8]}</Badge></td></tr> : <tr key={row[1]}><td className="issueRecordCell"><span>{row[0]}</span><strong>{row[1]}</strong></td><td className="compactCell">{row[2]}</td><td className="compactCell">{row[3]}</td><td className="dateCell">{row[4]}</td><td className="compactCell">{row[5]==='Unassigned' ? <Badge tone="Needs assignment">Unassigned</Badge> : row[5]}</td><td className="actionCell"><button type="button" className="rowAction">{row[6]}</button></td><td className="compactCell"><Badge tone={row[7]}>{row[7]}</Badge></td></tr>)}</tbody></table></div></section><section className="panel"><div className="panelTitle"><h2>Issue groups</h2><span>{issueGroupsHelper}</span></div>{isInternalIt ? <div className="tableWrap"><table><thead><tr>{['Group','Count','Business impact','Primary owner','Action','Open'].map(column => <th key={column}>{column}</th>)}</tr></thead><tbody>{issueGroupsRowsIt.map(row => <tr key={row[0]}><td><strong>{row[0]}</strong></td><td>{row[1]}</td><td>{row[2]}</td><td>{row[3]}</td><td className="actionCell"><button type="button" className="rowAction">{row[4]}</button></td><td className="actionCell"><button type="button" className="rowAction" aria-label={`Open ${row[0]}`}>Open</button></td></tr>)}</tbody></table></div> : <Table columns={['Group','Count','Business impact','Primary owner','Action']} rows={[["Critical certificate and warranty gaps",'3','Service continuity risk','Luis Mora','Escalate today'],['High-risk renewals','5','$128K renewal exposure','María Chen','Prepare approvals'],['Missing evidence','7','Contracts blocked','Nadia Brooks','Request documents']]}/>}</section></main>;
+  const issueGroupsRowsMsp = [
+    ['Unassigned high-value renewals','3','$24,000 margin at risk','Sales Operations','Assign owners','Open'],
+    ['Distributor quote blockers','7','Proposal preparation delay','Procurement','Request quotes','Open'],
+    ['Margin at risk','4','Gross margin exposure','Commercial Manager','Review margin','Open'],
+    ['Client follow-up overdue','5','Renewal delay risk','Account Owners','Prepare follow-up','Open'],
+    ['Certificate and warranty urgency','3','Service continuity risk','Sales Operations','Escalate today','Open']
+  ];
+  return <main className="content attentionContent"><ScreenHeader active="Attention Center" subtitle="Resolve critical renewals, ownership gaps, missing evidence and approval blockers before they become financial or operational risk."><button>Assign owners</button><button className="primary">Create task</button></ScreenHeader><section className="statsGrid attentionSummaryGrid" aria-label="Attention Center summary">{attentionSummary.map(([label, value, note, badge]) => <article className="statCard" key={label}><span>{label}</span><strong>{value}</strong><p>{note}</p><Badge tone={badge}>{badge}</Badge></article>)}</section><div className="aiInsightBar attentionInsightBar" aria-label="Attention Center AI insight"><div className="aiInsightBarLeft"><span className="aiInsightBarLabel">AI insight</span><p className="aiInsightBarText">{aiInsightText}</p></div><div className="aiInsightBarActions">{aiInsightActions.map(action => <button key={action}>{action}</button>)}</div></div><section className="panel"><div className="panelTitle"><h2>Attention workflow</h2><span>Saved views, issue grouping and bulk operations</span></div><div className="tabs">{workflowTabs.map((label, idx) => <button key={label} className={idx === 0 ? 'active' : ''}>{label}</button>)}</div><div className="toolbar"><input placeholder={workflowFilterPlaceholder}/><button>{workflowSavedView}</button>{workflowFilters.map(filter => <button key={filter}>{filter}</button>)}</div><div className="tableWrap attentionWorkflowWrap"><table className={cx('attentionWorkflowTable', isInternalIt && 'attentionWorkflowTableIt')}><thead><tr>{workflowColumns.map(column => <th key={column}>{column}</th>)}</tr></thead><tbody>{workflowRows.map(row => isInternalIt ? <tr key={row[1]}><td className="issueRecordCell"><span>{row[0]}</span><strong>{row[1]}</strong></td><td className="compactCell">{row[2]}</td><td className="compactCell">{row[3]}</td><td className="compactCell">{row[4]}</td><td className="dateCell">{row[5]}</td><td className="compactCell">{row[6]==='Unassigned' ? <Badge tone="Needs assignment">Unassigned</Badge> : row[6]}</td><td className="actionCell"><button type="button" className="rowAction">{row[7]}</button></td><td className="compactCell"><Badge tone={row[8]}>{row[8]}</Badge></td></tr> : <tr key={`${row[0]}-${row[1]}`}><td className="issueRecordCell"><strong>{row[0]}</strong></td><td className="compactCell">{row[1]}</td><td className="compactCell">{row[2]}</td><td className="compactCell">{row[3]}</td><td className="compactCell">{row[4]}</td><td className="compactCell">{row[5]}</td><td className="dateCell">{row[6]}</td><td className="compactCell">{row[7]==='Unassigned' ? <Badge tone="Needs assignment">Unassigned</Badge> : row[7]}</td><td className="actionCell"><button type="button" className="rowAction">{row[8]}</button></td><td className="compactCell"><Badge tone={row[9]}>{row[9]}</Badge></td></tr>)}</tbody></table></div></section><section className="panel"><div className="panelTitle"><h2>Issue groups</h2><span>{issueGroupsHelper}</span></div>{isInternalIt ? <div className="tableWrap"><table><thead><tr>{['Group','Count','Business impact','Primary owner','Action','Open'].map(column => <th key={column}>{column}</th>)}</tr></thead><tbody>{issueGroupsRowsIt.map(row => <tr key={row[0]}><td><strong>{row[0]}</strong></td><td>{row[1]}</td><td>{row[2]}</td><td>{row[3]}</td><td className="actionCell"><button type="button" className="rowAction">{row[4]}</button></td><td className="actionCell"><button type="button" className="rowAction" aria-label={`Open ${row[0]}`}>Open</button></td></tr>)}</tbody></table></div> : <Table columns={['Group','Count','Business impact','Primary owner','Action','Status']} rows={issueGroupsRowsMsp}/>}</section></main>;
 }
 
 function SearchScreen(){

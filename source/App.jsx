@@ -866,7 +866,7 @@ function buildNewRow(form, safeColumns) {
 
 const ATTACH_DOC_FIELDS = [
   { key: 'name',        label: 'Document Name',         required: true },
-  { key: 'type',        label: 'Document Type',         required: true,  type: 'select', options: ['Quote','Purchase Order','Invoice','License Certificate','Signed Contract','Warranty Document','Support Evidence','Compliance Evidence','Legal Document','Other'] },
+  { key: 'type',        label: 'Document Type',         required: true,  type: 'select', options: ['Quote','Purchase Order','Invoice','License Entitlement','Signed Contract','Warranty Document','Support Evidence','Compliance Evidence','Legal Document','Other'] },
   { key: 'status',      label: 'Status',                required: true,  type: 'select', options: ['Current','Pending review','Missing evidence','Expiring soon','Archived'] },
   { key: 'uploadedBy',  label: 'Uploaded By',           required: true,  type: 'select', source: 'users' },
   { key: 'fileRef',     label: 'File Name / Reference' },

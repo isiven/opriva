@@ -724,13 +724,14 @@ const NEW_RECORD_FIELDS = {
     { key: 'notes',          label: 'Notes',                  multi: true },
   ],
   Documents: [
-    { key: 'name',          label: 'Document Name',       required: true },
-    { key: 'type',          label: 'Document Type',       type: 'select', options: ['Vendor Quote','Client Proposal','Purchase Order','Invoice','License Entitlement','Signed Contract','Warranty Document','Support Evidence','Compliance Evidence','Legal Document','Other'] },
-    { key: 'relatedRecord', label: 'Linked Record',       type: 'select', source: 'relatedContracts' },
-    { key: 'client',        label: 'Client / Department', type: 'select', source: 'clientDepartment' },
-    { key: 'vendor',        label: 'Provider / Vendor',   type: 'select', source: 'vendors' },
-    { key: 'uploadedBy',    label: 'Uploaded by',         type: 'select', source: 'users' },
-    { key: 'notes',         label: 'Notes',               multi: true },
+    { key: 'name',          label: 'Document Name',              required: true },
+    { key: 'type',          label: 'Document Type',              required: true, type: 'select', options: ['Vendor Quote','Client Proposal','Purchase Order','Invoice','License Entitlement','Signed Contract','Warranty Document','Support Evidence','Compliance Evidence','Legal Document','Other'] },
+    { key: 'uploadedBy',    label: 'Uploaded by',                required: true, type: 'select', source: 'users' },
+    { key: 'fileReference', label: 'Attach file / Document reference', required: true, placeholder: 'Upload coming soon — enter file name, URL or reference' },
+    { key: 'relatedRecord', label: 'Linked Record',              type: 'select', source: 'relatedContracts' },
+    { key: 'client',        label: 'Client / Department',        type: 'select', source: 'clientDepartment' },
+    { key: 'vendor',        label: 'Provider / Vendor',          type: 'select', source: 'vendors' },
+    { key: 'notes',         label: 'Notes',                      multi: true },
   ],
 };
 
@@ -820,6 +821,8 @@ function buildNewRow(form, safeColumns) {
     'Version':                v.version,
     'Access':                 v.access,
     'Requirement':            v.requirement,
+    'File / Document reference': v.fileReference || v.fileRef,
+    'File reference':         v.fileReference || v.fileRef,
     'Linked record':          v.relatedRecord,
     'Warranty end':           v.warrantyEnd,
     'Support':                v.support,
@@ -1276,7 +1279,7 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
   }
 
   return <main className="content">
-    <ScreenHeader active={active} subtitle={note}><button>Bulk actions</button><button onClick={() => setConfigOpen(true)}>Configure columns</button><button className="primary" onClick={openNew}>New record</button></ScreenHeader>
+    <ScreenHeader active={active} subtitle={note}><button>Bulk actions</button><button onClick={() => setConfigOpen(true)}>Configure columns</button><button className="primary" onClick={openNew}>{module === 'Documents' ? 'Add document' : 'New record'}</button></ScreenHeader>
     <AiInsightBar active={active}/>
 
     {configOpen && <div style={modalWrap} onClick={() => setConfigOpen(false)} role="dialog" aria-modal="true" aria-label="Configure columns">
@@ -1307,7 +1310,7 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
     {newOpen && <div style={modalWrap} onClick={() => setNewOpen(false)} role="dialog" aria-modal="true" aria-label={'New ' + module + ' record'}>
       <div style={modalBox(520)} onClick={e => e.stopPropagation()}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
-          <div><p style={eyebrow}>{module}</p><h2 style={modalH2}>New record</h2></div>
+          <div><p style={eyebrow}>{module}</p><h2 style={modalH2}>{module === 'Documents' ? 'Add document' : 'New record'}</h2></div>
           <button style={closeBtn} onClick={() => setNewOpen(false)} aria-label="Close">x</button>
         </div>
         {(() => {
@@ -1328,7 +1331,7 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
                       <option value="">Select...</option>
                       {(f.source ? resolveFieldOptions(f.source, workspaceMode) : (f.options||[])).map(o => <option key={o} value={o}>{o}</option>)}
                     </select>
-                  : <input type={f.type||'text'} value={form[f.key]||''} onChange={e => handleFormField(f.key, e.target.value)} style={fieldStyle}/>
+                  : <input type={f.type||'text'} value={form[f.key]||''} onChange={e => handleFormField(f.key, e.target.value)} placeholder={f.placeholder||''} style={fieldStyle}/>
             }
             {errors[f.key] && <span style={errStyle}>{errors[f.key]}</span>}
           </div>;

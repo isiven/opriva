@@ -623,6 +623,64 @@ These decisions document the **approved architecture and product direction**. Im
 
 ---
 
+### 15.18 Support Coverage / Support Contracts
+
+Support Coverage must be modeled as a **renewable contract / coverage layer**, not as free text inside a License or Hardware record.
+
+#### Core decision
+
+When adding a License or Hardware item, the user should be able to optionally add or enable support coverage. If enabled, Opriva should create or link a related Contract / Support Coverage record automatically and connect it to the covered License or Hardware through a relationship.
+
+Do not model support as a simple text field called "Support Coverage" inside Hardware or Licenses.
+
+#### What Support Coverage may cover
+
+- one license
+- one hardware asset
+- multiple licenses
+- multiple hardware assets
+- a renewal package / bundle
+
+#### Support Coverage record fields
+
+A Support Coverage record should have its own:
+
+| Field | Notes |
+|---|---|
+| Name | descriptive name of the support agreement |
+| Type | e.g. Support Contract, Maintenance Agreement, SLA, Care Pack |
+| Provider | the support provider or vendor |
+| Start Date | coverage start |
+| End / Expiration Date | coverage end — drives alert and renewal logic |
+| Owner | assigned owner responsible for renewal |
+| Alert Policy | drives expiration warnings |
+| Value / Cost | annual or total cost of support |
+| Documents | linked evidence (e.g. support contract PDF, SLA document) |
+| Tasks | follow-up actions for renewal or escalation |
+| Activity History | generated history of changes, renewals, and events |
+
+#### How support is added
+
+The License and Hardware creation forms must remain simple. Support coverage should be added through:
+
+1. An optional **"Add support coverage"** action during record setup (post-save Complete Setup flow)
+2. The **Relationships tab** of the record drawer
+3. Or the **post-save Complete Setup** guided flow
+
+#### Where support contracts appear
+
+Support contracts must appear in the **Contracts module** and must be linked to covered assets using a relationship model equivalent to `asset_contracts`:
+
+| Relationship field | Description |
+|---|---|
+| Contract / support record | the support contract |
+| Covered asset record | the linked license or hardware item |
+| Coverage type | e.g. Full support, Limited, SLA-only |
+| Coverage dates | start and end dates |
+| Notes | any coverage-specific notes |
+
+---
+
 ## 16. Next Steps
 
 Safe Phase 1 candidates:
@@ -656,6 +714,7 @@ The following items are architecturally approved and should be implemented only 
 - License Entitlement document type standardization (replaces License Certificate + Entitlement Document)
 - RECORD_STORE / record identity foundation (module-level mutable store for cross-tab linking)
 - Package / Bundle / Renewal Bundle concept defined and documented
+- Support Coverage creation/linking from License and Hardware drawer setup
 - Controlled custom fields per module — after core workspace-specific forms stabilize
 
 ### Phase 2 Roadmap (deferred, do not implement yet)
@@ -668,6 +727,9 @@ The following items are architecturally approved and should be implemented only 
 - Activity-driven renewal workflow stages (Quote needed → Proposal sent → Approved → Renewed)
 - Custom field formulas, conditional fields, field-level permissions and workflow automation
 - Advanced custom logic and AI interpretation of custom fields
+- Multi-asset support coverage management (one contract covering multiple assets)
+- Support coverage renewal workflows
+- Support coverage compliance and SLA tracking
 
 ## 17. Recent History
 
@@ -696,3 +758,5 @@ The following items are architecturally approved and should be implemented only 
 - 2026-05-21: Document type taxonomy standardized. "License Certificate" replaced by "License Entitlement" in ATTACH_DOC_FIELDS. License Entitlement covers vendor-issued license proof including certificates, entitlement docs, licensing confirmations, and software rights evidence.
 - 2026-05-21: Attach Document form simplified per approved document policy decision. Generic required "Status" field removed. Internal status defaults to 'Attached' on save. Two new optional date fields added: Effective Date and Expiration Date. Document card in drawer no longer shows a status Badge (always 'Attached' = no signal); expiration date is shown if entered.
 - 2026-05-21: Master BRIEF updated. Section 15 "Core Record + Related Tabs + Workspace Policies Model" added to MEMORY.md documenting 17 approved product architecture decisions covering: core record creation model, fields that must not be manually entered, License record logic (MSP vs Internal IT), expiration status logic, renewal workflow logic, record creation flow, document management model, Attach Document MVP form, document type taxonomy, requirement logic, access logic, version logic, document date/validity logic, document policy engine direction, package/renewal bundle model, custom fields roadmap, and implementation guidance. MVP and Phase 2 roadmap sections added to Next Steps. No application code modified.
+- 2026-05-21: Attach Document form simplified to MVP minimum per MEMORY.md §15.8. Visible fields reduced to Document Name (req), Document Type (req), Uploaded By (req), Notes (optional). Removed from visible form: File Name / Reference, Requirement, Access, Version, Effective Date, Expiration Date. Internal defaults set on save: status='Attached', requirement='Optional', access='Internal'. OPTIONAL section divider removed. Document object shape and RECORD_STORE.documents write unchanged.
+- 2026-05-21: MEMORY.md updated. §15.18 "Support Coverage / Support Contracts" added under Section 15. Decision: Support Coverage must be modeled as a renewable contract/coverage layer — not free text inside License or Hardware. Defines Support Coverage record fields, what it may cover, how it is added (drawer setup / Relationships tab / Complete Setup flow), and relationship model to covered assets via Contracts module. MVP roadmap updated: Support Coverage creation/linking from License and Hardware drawer setup. Phase 2 roadmap updated: multi-asset support coverage management, support coverage renewal workflows, support coverage compliance and SLA tracking. No application code modified.

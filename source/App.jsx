@@ -240,7 +240,7 @@ const MODULE_LIST = [
   ['Reports',           'Executive and governance reporting.'],
   ['Data Import',       'Spreadsheet onboarding and bulk record import.'],
   ['Providers & Distributors', 'Provider and distributor catalog with duplicate prevention and ownership.'],
-  ['Assets / Hardware', 'Optional detailed hardware inventory and warranty tracking.'],
+  ['Hardware', 'Optional detailed hardware inventory and warranty tracking.'],
 ];
 
 
@@ -264,6 +264,7 @@ const AI_CONTEXTS = {
   Tasks: { role: 'Work planning assistant', metadata: 'Context: 74 open tasks · 11 overdue · 18 blocked', suggestions: ['Prioritize my tasks', 'Create tasks from alerts', 'Find overdue work', 'Suggest next actions'], result: 'Your highest-impact work today is resolving the SSL owner gap, approving warranty coverage and requesting the Banisi signed contract.', findings: ['Two critical tasks are overdue.', 'Blocked work is mostly missing approvals.', 'Owner workload is uneven across the team.'], actions: ['Prioritize queue', 'Assign task', 'Create tasks from alerts', 'Draft updates'], sources: ['Task board', 'Alerts', 'Due dates', 'Owner workload'] },
   Reports: { role: 'Report builder assistant', metadata: 'Context: 12 templates · 8 scheduled reports · 31 recent exports', suggestions: ['Generate executive summary', 'Build renewal exposure report', 'Explain trends', 'Schedule report'], result: 'I can generate a concise executive renewal brief using exposure, critical items, owner gaps and open approval blockers.', findings: ['Leadership needs exposure and next actions, not raw tables.', 'Governance report should include document completeness.', 'Trends show certificate risk rising.'], actions: ['Generate report', 'Schedule report', 'Export summary', 'Review sources'], sources: ['Reports', 'Expirations', 'Tasks', 'Documents'] },
   'Data Import': { role: 'Data cleanup assistant', metadata: 'Context: 3 imports · 14 duplicates · 7 missing owners', suggestions: ['Map columns', 'Detect duplicates', 'Fix formats', 'Suggest missing owners'], result: 'Opriva found naming conflicts, missing owners and evidence gaps in the import file. Review relationship matches and complete required fields before confirming the upload.', findings: ['One sheet has invalid date formats.', 'Relationship names resemble existing catalog records.', 'Seven rows need owners before confirmation.'], actions: ['Review mapping', 'Review matches', 'Apply owner suggestions', 'Confirm import'], sources: ['Import preview', 'Catalog records', 'Validation rules', 'Owner history'] },
+  Hardware: { role: 'Hardware renewal assistant', metadata: 'Context: physical assets · warranty dates · support coverage · ownership gaps', suggestions: ['Find expiring warranties', 'Surface assets without support', 'Identify missing owners', 'Create renewal tasks'], result: 'I found hardware assets with expiring warranties, missing support coverage and unassigned ownership that need action before renewal deadlines.', findings: ['Two assets expire within 30 days and have no support contract.', 'Several assets are missing an assigned owner.', 'Approval status is pending for high-value hardware renewals.'], actions: ['Create renewal tasks', 'Assign owners', 'Request support quote', 'Review approval status'], sources: ['Hardware inventory', 'Warranty dates', 'Support contracts', 'Owner records'] },
   Settings: { role: 'Configuration assistant', metadata: 'Context: 18 alert rules · 27 custom fields · 14 templates', suggestions: ['Recommend alert policy', 'Suggest required fields', 'Create category template', 'Configure onboarding checklist'], result: 'Your workspace is configured well, but license and certificate categories should require owner, renewal date and evidence before records can become active.', findings: ['Approval before AI actions is enabled.', 'Data access is workspace scoped.', 'Two categories have weak required-field rules.'], actions: ['Update policy', 'Create template', 'Review AI settings', 'Open audit log'], sources: ['Settings', 'Data Management', 'Automation rules', 'Governance policy'] }
 };
 
@@ -278,12 +279,12 @@ function Badge({ children, tone }){ const badgeTone = riskClass(tone || children
 function EmptyState({ title, message, action }){ return <div className="stateBox emptyState" role="status"><strong>{title || 'No records found'}</strong><span>{message || 'Adjust filters or create a new record to continue.'}</span>{action && <button>{action}</button>}</div>; }
 function ErrorState({ title, message }){ return <div className="stateBox errorState" role="alert"><strong>{title || 'Data could not be loaded'}</strong><span>{message || 'Retry the request or contact support if the problem continues.'}</span><div><button>Retry</button><button className="ghostBtn">Contact support</button></div></div>; }
 function LoadingRows({ columns }){ const safeColumns = asArray(columns); return <tbody aria-busy="true">{[0,1,2].map(i => <tr className="skeletonRow" key={i}>{safeColumns.map((c,j)=><td key={c || j}><span className="skeletonLine" /></td>)}</tr>)}</tbody>; }
-function Table({ columns, rows, loading=false, error=false, emptyTitle, emptyMessage, selectedIndex=-1, actions=true }){
+function Table({ columns, rows, loading=false, error=false, emptyTitle, emptyMessage, selectedIndex=-1, actions=true, onRowOpen=null }){
   const safeColumns = asArray(columns);
   const safeRows = asArray(rows);
   if (error) return <ErrorState title="Failed data loading" message="Opriva could not load this table. Retry or open support with the current workspace context." />;
   if (!loading && safeRows.length === 0) return <EmptyState title={emptyTitle || 'No records yet'} message={emptyMessage || 'This module has no matching records for the current filters.'} action="Create record" />;
-  return <div className="tableWrap"><table><thead><tr>{safeColumns.map(c => <th key={c}>{safeText(c)}</th>)}{actions && <th aria-label="Row actions">Actions</th>}</tr></thead>{loading ? <LoadingRows columns={[...safeColumns,'Actions']} /> : <tbody>{safeRows.map((row, i) => { const safeRow = asArray(row); return <tr key={i} className={i===selectedIndex?'selectedRow':''} aria-selected={i===selectedIndex}>{safeColumns.map((column, j) => { const cell = safeText(safeRow[j]); return <td key={column || j} data-label={column || ''}>{j === safeColumns.length - 1 || /risk|status|priority|severity/i.test(column || '') ? <Badge>{cell}</Badge> : cell}</td>; })}{actions && <td data-label="Actions" className="actionCell"><button className="rowAction" aria-label={`Open ${safeText(safeRow[0], 'record')}`}>Open</button></td>}</tr>; })}</tbody>}</table></div>;
+  return <div className="tableWrap"><table><thead><tr>{safeColumns.map(c => <th key={c}>{safeText(c)}</th>)}{actions && <th aria-label="Row actions">Actions</th>}</tr></thead>{loading ? <LoadingRows columns={[...safeColumns,'Actions']} /> : <tbody>{safeRows.map((row, i) => { const safeRow = asArray(row); return <tr key={i} className={i===selectedIndex?'selectedRow':''} aria-selected={i===selectedIndex}>{safeColumns.map((column, j) => { const cell = safeText(safeRow[j]); return <td key={column || j} data-label={column || ''}>{j === safeColumns.length - 1 || /risk|status|priority|severity/i.test(column || '') ? <Badge>{cell}</Badge> : cell}</td>; })}{actions && <td data-label="Actions" className="actionCell"><button className="rowAction" aria-label={`Open ${safeText(safeRow[0], 'record')}`} onClick={() => { if (onRowOpen) onRowOpen(i); }}>Open</button></td>}</tr>; })}</tbody>}</table></div>;
 }
 function ToastStack({ notices = [] }){
   const safeNotices = Array.isArray(notices) ? notices.filter(Boolean) : [];
@@ -515,7 +516,7 @@ function AttentionCenter({ workspaceMode = 'MSP / Integrator' }){
     ['Client follow-up overdue','5','Renewal delay risk','Account Owners','Prepare follow-up','Open'],
     ['Certificate and warranty urgency','3','Service continuity risk','Sales Operations','Escalate today','Open']
   ];
-  return <main className="content attentionContent"><ScreenHeader active="Attention Center" subtitle="Resolve critical renewals, ownership gaps, missing evidence and approval blockers before they become financial or operational risk."><button>Assign owners</button><button className="primary">Create task</button></ScreenHeader><section className="statsGrid attentionSummaryGrid" aria-label="Attention Center summary">{attentionSummary.map(([label, value, note, badge]) => <article className="statCard" key={label}><span>{label}</span><strong>{value}</strong><p>{note}</p><Badge tone={badge}>{badge}</Badge></article>)}</section><div className="aiInsightBar attentionInsightBar" aria-label="Attention Center AI insight"><div className="aiInsightBarLeft"><span className="aiInsightBarLabel">AI insight</span><p className="aiInsightBarText">{aiInsightText}</p></div><div className="aiInsightBarActions">{aiInsightActions.map(action => <button key={action}>{action}</button>)}</div></div><section className="panel"><div className="panelTitle"><h2>Attention workflow</h2><span>Saved views, issue grouping and bulk operations</span></div><div className="tabs">{workflowTabs.map((label, idx) => <button key={label} className={idx === 0 ? 'active' : ''}>{label}</button>)}</div><div className="toolbar"><input placeholder={workflowFilterPlaceholder}/><button>{workflowSavedView}</button>{workflowFilters.map(filter => <button key={filter}>{filter}</button>)}</div><div className="tableWrap attentionWorkflowWrap"><table className={cx('attentionWorkflowTable', isInternalIt && 'attentionWorkflowTableIt')}><thead><tr>{workflowColumns.map(column => <th key={column}>{column}</th>)}</tr></thead><tbody>{workflowRows.map(row => isInternalIt ? <tr key={row[1]}><td className="issueRecordCell"><span>{row[0]}</span><strong>{row[1]}</strong></td><td className="compactCell">{row[2]}</td><td className="compactCell">{row[3]}</td><td className="compactCell">{row[4]}</td><td className="dateCell">{row[5]}</td><td className="compactCell">{row[6]==='Unassigned' ? <Badge tone="Needs assignment">Unassigned</Badge> : row[6]}</td><td className="actionCell"><button type="button" className="rowAction">{row[7]}</button></td><td className="compactCell"><Badge tone={row[8]}>{row[8]}</Badge></td></tr> : <tr key={`${row[0]}-${row[1]}`}><td className="issueRecordCell"><strong>{row[0]}</strong></td><td className="compactCell">{row[1]}</td><td className="compactCell">{row[2]}</td><td className="compactCell">{row[3]}</td><td className="compactCell">{row[4]}</td><td className="compactCell">{row[5]}</td><td className="dateCell">{row[6]}</td><td className="compactCell">{row[7]==='Unassigned' ? <Badge tone="Needs assignment">Unassigned</Badge> : row[7]}</td><td className="actionCell"><button type="button" className="rowAction">{row[8]}</button></td><td className="compactCell"><Badge tone={row[9]}>{row[9]}</Badge></td></tr>)}</tbody></table></div></section><section className="panel"><div className="panelTitle"><h2>Issue groups</h2><span>{issueGroupsHelper}</span></div>{isInternalIt ? <div className="tableWrap"><table><thead><tr>{['Group','Count','Business impact','Primary owner','Action','Open'].map(column => <th key={column}>{column}</th>)}</tr></thead><tbody>{issueGroupsRowsIt.map(row => <tr key={row[0]}><td><strong>{row[0]}</strong></td><td>{row[1]}</td><td>{row[2]}</td><td>{row[3]}</td><td className="actionCell"><button type="button" className="rowAction">{row[4]}</button></td><td className="actionCell"><button type="button" className="rowAction" aria-label={`Open ${row[0]}`}>Open</button></td></tr>)}</tbody></table></div> : <Table columns={['Group','Count','Business impact','Primary owner','Action','Status']} rows={issueGroupsRowsMsp}/>}</section></main>;
+  return <main className="content attentionContent"><ScreenHeader active="Attention Center" subtitle="Resolve critical renewals, ownership gaps, missing evidence and approval blockers before they become financial or operational risk."><button>Assign owners</button><button className="primary">Create task</button></ScreenHeader><section className="statsGrid attentionSummaryGrid" aria-label="Attention Center summary">{attentionSummary.map(([label, value, note, badge]) => <article className="statCard" key={label}><span>{label}</span><strong>{value}</strong><p>{note}</p><Badge tone={badge}>{badge}</Badge></article>)}</section><div className="aiInsightBar attentionInsightBar" aria-label="Attention Center AI insight"><div className="aiInsightBarLeft"><span className="aiInsightBarLabel">AI insight</span><p className="aiInsightBarText">{aiInsightText}</p></div><div className="aiInsightBarActions">{aiInsightActions.map(action => <button key={action}>{action}</button>)}</div></div><section className="panel"><div className="panelTitle"><h2>Attention workflow</h2><span>Saved views, issue grouping and bulk operations</span></div><div className="tabs">{workflowTabs.map((label, idx) => <button key={label} className={idx === 0 ? 'active' : ''}>{label}</button>)}</div><div className="toolbar"><input placeholder={workflowFilterPlaceholder}/><button>{workflowSavedView}</button>{workflowFilters.map(filter => <button key={filter}>{filter}</button>)}<button>Configure columns</button><button>AI summary</button></div><div className="tableWrap attentionWorkflowWrap"><table className={cx('attentionWorkflowTable', isInternalIt && 'attentionWorkflowTableIt')}><thead><tr>{workflowColumns.map(column => <th key={column}>{column}</th>)}</tr></thead><tbody>{workflowRows.map(row => isInternalIt ? <tr key={row[1]}><td className="issueRecordCell"><span>{row[0]}</span><strong>{row[1]}</strong></td><td className="compactCell">{row[2]}</td><td className="compactCell">{row[3]}</td><td className="compactCell">{row[4]}</td><td className="dateCell">{row[5]}</td><td className="compactCell">{row[6]==='Unassigned' ? <Badge tone="Needs assignment">Unassigned</Badge> : row[6]}</td><td className="actionCell"><button type="button" className="rowAction">{row[7]}</button></td><td className="compactCell"><Badge tone={row[8]}>{row[8]}</Badge></td></tr> : <tr key={`${row[0]}-${row[1]}`}><td className="issueRecordCell"><strong>{row[0]}</strong></td><td className="compactCell">{row[1]}</td><td className="compactCell">{row[2]}</td><td className="compactCell">{row[3]}</td><td className="compactCell">{row[4]}</td><td className="compactCell">{row[5]}</td><td className="dateCell">{row[6]}</td><td className="compactCell">{row[7]==='Unassigned' ? <Badge tone="Needs assignment">Unassigned</Badge> : row[7]}</td><td className="actionCell"><button type="button" className="rowAction">{row[8]}</button></td><td className="compactCell"><Badge tone={row[9]}>{row[9]}</Badge></td></tr>)}</tbody></table></div></section><section className="panel"><div className="panelTitle"><h2>Issue groups</h2><span>{issueGroupsHelper}</span></div>{isInternalIt ? <div className="tableWrap"><table><thead><tr>{['Group','Count','Business impact','Primary owner','Action','Open'].map(column => <th key={column}>{column}</th>)}</tr></thead><tbody>{issueGroupsRowsIt.map(row => <tr key={row[0]}><td><strong>{row[0]}</strong></td><td>{row[1]}</td><td>{row[2]}</td><td>{row[3]}</td><td className="actionCell"><button type="button" className="rowAction">{row[4]}</button></td><td className="actionCell"><button type="button" className="rowAction" aria-label={`Open ${row[0]}`}>Open</button></td></tr>)}</tbody></table></div> : <Table columns={['Group','Count','Business impact','Primary owner','Action','Status']} rows={issueGroupsRowsMsp}/>}</section></main>;
 }
 
 function SearchScreen(){
@@ -558,36 +559,1201 @@ function CompaniesScreen({ workspaceMode = 'MSP / Integrator' }){
   return <main className="content companiesClientsPage"><ScreenHeader active="Companies / Clients" subtitle="Manage client context, contacts, ownership, renewal exposure and related records from one workspace."><button>Configure columns</button><button className="primary">Add company</button></ScreenHeader><div className="tabs" role="tablist"><button className={tab==='Companies'?'active':''} onClick={()=>setTab('Companies')}>Companies</button><button className={tab==='Contacts'?'active':''} onClick={()=>setTab('Contacts')}>Contacts</button><button>Exposure</button><button>Documents</button></div><section className="panel clientPortfolioPanel"><div className="toolbar"><input placeholder="Search companies, contacts or domains…"/><button>Saved view: High exposure</button><button>Filters</button><button>Columns</button></div>{tab==='Contacts' ? <><div className="panelTitle"><h2>Key contacts</h2><span>Technical, commercial and legal owners per client</span></div><Table columns={['Contact','Company','Role','Email','Contact type','Responsibility']} rows={contacts}/></> : <><div className="panelTitle"><h2>Client portfolio</h2><span>Client-level exposure, ownership and upcoming renewal pressure.</span></div><Table columns={['Company','Segment','Main contact','Opriva owner','Managed records','Renewal pressure','Exposure','Risk']} rows={companies}/></>}</section><section className="panel selectedClientPanel"><div className="panelTitle"><h2>Selected client preview</h2><span>Key records, documents and actions linked to the selected client.</span></div><div className="tableWrap compactClientPreview"><table><thead><tr>{['Record','Type','Detail','Risk / status','Owner','Action'].map(column=><th key={column}>{column}</th>)}</tr></thead><tbody>{companyRecords.map(row=><tr key={row[0]}>{row.map((cell,index)=><td key={index} className={cx(index===0 && 'recordCell', index===5 && 'actionCell')}>{index===3 ? <Badge tone={cell}>{cell}</Badge> : index===4 && cell==='Unassigned' ? <Badge tone="Needs assignment">Unassigned</Badge> : index===5 ? <button type="button" className="rowAction subtleRowAction">{cell}</button> : cell}</td>)}</tr>)}</tbody></table></div></section></main>;
 }
 
-function OperationalList({ active, columns, rows, note, tabs=['All','Critical','30 days','Overdue','Missing owner'], ai='Opriva AI can summarize blockers, owners and next actions for this queue.', placeholder='' }){
+const MASTER_DATA = {
+  companies:        ['Banisi','Canal Bank','Grupo Regency','Nova Finance','Global Logistics','Metro Retail Group','EYCA'],
+  departments:      ['Finance','Infrastructure','Retail Operations','Digital Channels','IT Security','Corporate IT'],
+  vendors:          ['Microsoft','Trend Micro','Veeam','Fortinet','Dell','HP','Cisco','Apple','Oracle','CrowdStrike','DigiCert'],
+  providers:        ['TD Synnex','Ingram Micro','Intcomex','Licencias Online','Dell Direct','Apple Direct','Oracle Direct','Local reseller','Nextcom'],
+  users:            ['Maria Chen','Luis Mora','Rafael Soto','Ana Rios','Carlos Vega','Unassigned'],
+  products: [
+    { id: 'prod-ms365',        name: 'Microsoft 365 Enterprise',          brand: 'Microsoft',   category: 'Productivity / SaaS',  type: 'License',     defaultRenewalType: 'Manual renewal', defaultTerm: '1 year', defaultDistributor: 'Licencias Online', suggestedProviders: ['Licencias Online','TD Synnex','Nextcom'] },
+    { id: 'prod-trend-vision', name: 'Trend Micro Vision One',            brand: 'Trend Micro', category: 'Cybersecurity',         type: 'License',     defaultRenewalType: 'Manual renewal', defaultTerm: '1 year', defaultDistributor: 'TD Synnex',        suggestedProviders: ['TD Synnex','Licencias Online','Intcomex'] },
+    { id: 'prod-veeam',        name: 'Veeam Backup & Replication',        brand: 'Veeam',       category: 'Backup / Recovery',     type: 'License',     defaultRenewalType: 'Manual renewal', defaultTerm: '1 year', defaultDistributor: 'Ingram Micro',     suggestedProviders: ['Ingram Micro','TD Synnex'] },
+    { id: 'prod-fortigate',    name: 'FortiGate Security Bundle',         brand: 'Fortinet',    category: 'Network Security',      type: 'License',     defaultRenewalType: 'Auto-renews',    defaultTerm: '1 year', defaultDistributor: 'Ingram Micro',     suggestedProviders: ['Ingram Micro','Nextcom','Intcomex'] },
+    { id: 'prod-dell-r750',    name: 'Dell PowerEdge R750',               brand: 'Dell',        category: 'Hardware / Warranty',   type: 'Warranty',    defaultRenewalType: 'Manual renewal', defaultTerm: '3 years', defaultDistributor: 'Dell Direct',     suggestedProviders: ['Dell Direct','Ingram Micro'] },
+    { id: 'prod-hp-dl380',     name: 'HP ProLiant DL380',                 brand: 'HP',          category: 'Hardware / Warranty',   type: 'Warranty',    defaultRenewalType: 'Manual renewal', defaultTerm: '3 years', defaultDistributor: 'Ingram Micro',    suggestedProviders: ['Ingram Micro','TD Synnex'] },
+    { id: 'prod-cisco-9300',   name: 'Cisco Catalyst 9300',               brand: 'Cisco',       category: 'Network / Switch',      type: 'License',     defaultRenewalType: 'Auto-renews',    defaultTerm: '1 year', defaultDistributor: 'Ingram Micro',     suggestedProviders: ['Ingram Micro','TD Synnex','Intcomex'] },
+    { id: 'prod-digicert-ssl', name: 'DigiCert Wildcard SSL',             brand: 'DigiCert',    category: 'Certificates',          type: 'Certificate', defaultRenewalType: 'Manual renewal', defaultTerm: '1 year', defaultDistributor: 'Intcomex',         suggestedProviders: ['Intcomex','Licencias Online','Nextcom'] },
+    { id: 'prod-crowdstrike',  name: 'CrowdStrike Endpoint Protection',   brand: 'CrowdStrike', category: 'Cybersecurity',         type: 'License',     defaultRenewalType: 'Manual renewal', defaultTerm: '1 year', defaultDistributor: 'TD Synnex',        suggestedProviders: ['TD Synnex','Ingram Micro'] },
+  ],
+  relatedContracts: ['Gold Support Contract','Microsoft Enterprise Agreement','SOC Monitoring MSA','Trend Micro Vision One Renewal','Oracle POS Support'],
+  relatedDocuments: ['Signed contract PDF','Vendor quote','License certificate','Warranty document','Purchase order','Invoice','Compliance evidence'],
+};
+
+function resolveFieldOptions(source, workspaceMode) {
+  if (source === 'clientDepartment') {
+    return workspaceMode === 'Internal IT' ? MASTER_DATA.departments : MASTER_DATA.companies;
+  }
+  if (source === 'products') {
+    return MASTER_DATA.products.map(function(p) { return p.name; });
+  }
+  return MASTER_DATA[source] || [];
+}
+
+function getProductByName(name) {
+  return MASTER_DATA.products.find(function(p) { return p.name === name; }) || null;
+}
+
+function calcMargin(annualValue, cost) {
+  var val = parseFloat(annualValue);
+  var cst = parseFloat(cost);
+  if (!annualValue || !cost || isNaN(val) || isNaN(cst) || val === 0) return { marginDollar: '', margin: '' };
+  var dollar = val - cst;
+  var pct = ((dollar / val) * 100).toFixed(1);
+  return { marginDollar: dollar.toFixed(2), margin: pct };
+}
+
+function getAlertThresholdDays(alertPolicy, customReminderDays) {
+  if (alertPolicy === '90 / 60 / 30 days') return 90;
+  if (alertPolicy === '60 / 30 / 7 days') return 60;
+  if (alertPolicy === '30 / 7 / 1 days') return 30;
+  if (alertPolicy === 'Custom') {
+    var values = String(customReminderDays || '').split(',').map(function(part) {
+      return parseInt(part.trim(), 10);
+    }).filter(function(n) { return !isNaN(n) && n >= 0; });
+    return values.length ? Math.max.apply(null, values) : 30;
+  }
+  return 30;
+}
+
+function calcExpirationState(expirationDate, alertPolicy, customReminderDays) {
+  if (!expirationDate) return { systemStatus: 'Pending date', daysToExpiration: '' };
+  var exp = new Date(expirationDate + 'T00:00:00');
+  if (isNaN(exp.getTime())) return { systemStatus: 'Pending date', daysToExpiration: '' };
+  var today = new Date();
+  today.setHours(0, 0, 0, 0);
+  var days = Math.ceil((exp.getTime() - today.getTime()) / 86400000);
+  var threshold = getAlertThresholdDays(alertPolicy, customReminderDays);
+  var systemStatus = days < 0 ? 'Expired' : days <= threshold ? 'Expiring soon' : 'Active';
+  var daysLabel = days < 0 ? (Math.abs(days) + ' days overdue') : (days + (days === 1 ? ' day' : ' days'));
+  return { systemStatus: systemStatus, daysToExpiration: daysLabel };
+}
+
+function applyLicenseComputedFields(next) {
+  var calc = calcMargin(next.contractValue, next.cost);
+  next.marginDollar = calc.marginDollar;
+  next.margin = calc.margin;
+  var expirationState = calcExpirationState(next.renewalDate, next.alertPolicy, next.customReminderDays);
+  next.systemStatus = expirationState.systemStatus;
+  next.daysToExpiration = expirationState.daysToExpiration;
+  return next;
+}
+
+function suggestRenewalDate(startDate, licenseTerm) {
+  if (!startDate || !licenseTerm || licenseTerm === 'Custom') return '';
+  var termYears = { '1 year': 1, '2 years': 2, '3 years': 3, '5 years': 5 };
+  var yrs = termYears[licenseTerm];
+  if (!yrs) return '';
+  var d = new Date(startDate);
+  if (isNaN(d.getTime())) return '';
+  d.setFullYear(d.getFullYear() + yrs);
+  return d.toISOString().slice(0, 10);
+}
+
+const RECORD_STORE = {
+  licenses:  [],
+  hardware:  [],
+  contracts: [],
+  documents: [],
+  tasks:     [],
+};
+
+function createRecordId(moduleKey) {
+  return moduleKey + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+}
+
+function toRecords(rows, moduleKey) {
+  return (Array.isArray(rows) ? rows : []).map(function(row) {
+    return { id: createRecordId(moduleKey), row: Array.isArray(row) ? row : [] };
+  });
+}
+
+const NEW_RECORD_FIELDS = {
+  Licenses: [
+    { key: 'name',          label: 'License / Product',      required: true,  type: 'select', source: 'products' },
+    { key: 'client',        label: 'Client / Department',    required: true,  type: 'select', source: 'clientDepartment' },
+    { key: 'seats',         label: 'Quantity / Seats',       required: true,  type: 'number' },
+    { key: 'owner',         label: 'Renewal Owner',          required: true,  type: 'select', source: 'users' },
+    { key: 'renewalDate',   label: 'Expiration / Renewal Date', required: true, type: 'date' },
+    { key: 'systemStatus',  label: 'System Status',          type: 'computed' },
+    { key: 'daysToExpiration', label: 'Days to Expiration',  type: 'computed' },
+    { key: 'alertPolicy',   label: 'Alert Policy',           type: 'select', options: ['Workspace default','90 / 60 / 30 days','60 / 30 / 7 days','30 / 7 / 1 days','Custom'] },
+    { key: 'customReminderDays', label: 'Custom Reminder Days' },
+    { key: 'renewalStage',  label: 'Renewal Stage',          type: 'select', options: ['Not started','In review','Quote requested','Proposal sent','Waiting for client','Approved','Renewed','Cancelled'] },
+    { key: 'startDate',     label: 'Start Date',             type: 'date' },
+    { key: 'licenseTerm',   label: 'License Term',           type: 'select',  options: ['1 year','2 years','3 years','5 years','Custom'] },
+    { key: 'brand',         label: 'Brand',                  type: 'select',  source: 'vendors' },
+    { key: 'distributor',   label: 'Distributor / Provider', type: 'select',  source: 'providers' },
+    { key: 'contractValue', label: 'Annual Value',           type: 'number' },
+    { key: 'cost',          label: 'Cost',                   type: 'number' },
+    { key: 'marginDollar',  label: 'Margin $',               type: 'computed' },
+    { key: 'margin',        label: 'Margin %',               type: 'computed' },
+    { key: 'riskLevel',     label: 'Risk Level',             type: 'select',  options: ['Low','Medium','High','Critical'] },
+    { key: 'notes',         label: 'Notes',                  multi: true },
+  ],
+  Hardware: [
+    { key: 'name',           label: 'Asset Name',        required: true },
+    { key: 'type',           label: 'Type',              type: 'select', options: ['Server','Firewall','Switch','Laptop','Desktop','UPS','Storage','Printer','Other'] },
+    { key: 'brand',          label: 'Brand',             type: 'select', source: 'vendors' },
+    { key: 'model',          label: 'Model' },
+    { key: 'serial',         label: 'Serial Number' },
+    { key: 'client',         label: 'Client / Department', type: 'select', source: 'clientDepartment' },
+    { key: 'provider',       label: 'Provider',          type: 'select', source: 'providers' },
+    { key: 'owner',          label: 'Owner',             type: 'select', source: 'users' },
+    { key: 'warrantyEnd',    label: 'Warranty End',      type: 'date' },
+    { key: 'support',        label: 'Support Coverage' },
+    { key: 'approvalStatus', label: 'Approval Status',   type: 'select', options: ['Approved','Pending','Blocked','Not required'] },
+    { key: 'status',         label: 'Status',            type: 'select', options: ['Active','Expiring','Expired','Warranty gap','Missing support'] },
+    { key: 'riskLevel',      label: 'Risk Level',        type: 'select', options: ['Low','Medium','High','Critical'] },
+    { key: 'relatedContract',label: 'Related Contract',  type: 'select', source: 'relatedContracts' },
+    { key: 'notes',          label: 'Notes',             multi: true },
+  ],
+  Contracts: [
+    { key: 'name',           label: 'Contract Name',          required: true },
+    { key: 'type',           label: 'Contract Type',          type: 'select', options: ['License','Service','Hardware','SaaS','Support','Maintenance','MSA','NDA','Other'] },
+    { key: 'client',         label: 'Client / Department',    type: 'select', source: 'clientDepartment' },
+    { key: 'provider',       label: 'Provider / Distributor', type: 'select', source: 'providers' },
+    { key: 'owner',          label: 'Owner',                  type: 'select', source: 'users' },
+    { key: 'renewalDate',    label: 'Renewal Date',           type: 'date' },
+    { key: 'noticePeriod',   label: 'Notice Period',          type: 'select', options: ['30 days','60 days','90 days','120 days','None'] },
+    { key: 'documentStatus', label: 'Document Status',        type: 'select', options: ['Signed','Pending','Missing','Draft'] },
+    { key: 'approvalStatus', label: 'Approval Status',        type: 'select', options: ['Approved','Pending','Blocked','Not required'] },
+    { key: 'nextAction',     label: 'Next Action',            type: 'select', options: ['Review','Request approval','Request quote','Assign owner','Escalate'] },
+    { key: 'relatedLicense', label: 'Related License / Product', type: 'select', source: 'products' },
+    { key: 'riskLevel',      label: 'Risk Level',             type: 'select', options: ['Low','Medium','High','Critical'] },
+    { key: 'notes',          label: 'Notes',                  multi: true },
+  ],
+  Documents: [
+    { key: 'name',          label: 'Document Name',       required: true },
+    { key: 'type',          label: 'Document Type',       type: 'select', options: ['Contract','Quote','Invoice','Warranty','Certificate','Approval form','SLA','NDA','Report','Other'] },
+    { key: 'relatedRecord', label: 'Linked Record',       type: 'select', source: 'relatedContracts' },
+    { key: 'client',        label: 'Client / Department', type: 'select', source: 'clientDepartment' },
+    { key: 'vendor',        label: 'Provider / Vendor',   type: 'select', source: 'vendors' },
+    { key: 'uploadedBy',    label: 'Uploaded by',         type: 'select', source: 'users' },
+    { key: 'version',       label: 'Version' },
+    { key: 'access',        label: 'Access',              type: 'select', options: ['Internal','Restricted','Confidential','Public'] },
+    { key: 'requirement',   label: 'Requirement',         type: 'select', options: ['Required','Optional','Requested'] },
+    { key: 'status',        label: 'Status',              type: 'select', options: ['Current','Expiring','Expired','Missing','Pending review'] },
+    { key: 'notes',         label: 'Notes',               multi: true },
+  ],
+};
+
+const LICENSE_ALERT_POLICY_OPTIONS = ['Workspace default','90 / 60 / 30 days','60 / 30 / 7 days','30 / 7 / 1 days','Custom'];
+const LICENSE_TERM_OPTIONS = ['1 year','2 years','3 years','5 years','Custom'];
+const LICENSE_RENEWAL_STAGE_OPTIONS = ['Not started','In review','Quote requested','Proposal sent','Waiting for client','Approved','Renewed','Cancelled'];
+
+function getFormFields(module, workspaceMode) {
+  if (module !== 'Licenses') return NEW_RECORD_FIELDS[module] || NEW_RECORD_FIELDS.Licenses;
+  if (workspaceMode === 'Internal IT') {
+    return [
+      { key: 'name',          label: 'License / Product',      required: true,  type: 'select', source: 'products' },
+      { key: 'client',        label: 'Department',             required: true,  type: 'select', source: 'clientDepartment' },
+      { key: 'renewalDate',   label: 'Expiration / Renewal Date', required: true, type: 'date' },
+      { key: 'owner',         label: 'IT Owner / Budget Owner', required: true, type: 'select', source: 'users' },
+      { key: 'systemStatus',  label: 'System Status',          type: 'computed' },
+      { key: 'daysToExpiration', label: 'Days to Expiration',  type: 'computed' },
+      { key: 'seats',         label: 'Quantity / Seats',       type: 'number' },
+      { key: 'brand',         label: 'Brand',                  type: 'select', source: 'vendors' },
+      { key: 'provider',      label: 'Provider',               type: 'select', source: 'providers' },
+      { key: 'annualCost',    label: 'Annual Cost',            type: 'number' },
+      { key: 'costCenter',    label: 'Cost Center' },
+      { key: 'approvalStatus', label: 'Approval Status',       type: 'select', options: ['Approved','Pending','Blocked','Not required'] },
+      { key: 'businessCriticality', label: 'Business Criticality', type: 'select', options: ['Low','Medium','High','Critical'] },
+      { key: 'alertPolicy',   label: 'Alert Policy',           type: 'select', options: LICENSE_ALERT_POLICY_OPTIONS },
+      { key: 'customReminderDays', label: 'Custom Reminder Days' },
+      { key: 'startDate',     label: 'Start Date',             type: 'date' },
+      { key: 'licenseTerm',   label: 'License Term',           type: 'select', options: LICENSE_TERM_OPTIONS },
+      { key: 'notes',         label: 'Notes',                  multi: true },
+    ];
+  }
+  return [
+    { key: 'name',          label: 'License / Product',      required: true,  type: 'select', source: 'products' },
+    { key: 'client',        label: 'Client',                 required: true,  type: 'select', source: 'clientDepartment' },
+    { key: 'renewalDate',   label: 'Expiration / Renewal Date', required: true, type: 'date' },
+    { key: 'owner',         label: 'Renewal Owner',          required: true,  type: 'select', source: 'users' },
+    { key: 'alertPolicy',   label: 'Alert Policy',           required: true,  type: 'select', options: LICENSE_ALERT_POLICY_OPTIONS },
+    { key: 'seats',         label: 'Quantity / Seats',       type: 'number' },
+    { key: 'distributor',   label: 'Distributor / Provider', type: 'select', source: 'providers' },
+    { key: 'contractValue', label: 'Sale Price / Annual Value', type: 'number' },
+    { key: 'cost',          label: 'Vendor Cost',            type: 'number' },
+    { key: 'startDate',     label: 'Start Date',             type: 'date' },
+    { key: 'licenseTerm',   label: 'License Term',           type: 'select', options: LICENSE_TERM_OPTIONS },
+    { key: 'notes',         label: 'Notes',                  multi: true },
+  ];
+}
+
+function buildNewRow(form, safeColumns) {
+  const v = form;
+  const risk = v.riskLevel ? (v.riskLevel + ' risk') : 'Low risk';
+  const fmtValue = (n) => n ? ('$' + Number(n).toLocaleString()) : '-';
+  const fmtMarginPct = (n) => n ? (n + '%') : '-';
+  const fmtMarginDollar = (n) => n ? ('$' + parseFloat(n).toLocaleString()) : '-';
+  const marginCalc = calcMargin(v.contractValue, v.cost);
+  const marginDollar = v.marginDollar || marginCalc.marginDollar;
+  const margin = v.margin || marginCalc.margin;
+  const marginDisplay = marginDollar ? fmtMarginDollar(marginDollar) : fmtMarginPct(margin);
+  const valueDisplay = fmtValue(v.contractValue || v.annualCost);
+  const expirationState = calcExpirationState(v.renewalDate, v.alertPolicy, v.customReminderDays);
+  const hasLicenseStatus = Object.prototype.hasOwnProperty.call(v, 'systemStatus');
+  const systemStatus = hasLicenseStatus ? expirationState.systemStatus : v.status;
+  const daysToExpiration = hasLicenseStatus ? expirationState.daysToExpiration : '';
+  const action = v.renewalStage || v.nextAction || 'Review';
+  const map = {
+    'License / Product':      v.name,
+    'Asset':                  v.name,
+    'Contract':               v.name,
+    'Contract Name':          v.name,
+    'Document':               v.documentStatus || v.name,
+    'Document Name':          v.name,
+    'Name':                   v.name,
+    'Client':                 v.client,
+    'Department':             v.client,
+    'Client / Department':    v.client,
+    'Brand':                  v.brand,
+    'Vendor':                 v.brand,
+    'Provider':               v.provider,
+    'Distributor':            v.distributor || v.provider,
+    'Provider / Distributor': v.provider || v.distributor,
+    'Type':                   v.type,
+    'Model':                  v.model,
+    'Serial':                 v.serial,
+    'Product':                v.name,
+    'Owner':                  v.owner || 'Unassigned',
+    'Renewal Owner':          v.owner || 'Unassigned',
+    'Uploaded by':            v.uploadedBy,
+    'Version':                v.version,
+    'Access':                 v.access,
+    'Requirement':            v.requirement,
+    'Linked record':          v.relatedRecord,
+    'Warranty end':           v.warrantyEnd,
+    'Support':                v.support,
+    'Quantity':               v.seats,
+    'Users / Seats':          v.seats,
+    'Renewal':                v.renewalDate,
+    'Expiration':             v.renewalDate,
+    'Expiration / Renewal Date': v.renewalDate,
+    'Renewal Type':           v.renewalDate,
+    'Notice':                 v.noticePeriod,
+    'Value':                  valueDisplay,
+    'Sale Price / Annual Value': fmtValue(v.contractValue),
+    'Annual Value':           fmtValue(v.contractValue),
+    'Annual Cost':            fmtValue(v.annualCost),
+    'Vendor Cost':            fmtValue(v.cost),
+    'Cost':                   fmtValue(v.cost),
+    'Cost Center':            v.costCenter,
+    'Margin':                 marginDisplay,
+    'Margin $':               fmtMarginDollar(marginDollar),
+    'Margin %':               fmtMarginPct(margin),
+    'System Status':          systemStatus,
+    'Days to Expiration':     daysToExpiration,
+    'Alert Policy':           v.alertPolicy,
+    'Custom Reminder Days':   v.customReminderDays,
+    'Renewal Stage':          v.renewalStage,
+    'Business Criticality':   v.businessCriticality,
+    'Start Date':             v.startDate,
+    'License Term':           v.licenseTerm,
+    'Legal status':           v.approvalStatus || 'Pending',
+    'Approval Status':        v.approvalStatus || 'Pending',
+    'Approval status':        v.approvalStatus || 'Pending',
+    'Next action':            action,
+    'Status':                 systemStatus || v.status || 'Active',
+    'Risk':                   risk,
+    'Action':                 action,
+    'Notes':                  v.notes || '',
+  };
+  return safeColumns.map(col => (map[col] !== undefined && map[col] !== '') ? map[col] : '-');
+}
+
+const ATTACH_DOC_FIELDS = [
+  { key: 'name',        label: 'Document Name',         required: true },
+  { key: 'type',        label: 'Document Type',         required: true,  type: 'select', options: ['Quote','Purchase Order','Invoice','License Certificate','Signed Contract','Warranty Document','Support Evidence','Compliance Evidence','Legal Document','Other'] },
+  { key: 'status',      label: 'Status',                required: true,  type: 'select', options: ['Current','Pending review','Missing evidence','Expiring soon','Archived'] },
+  { key: 'uploadedBy',  label: 'Uploaded By',           required: true,  type: 'select', source: 'users' },
+  { key: 'fileRef',     label: 'File Name / Reference' },
+  { key: 'requirement', label: 'Requirement',           type: 'select',  options: ['Required','Optional','Requested'] },
+  { key: 'access',      label: 'Access',                type: 'select',  options: ['Internal','Restricted','Confidential','Public'] },
+  { key: 'version',     label: 'Version' },
+  { key: 'notes',       label: 'Notes',                 multi: true },
+];
+
+const FILTER_SPECS = {
+  Licenses: [
+    { key: 'vendor',    label: 'Vendor',              cols: ['Vendor', 'Brand', 'Distributor'] },
+    { key: 'product',   label: 'Product',             cols: ['License / Product', 'Product'] },
+    { key: 'client',    label: 'Client / Department', cols: ['Client', 'Department'] },
+    { key: 'expStatus', label: 'Expiration status',   cols: ['Status'] },
+    { key: 'owner',     label: 'Renewal owner',       cols: ['Renewal Owner', 'Owner'] },
+    { key: 'risk',      label: 'Risk level',          cols: ['Risk'] },
+  ],
+  Hardware: [
+    { key: 'brand',    label: 'Brand',           cols: ['Brand'] },
+    { key: 'type',     label: 'Type',            cols: ['Type'] },
+    { key: 'owner',    label: 'Owner',           cols: ['Owner'] },
+    { key: 'warranty', label: 'Warranty status', cols: ['Status'] },
+    { key: 'support',  label: 'Support status',  cols: ['Support'] },
+    { key: 'risk',     label: 'Risk level',      cols: ['Risk'] },
+  ],
+  Contracts: [
+    { key: 'provider',  label: 'Provider',        cols: ['Provider'] },
+    { key: 'type',      label: 'Contract type',   cols: ['Type'] },
+    { key: 'owner',     label: 'Owner',           cols: ['Owner'] },
+    { key: 'renewal',   label: 'Renewal type',    cols: ['Renewal Type'] },
+    { key: 'approval',  label: 'Approval status', cols: ['Approval Status', 'Approval status'] },
+    { key: 'notice',    label: 'Notice period',   cols: ['Notice'] },
+  ],
+  Documents: [
+    { key: 'docType',   label: 'Document type',     cols: ['Type'] },
+    { key: 'module',    label: 'Related module',    cols: ['Related Module', 'Module'] },
+    { key: 'owner',     label: 'Owner',             cols: ['Owner'] },
+    { key: 'expStatus', label: 'Expiration status', cols: ['Status'] },
+  ],
+};
+
+function getColIndices(colNames, safeColumns) {
+  return colNames.reduce((acc, name) => {
+    const idx = safeColumns.findIndex(c => c.toLowerCase() === name.toLowerCase());
+    if (idx !== -1 && !acc.includes(idx)) acc.push(idx);
+    return acc;
+  }, []);
+}
+
+function getFilterOptions(spec, localRows, safeColumns) {
+  const indices = getColIndices(spec.cols, safeColumns);
+  const seen = new Set();
+  localRows.forEach(row => {
+    const r = Array.isArray(row) ? row : [];
+    indices.forEach(idx => {
+      const val = (r[idx] || '').trim();
+      if (val && val !== '-') seen.add(val);
+    });
+  });
+  return Array.from(seen).sort();
+}
+
+function rowPassesFilter(row, spec, value, safeColumns) {
+  if (!value) return true;
+  const indices = getColIndices(spec.cols, safeColumns);
+  const r = Array.isArray(row) ? row : [];
+  return indices.some(idx => (r[idx] || '').toLowerCase().includes(value.toLowerCase()));
+}
+
+function rowPassesSearch(row, search) {
+  if (!search.trim()) return true;
+  const r = Array.isArray(row) ? row : [];
+  const q = search.toLowerCase();
+  return r.some(cell => (cell || '').toLowerCase().includes(q));
+}
+
+function getDetailField(record, ...names) {
+  if (!record) return '';
+  const cols = record.columns || [];
+  const row  = record.row || [];
+  for (const name of names) {
+    const idx = cols.findIndex(c => c.toLowerCase() === name.toLowerCase());
+    if (idx >= 0 && row[idx] && row[idx] !== '-') return row[idx];
+  }
+  return '';
+}
+
+function buildEditForm(record, fieldSpecs) {
+  const cols = record.columns || [];
+  const row  = record.row || [];
+  const get = (...names) => {
+    for (const n of names) {
+      const idx = cols.findIndex(c => c.toLowerCase() === n.toLowerCase());
+      if (idx >= 0 && row[idx] && row[idx] !== '-') return row[idx];
+    }
+    return '';
+  };
+  const stripDollar = v => v ? v.replace(/[$,]/g, '') : '';
+  const stripPct    = v => v ? v.replace(/%/g, '').trim() : '';
+  const stripRisk   = v => v ? v.replace(/ risk$/i, '').trim() : '';
+  const prefill = {};
+  fieldSpecs.forEach(f => {
+    switch (f.key) {
+      case 'name':           prefill[f.key] = get('License / Product','Asset','Contract','Contract Name','Document Name','Name','Product'); break;
+      case 'client':         prefill[f.key] = get('Client','Department','Client / Department'); break;
+      case 'brand':          prefill[f.key] = get('Brand','Vendor'); break;
+      case 'provider':       prefill[f.key] = get('Provider','Provider / Distributor'); break;
+      case 'distributor':    prefill[f.key] = get('Distributor'); break;
+      case 'type':           prefill[f.key] = get('Type'); break;
+      case 'model':          prefill[f.key] = get('Model'); break;
+      case 'serial':         prefill[f.key] = get('Serial'); break;
+      case 'owner':          prefill[f.key] = get('Owner','Renewal Owner'); break;
+      case 'uploadedBy':     prefill[f.key] = get('Uploaded by'); break;
+      case 'version':        prefill[f.key] = get('Version'); break;
+      case 'access':         prefill[f.key] = get('Access'); break;
+      case 'requirement':    prefill[f.key] = get('Requirement'); break;
+      case 'relatedRecord':  prefill[f.key] = get('Linked record'); break;
+      case 'warrantyEnd':    prefill[f.key] = get('Warranty end'); break;
+      case 'support':        prefill[f.key] = get('Support'); break;
+      case 'seats':          prefill[f.key] = get('Quantity','Users / Seats'); break;
+      case 'renewalDate':    prefill[f.key] = get('Expiration / Renewal Date','Expiration','Renewal','Renewal Type'); break;
+      case 'noticePeriod':   prefill[f.key] = get('Notice'); break;
+      case 'contractValue':  prefill[f.key] = stripDollar(get('Value','Annual Value')); break;
+      case 'margin':         prefill[f.key] = stripPct(get('Margin')); break;
+      case 'systemStatus':   prefill[f.key] = calcExpirationState(get('Expiration / Renewal Date','Expiration','Renewal','Renewal Type'), get('Alert Policy'), get('Custom Reminder Days')).systemStatus; break;
+      case 'daysToExpiration': prefill[f.key] = calcExpirationState(get('Expiration / Renewal Date','Expiration','Renewal','Renewal Type'), get('Alert Policy'), get('Custom Reminder Days')).daysToExpiration; break;
+      case 'alertPolicy':    prefill[f.key] = get('Alert Policy') || 'Workspace default'; break;
+      case 'customReminderDays': prefill[f.key] = get('Custom Reminder Days'); break;
+      case 'renewalStage':   prefill[f.key] = get('Renewal Stage'); break;
+      case 'approvalStatus': prefill[f.key] = get('Legal status','Approval Status','Approval status'); break;
+      case 'nextAction':     prefill[f.key] = get('Next action','Action'); break;
+      case 'documentStatus': prefill[f.key] = get('Document','Legal status'); break;
+      case 'status':         prefill[f.key] = get('Status'); break;
+      case 'riskLevel':      prefill[f.key] = stripRisk(get('Risk')); break;
+      case 'startDate':      prefill[f.key] = get('Start Date'); break;
+      case 'licenseTerm':    prefill[f.key] = get('License Term'); break;
+      case 'cost':           prefill[f.key] = stripDollar(get('Cost')); break;
+      case 'marginDollar':   prefill[f.key] = stripDollar(get('Margin $')); break;
+      case 'relatedLicense': prefill[f.key] = get('Related License / Product'); break;
+      case 'relatedContract':prefill[f.key] = get('Related Contract'); break;
+      default:               prefill[f.key] = ''; break;
+    }
+  });
+  return prefill;
+}
+
+function OperationalList({ active, columns, rows, note, tabs=['All','Critical','30 days','Overdue','Missing owner'], ai='Opriva AI can summarize blockers, owners and next actions for this queue.', placeholder='', workspaceMode='MSP / Integrator' }){
   const safeRows = Array.isArray(rows) ? rows : [];
-  const inputPlaceholder = placeholder || `Filter ${active.toLowerCase()} by company, owner, vendor or risk…`;
+  const safeColumns = Array.isArray(columns) ? columns : [];
+  const inputPlaceholder = placeholder || ('Filter ' + active.toLowerCase() + ' by company, owner, vendor or risk...');
+  const moduleKey = active.includes('Hardware') ? 'hardware'
+    : active.includes('Contract') ? 'contracts'
+    : active.includes('Document') ? 'documents'
+    : 'licenses';
+
+  const [configOpen, setConfigOpen] = React.useState(false);
+  const [visibleSet, setVisibleSet] = React.useState(() => new Set(safeColumns));
+  const [newOpen, setNewOpen] = React.useState(false);
+  function normalizeDocumentRecords(records) {
+    return (Array.isArray(records) ? records : []).map(function(record) {
+      if (record && Array.isArray(record.row)) return record;
+      var doc = record || {};
+      var docMap = {
+        'Document': doc.name,
+        'Document Name': doc.name,
+        'Type': doc.type,
+        'Linked record': doc.linkedRecordName || doc.relatedRecord,
+        'Client': doc.client,
+        'Department': doc.department,
+        'Client / Department': doc.client || doc.department,
+        'Uploaded by': doc.uploadedBy,
+        'Version': doc.version,
+        'Access': doc.access,
+        'Requirement': doc.requirement,
+        'Status': doc.status,
+        'Notes': doc.notes,
+      };
+      return Object.assign({}, doc, {
+        id: doc.id || createRecordId('documents'),
+        row: safeColumns.map(function(col) {
+          return (docMap[col] !== undefined && docMap[col] !== '') ? docMap[col] : '-';
+        })
+      });
+    });
+  }
+  function resetRowsFromSource() {
+    if (moduleKey === 'documents' && Array.isArray(RECORD_STORE.documents) && RECORD_STORE.documents.length) {
+      var existingDocuments = normalizeDocumentRecords(RECORD_STORE.documents);
+      RECORD_STORE.documents = existingDocuments;
+      return existingDocuments;
+    }
+    var records = toRecords(safeRows, moduleKey);
+    RECORD_STORE[moduleKey] = records;
+    return records;
+  }
+  const [localRows, setLocalRows] = React.useState(resetRowsFromSource);
+  const [form, setForm] = React.useState({});
+  const [errors, setErrors] = React.useState({});
+  const [filterOpen, setFilterOpen] = React.useState(false);
+  const [filters, setFilters] = React.useState({});
+  const [search, setSearch] = React.useState('');
+  const [detailOpen, setDetailOpen] = React.useState(false);
+  const [selectedRecord, setSelectedRecord] = React.useState(null);
+  const [editMode, setEditMode] = React.useState(false);
+  const [editForm, setEditForm] = React.useState({});
+  const [editErrors, setEditErrors] = React.useState({});
+  const [activeDetailTab, setActiveDetailTab] = React.useState('Overview');
+  const [attachDocOpen, setAttachDocOpen] = React.useState(false);
+  const [attachDocForm, setAttachDocForm] = React.useState({});
+  const [attachDocErrors, setAttachDocErrors] = React.useState({});
+  const [sessionDocs, setSessionDocs] = React.useState([]);
+
+  const columnsKey = safeColumns.join('|');
+  React.useEffect(() => { setVisibleSet(new Set(safeColumns)); }, [columnsKey]);
+  React.useEffect(() => {
+    var records = resetRowsFromSource();
+    setLocalRows(records);
+    setSessionDocs([]);
+    setFilters({});
+    setSearch('');
+  }, [rows]);
+
+  const module = active.includes('Hardware') ? 'Hardware'
+    : active.includes('Contract') ? 'Contracts'
+    : active.includes('Document') ? 'Documents'
+    : 'Licenses';
+  const formFields = getFormFields(module, workspaceMode);
+  const fieldSpecs = NEW_RECORD_FIELDS[module] || NEW_RECORD_FIELDS.Licenses;
+  const filterSpecs = FILTER_SPECS[module] || [];
+  const filterCount = Object.values(filters).filter(Boolean).length;
+  const hasActiveFilter = filterCount > 0 || search.trim().length > 0;
+
+  function clearFilters() { setFilters({}); setSearch(''); }
+
+  const toggleCol = (col) => {
+    setVisibleSet(prev => {
+      const next = new Set(prev);
+      if (next.has(col)) { if (next.size > 1) next.delete(col); }
+      else { next.add(col); }
+      return next;
+    });
+  };
+
+  function openNew() {
+    const empty = {};
+    formFields.forEach(f => { empty[f.key] = ''; });
+    if (module === 'Licenses') {
+      empty.alertPolicy = 'Workspace default';
+      applyLicenseComputedFields(empty);
+    }
+    setForm(empty);
+    setErrors({});
+    setNewOpen(true);
+  }
+
+  function handleSave() {
+    const errs = {};
+    formFields.forEach(f => { if (f.required && !(form[f.key] || '').trim()) errs[f.key] = 'Required'; });
+    if (Object.keys(errs).length) { setErrors(errs); return; }
+    const newRecord = { id: createRecordId(moduleKey), row: buildNewRow(form, safeColumns) };
+    setLocalRows(function(prev) {
+      const next = [newRecord, ...prev];
+      RECORD_STORE[moduleKey] = next;
+      return next;
+    });
+    const projectedRow = activeColumns.map(function(col) {
+      const ci = safeColumns.indexOf(col);
+      return ci >= 0 && newRecord.row[ci] !== undefined ? newRecord.row[ci] : '-';
+    });
+    setSelectedRecord({id: newRecord.id, moduleKey: moduleKey, columns: activeColumns, row: projectedRow, localRowIndex: 0, isNew: true});
+    setActiveDetailTab('Overview');
+    setEditMode(false);
+    setDetailOpen(true);
+    setNewOpen(false);
+  }
+
+  function handleEditSave() {
+    const errs = {};
+    fieldSpecs.forEach(f => { if (f.required && !(editForm[f.key] || '').trim()) errs[f.key] = 'Required'; });
+    if (Object.keys(errs).length) { setEditErrors(errs); return; }
+    const newRow = buildNewRow(editForm, safeColumns);
+    setLocalRows(function(prev) {
+      const next = prev.map(function(r, i) {
+        return i === selectedRecord.localRowIndex ? { id: r.id, row: newRow } : r;
+      });
+      RECORD_STORE[moduleKey] = next;
+      return next;
+    });
+    const newActiveRow = activeColumns.map(col => {
+      const ci = safeColumns.indexOf(col);
+      return ci >= 0 && newRow[ci] !== undefined ? newRow[ci] : '-';
+    });
+    setSelectedRecord(prev => ({...prev, row: newActiveRow}));
+    setEditMode(false);
+  }
+
+  function openAttachDoc() {
+    var empty = {};
+    ATTACH_DOC_FIELDS.forEach(function(f) { empty[f.key] = ''; });
+    setAttachDocForm(empty);
+    setAttachDocErrors({});
+    setAttachDocOpen(true);
+  }
+
+  function handleAttachDocSave() {
+    var errs = {};
+    ATTACH_DOC_FIELDS.forEach(function(f) {
+      if (f.required && !(attachDocForm[f.key] || '').trim()) errs[f.key] = 'Required';
+    });
+    if (Object.keys(errs).length) { setAttachDocErrors(errs); return; }
+    var today = new Date().toISOString().slice(0, 10);
+    var doc = {
+      id:               createRecordId('documents'),
+      name:             attachDocForm.name,
+      type:             attachDocForm.type,
+      linkedModule:     selectedRecord.moduleKey,
+      linkedRecordId:   selectedRecord.id,
+      linkedRecordName: selectedRecord.row[0] || '',
+      uploadedBy:       attachDocForm.uploadedBy,
+      uploadDate:       today,
+      status:           attachDocForm.status,
+      requirement:      attachDocForm.requirement || '',
+      access:           attachDocForm.access || '',
+      version:          attachDocForm.version || '',
+      fileRef:          attachDocForm.fileRef || '',
+      notes:            attachDocForm.notes || '',
+    };
+    RECORD_STORE.documents.push(doc);
+    setSessionDocs(function(prev) { return prev.concat(doc); });
+    setAttachDocOpen(false);
+  }
+
+  function handleFormField(key, value) {
+    setForm(function(prev) {
+      var next = Object.assign({}, prev);
+      next[key] = value;
+      if (module === 'Licenses') {
+        if (key === 'name') {
+          var prod = getProductByName(value);
+          if (prod) {
+            next.brand = prod.brand;
+            if (!prev.distributor) next.distributor = prod.defaultDistributor || '';
+            if (!prev.provider) next.provider = prod.defaultDistributor || '';
+            if (!prev.licenseTerm) next.licenseTerm = prod.defaultTerm || '';
+            var suggested = suggestRenewalDate(next.startDate, next.licenseTerm);
+            if (suggested && !prev.renewalDate) next.renewalDate = suggested;
+          }
+        }
+        if (key === 'startDate' || key === 'licenseTerm') {
+          var sd = key === 'startDate' ? value : next.startDate;
+          var lt = key === 'licenseTerm' ? value : next.licenseTerm;
+          var renewal = suggestRenewalDate(sd, lt);
+          if (renewal && !next.renewalDate) next.renewalDate = renewal;
+        }
+        applyLicenseComputedFields(next);
+      }
+      return next;
+    });
+  }
+
+  function handleEditField(key, value) {
+    setEditForm(function(prev) {
+      var next = Object.assign({}, prev);
+      next[key] = value;
+      if (module === 'Licenses') {
+        if (key === 'name') {
+          var prod = getProductByName(value);
+          if (prod) {
+            next.brand = prod.brand;
+            if (!prev.distributor) next.distributor = prod.defaultDistributor || '';
+            if (!prev.licenseTerm) next.licenseTerm = prod.defaultTerm || '';
+            var suggested = suggestRenewalDate(next.startDate, next.licenseTerm);
+            if (suggested && !prev.renewalDate) next.renewalDate = suggested;
+          }
+        }
+        if (key === 'startDate' || key === 'licenseTerm') {
+          var sd = key === 'startDate' ? value : next.startDate;
+          var lt = key === 'licenseTerm' ? value : next.licenseTerm;
+          var renewal = suggestRenewalDate(sd, lt);
+          if (renewal && !next.renewalDate) next.renewalDate = renewal;
+        }
+        applyLicenseComputedFields(next);
+      }
+      return next;
+    });
+  }
+
+  const displayRows = localRows.filter(function(record) {
+    return rowPassesSearch(record.row, search) &&
+      filterSpecs.every(function(spec) { return rowPassesFilter(record.row, spec, filters[spec.key] || '', safeColumns); });
+  });
+
+  const activeColumns = safeColumns.filter(c => visibleSet.has(c));
+  const activeRows = displayRows.map(function(record) {
+    var r = record.row;
+    return safeColumns.reduce(function(acc, col, i) { if (visibleSet.has(col)) acc.push(r[i] !== undefined ? r[i] : ''); return acc; }, []);
+  });
+
+  const fieldStyle = { width: '100%', border: '1px solid #DDE6F1', borderRadius: 10, padding: '10px 12px', fontSize: 14, fontFamily: 'inherit', outline: 0, background: '#FAFCFF', color: '#132033', boxSizing: 'border-box' };
+  const errStyle   = { color: '#DC2626', fontSize: 12, marginTop: 4, display: 'block' };
+  const closeBtn   = { border: '1px solid #E5E7EB', background: '#F8FAFC', color: '#64748B', fontSize: 16, width: 32, height: 32, borderRadius: 8, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 };
+  const modalWrap  = { position: 'fixed', inset: 0, background: 'rgba(11,31,58,.42)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center' };
+  const modalBox   = (w) => ({ background: '#fff', border: '1px solid #E5E7EB', borderRadius: 20, padding: 24, width: w, maxWidth: 'calc(100vw - 32px)', maxHeight: 'calc(100vh - 64px)', overflowY: 'auto', boxShadow: '0 24px 80px rgba(11,31,58,.22)', display: 'grid', gap: 16 });
+  const eyebrow    = { margin: '0 0 4px', color: '#0D9488', textTransform: 'uppercase', fontSize: 11, letterSpacing: '.14em', fontWeight: 900 };
+  const modalH2    = { margin: 0, color: '#0B1F3A', fontSize: 20, letterSpacing: '-.03em' };
+  const modalFoot       = { display: 'flex', gap: 10, justifyContent: 'space-between', alignItems: 'center', paddingTop: 12, borderTop: '1px solid #EEF2F7' };
+  const detailActionBtn = { fontSize: 13, padding: '7px 12px', color: '#64748B', background: '#F8FAFC', borderColor: '#E5E7EB' };
+  function formatComputedField(key, value) {
+    if (value === undefined || value === null || value === '') return '';
+    if (key === 'marginDollar') return '$' + parseFloat(value).toLocaleString();
+    if (key === 'margin') return value + '%';
+    return value;
+  }
+
   return <main className="content">
-    <ScreenHeader active={active} subtitle={note}><button>Bulk actions</button><button>Configure columns</button><button className="primary">New record</button></ScreenHeader>
+    <ScreenHeader active={active} subtitle={note}><button>Bulk actions</button><button onClick={() => setConfigOpen(true)}>Configure columns</button><button className="primary" onClick={openNew}>New record</button></ScreenHeader>
     <AiInsightBar active={active}/>
+
+    {configOpen && <div style={modalWrap} onClick={() => setConfigOpen(false)} role="dialog" aria-modal="true" aria-label="Configure columns">
+      <div style={modalBox(380)} onClick={e => e.stopPropagation()}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
+          <div><p style={eyebrow}>Column visibility</p><h2 style={modalH2}>Configure columns</h2></div>
+          <button style={closeBtn} onClick={() => setConfigOpen(false)} aria-label="Close">x</button>
+        </div>
+        <p style={{margin:0,color:'#64748B',fontSize:13,lineHeight:1.45}}>{activeColumns.length} of {safeColumns.length} columns visible</p>
+        <div style={{display:'grid',gap:6}}>
+          {safeColumns.map(col => {
+            const isOn = visibleSet.has(col);
+            const isLast = visibleSet.size === 1 && isOn;
+            return <label key={col} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 12px',border:'1px solid',borderColor:isOn?'#DDEFEA':'#E5E7EB',borderRadius:12,background:isOn?'#F6FEFC':'#FAFCFF',cursor:isLast?'not-allowed':'pointer',userSelect:'none',opacity:isLast?.55:1}}>
+              <input type="checkbox" checked={isOn} disabled={isLast} onChange={() => toggleCol(col)} style={{accentColor:'#0D9488',width:16,height:16,flexShrink:0,cursor:isLast?'not-allowed':'pointer'}}/>
+              <span style={{color:'#132033',fontSize:14,fontWeight:700,flex:1}}>{col}</span>
+              {isOn && <span style={{fontSize:11,color:'#0D9488',fontWeight:800,letterSpacing:'.04em'}}>ON</span>}
+            </label>;
+          })}
+        </div>
+        <div style={modalFoot}>
+          <button onClick={() => setVisibleSet(new Set(safeColumns))} style={{color:'#64748B',background:'#F8FAFC',borderColor:'#E5E7EB'}}>Reset to default</button>
+          <button className="primary" onClick={() => setConfigOpen(false)}>Done</button>
+        </div>
+      </div>
+    </div>}
+
+    {newOpen && <div style={modalWrap} onClick={() => setNewOpen(false)} role="dialog" aria-modal="true" aria-label={'New ' + module + ' record'}>
+      <div style={modalBox(520)} onClick={e => e.stopPropagation()}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
+          <div><p style={eyebrow}>{module}</p><h2 style={modalH2}>New record</h2></div>
+          <button style={closeBtn} onClick={() => setNewOpen(false)} aria-label="Close">x</button>
+        </div>
+        {(() => {
+          const reqF  = formFields.filter(f => f.required);
+          const optF  = formFields.filter(f => !f.required && !f.multi);
+          const noteF = formFields.filter(f => f.multi);
+          const renderF = (f) => <div key={f.key}>
+            <label style={{display:'block',marginBottom:5,fontSize:13,fontWeight:700,color:'#334155'}}>
+              {f.label}{f.required && <span style={{color:'#DC2626',marginLeft:3}}>*</span>}
+              {f.type === 'computed' && <span style={{marginLeft:6,fontSize:11,fontWeight:600,color:'#94A3B8'}}>auto</span>}
+            </label>
+            {f.multi
+              ? <textarea value={form[f.key]||''} onChange={e => handleFormField(f.key, e.target.value)} rows={3} style={{...fieldStyle,resize:'vertical'}}/>
+              : f.type === 'computed'
+                ? <input type="text" value={formatComputedField(f.key, form[f.key])} readOnly placeholder="Calculated" style={{...fieldStyle,background:'#F0F4F8',color:form[f.key]?'#0F766E':'#94A3B8',cursor:'default'}}/>
+                : f.type === 'select'
+                  ? <select value={form[f.key]||''} onChange={e => handleFormField(f.key, e.target.value)} style={{...fieldStyle,cursor:'pointer',color:form[f.key]?'#132033':'#94A3B8'}}>
+                      <option value="">Select...</option>
+                      {(f.source ? resolveFieldOptions(f.source, workspaceMode) : (f.options||[])).map(o => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                  : <input type={f.type||'text'} value={form[f.key]||''} onChange={e => handleFormField(f.key, e.target.value)} style={fieldStyle}/>
+            }
+            {errors[f.key] && <span style={errStyle}>{errors[f.key]}</span>}
+          </div>;
+          return <>
+            {reqF.length > 0 && <div style={{display:'grid',gap:12}}>{reqF.map(renderF)}</div>}
+            {optF.length > 0 && <>
+              <div style={{display:'flex',alignItems:'center',gap:8,margin:'4px 0 -4px'}}>
+                <span style={{fontSize:11,fontWeight:800,color:'#94A3B8',letterSpacing:'.1em',textTransform:'uppercase',flexShrink:0}}>Optional</span>
+                <div style={{flex:1,height:1,background:'#EEF2F7'}}/>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>{optF.map(renderF)}</div>
+            </>}
+            {noteF.length > 0 && <div style={{display:'grid',gap:12}}>{noteF.map(renderF)}</div>}
+          </>;
+        })()}
+        <div style={{...modalFoot,justifyContent:'flex-end'}}>
+          <button onClick={() => setNewOpen(false)}>Cancel</button>
+          <button className="primary" onClick={handleSave}>Save record</button>
+        </div>
+      </div>
+    </div>}
+
+    {filterOpen && <div style={modalWrap} onClick={() => setFilterOpen(false)} role="dialog" aria-modal="true" aria-label="Advanced filters">
+      <div style={modalBox(480)} onClick={e => e.stopPropagation()}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
+          <div>
+            <p style={eyebrow}>{module}</p>
+            <h2 style={modalH2}>Advanced filters</h2>
+            {filterCount > 0 && <p style={{margin:'4px 0 0',color:'#1D4ED8',fontSize:13,fontWeight:700}}>{filterCount} filter{filterCount !== 1 ? 's' : ''} active</p>}
+          </div>
+          <button style={closeBtn} onClick={() => setFilterOpen(false)} aria-label="Close">x</button>
+        </div>
+        {filterSpecs.length > 0
+          ? <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+              {filterSpecs.map(spec => {
+                const options = getFilterOptions(spec, localRows.map(function(r) { return r.row; }), safeColumns);
+                const val = filters[spec.key] || '';
+                return <div key={spec.key}>
+                  <label style={{display:'block',marginBottom:5,fontSize:13,fontWeight:700,color:'#334155'}}>{spec.label}</label>
+                  <select value={val} onChange={e => setFilters(p => ({...p,[spec.key]:e.target.value}))} style={{width:'100%',border:'1px solid #DDE6F1',borderRadius:10,padding:'10px 12px',fontSize:14,fontFamily:'inherit',outline:0,background:'#FAFCFF',color:val?'#132033':'#94A3B8',cursor:'pointer'}}>
+                    <option value="">All</option>
+                    {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                  </select>
+                </div>;
+              })}
+            </div>
+          : <p style={{margin:0,color:'#64748B',fontSize:13}}>No filters available for this module.</p>
+        }
+        <div style={modalFoot}>
+          <button onClick={clearFilters} style={{color:'#64748B',background:'#F8FAFC',borderColor:'#E5E7EB'}}>Clear all filters</button>
+          <button className="primary" onClick={() => setFilterOpen(false)}>Done</button>
+        </div>
+      </div>
+    </div>}
+
+    {attachDocOpen && selectedRecord && <div style={modalWrap} onClick={() => setAttachDocOpen(false)} role="dialog" aria-modal="true" aria-label="Attach document">
+      <div style={modalBox(520)} onClick={e => e.stopPropagation()}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
+          <div>
+            <p style={eyebrow}>{selectedRecord.moduleKey}</p>
+            <h2 style={modalH2}>Attach document</h2>
+            <p style={{margin:'4px 0 0',fontSize:12,color:'#64748B',lineHeight:1.4}}>{selectedRecord.row[0] || 'Record'}</p>
+          </div>
+          <button style={closeBtn} onClick={() => setAttachDocOpen(false)} aria-label="Close">x</button>
+        </div>
+        {(() => {
+          var reqF  = ATTACH_DOC_FIELDS.filter(function(f) { return f.required; });
+          var optF  = ATTACH_DOC_FIELDS.filter(function(f) { return !f.required && !f.multi; });
+          var noteF = ATTACH_DOC_FIELDS.filter(function(f) { return f.multi; });
+          var renderAF = function(f) {
+            return <div key={f.key}>
+              <label style={{display:'block',marginBottom:5,fontSize:13,fontWeight:700,color:'#334155'}}>
+                {f.label}{f.required && <span style={{color:'#DC2626',marginLeft:3}}>*</span>}
+              </label>
+              {f.multi
+                ? <textarea value={attachDocForm[f.key]||''} onChange={function(e) { setAttachDocForm(function(p) { return Object.assign({},p,{[f.key]:e.target.value}); }); }} rows={3} style={{...fieldStyle,resize:'vertical'}}/>
+                : f.type === 'select'
+                  ? <select value={attachDocForm[f.key]||''} onChange={function(e) { setAttachDocForm(function(p) { return Object.assign({},p,{[f.key]:e.target.value}); }); }} style={{...fieldStyle,cursor:'pointer',color:attachDocForm[f.key]?'#132033':'#94A3B8'}}>
+                      <option value="">Select...</option>
+                      {(f.source ? resolveFieldOptions(f.source, workspaceMode) : (f.options||[])).map(function(o) { return <option key={o} value={o}>{o}</option>; })}
+                    </select>
+                  : <input type="text" value={attachDocForm[f.key]||''} onChange={function(e) { setAttachDocForm(function(p) { return Object.assign({},p,{[f.key]:e.target.value}); }); }} style={fieldStyle}/>
+              }
+              {attachDocErrors[f.key] && <span style={errStyle}>{attachDocErrors[f.key]}</span>}
+            </div>;
+          };
+          return <>
+            {reqF.length > 0 && <div style={{display:'grid',gap:12}}>{reqF.map(renderAF)}</div>}
+            {optF.length > 0 && <>
+              <div style={{display:'flex',alignItems:'center',gap:8,margin:'4px 0 -4px'}}>
+                <span style={{fontSize:11,fontWeight:800,color:'#94A3B8',letterSpacing:'.1em',textTransform:'uppercase',flexShrink:0}}>Optional</span>
+                <div style={{flex:1,height:1,background:'#EEF2F7'}}/>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>{optF.map(renderAF)}</div>
+            </>}
+            {noteF.length > 0 && <div style={{display:'grid',gap:12}}>{noteF.map(renderAF)}</div>}
+          </>;
+        })()}
+        <div style={{...modalFoot,justifyContent:'flex-end'}}>
+          <button onClick={() => setAttachDocOpen(false)}>Cancel</button>
+          <button className="primary" onClick={handleAttachDocSave}>Attach document</button>
+        </div>
+      </div>
+    </div>}
+
     <section className="panel worklistPanel">
       <div className="tabs">{tabs.map((tab,i)=><button key={tab} className={i===0?'active':''}>{tab}</button>)}</div>
-      <div className="toolbar"><input placeholder={inputPlaceholder}/><button>Saved view: Operational risk</button><button>Advanced filters</button><button>AI summary</button></div>
+      <div className="toolbar">
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder={inputPlaceholder}/>
+        <button>Saved view: Operational risk</button>
+        <button onClick={() => setFilterOpen(true)} style={filterCount > 0 ? {background:'#EFF6FF',borderColor:'#BFDBFE',color:'#1D4ED8'} : {}}>
+          Advanced filters
+          {filterCount > 0 && <span style={{marginLeft:6,display:'inline-flex',alignItems:'center',justifyContent:'center',background:'#2563EB',color:'#fff',borderRadius:999,width:18,height:18,fontSize:11,fontWeight:800,verticalAlign:'middle',flexShrink:0}}>{filterCount}</span>}
+        </button>
+        <button>AI summary</button>
+        {hasActiveFilter && <button onClick={clearFilters} style={{color:'#64748B',background:'#F8FAFC',borderColor:'#E5E7EB',fontSize:12,padding:'6px 10px'}}>Clear filters</button>}
+      </div>
       <div className="panelTitle"><h2>{active} worklist</h2><span>{ai}</span></div>
-      <Table columns={columns} rows={safeRows}/>
+      {activeRows.length === 0
+        ? <div className="stateBox emptyState" style={{marginTop:8,textAlign:'center',padding:'28px 20px'}}>
+            <strong style={{display:'block',color:'#132033',marginBottom:6}}>No records match the current filters.</strong>
+            <span style={{color:'#64748B',fontSize:13,display:'block',marginBottom:hasActiveFilter?14:0}}>Adjust or clear your filters to see all records.</span>
+            {hasActiveFilter && <button onClick={clearFilters}>Clear all filters</button>}
+          </div>
+        : <Table columns={activeColumns} rows={activeRows} onRowOpen={(idx) => { const r = activeRows[idx]; const record = displayRows[idx]; if (r && record) { const localIdx = localRows.indexOf(record); setSelectedRecord({id: record.id, moduleKey: moduleKey, columns: activeColumns, row: r, localRowIndex: localIdx}); setEditMode(false); setActiveDetailTab('Overview'); setDetailOpen(true); } }}/>
+      }
     </section>
+
+    {detailOpen && selectedRecord && <>
+      <style>{`.agentWrap,.floatingAgentWrap{display:none!important}`}</style>
+      <div style={{position:'fixed',inset:0,background:'rgba(11,31,58,.18)',zIndex:48}} onClick={() => { setDetailOpen(false); setEditMode(false); }} aria-hidden="true"/>
+      <aside role="dialog" aria-modal="true" aria-label={editMode ? 'Edit record' : 'Record detail'} style={{position:'fixed',right:0,top:0,bottom:0,width:'min(440px,100vw)',background:'#fff',borderLeft:'1px solid #E5E7EB',boxShadow:'-8px 0 40px rgba(11,31,58,.16)',zIndex:49,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+
+        {/* Drawer header — always visible */}
+        {(() => {
+          const recordTitle = selectedRecord.row[0] || 'Record';
+          const contextParts = [
+            getDetailField(selectedRecord, 'Client', 'Department', 'Client / Department'),
+            getDetailField(selectedRecord, 'Brand', 'Vendor', 'Provider / Vendor', 'Provider', 'Distributor', 'Provider / Distributor'),
+            getDetailField(selectedRecord, 'Quantity / Seats', 'Quantity', 'Seats', 'Users / Seats')
+          ].filter(Boolean);
+          const status = getDetailField(selectedRecord, 'Status', 'System Status', 'Legal status', 'Approval Status', 'Document Status');
+          const renewal = getDetailField(selectedRecord, 'Renewal', 'Expiration', 'Expiration / Renewal Date', 'Warranty End', 'Warranty end', 'End Date', 'Renewal Date');
+          const owner  = getDetailField(selectedRecord, 'Owner', 'Renewal Owner', 'IT Owner / Budget Owner', 'Uploaded by');
+          return <div style={{padding:'12px 16px 10px',borderBottom:'1px solid #EEF2F7',display:'grid',gap:7,flexShrink:0}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:10}}>
+              <div style={{minWidth:0,flex:1}}>
+                <p style={{margin:'0 0 3px',color:'#0D9488',textTransform:'uppercase',fontSize:9.5,letterSpacing:'.14em',fontWeight:900,lineHeight:1}}>{module.toUpperCase()}</p>
+                <h2 style={{margin:0,color:'#0B1F3A',fontSize:16.5,letterSpacing:'-.015em',lineHeight:1.18,wordBreak:'break-word',fontWeight:800}}>{recordTitle}</h2>
+              </div>
+              <button style={{...closeBtn,width:26,height:26,borderRadius:7,fontSize:12,background:'#fff',borderColor:'#EEF2F7',color:'#94A3B8',boxShadow:'none'}} onClick={() => { setDetailOpen(false); setEditMode(false); }} aria-label="Close">x</button>
+            </div>
+            {contextParts.length > 0 && <div style={{color:'#64748B',fontSize:12,lineHeight:1.35,wordBreak:'break-word'}}>{contextParts.join(' · ')}</div>}
+            {(status || renewal || owner) && <div style={{display:'flex',flexWrap:'wrap',gap:6,alignItems:'center',color:'#64748B',fontSize:11.5,lineHeight:1.2}}>
+              {status && <Badge tone={status}>{status}</Badge>}
+              {renewal && <span>Expires {renewal}</span>}
+              {owner && <span>Owner: {owner}</span>}
+            </div>}
+          </div>;
+        })()}
+
+        {/* Tab bar — hidden in edit mode */}
+        {!editMode && <div style={{display:'flex',borderBottom:'1px solid #EEF2F7',flexShrink:0,overflowX:'auto',padding:'0 12px'}}>
+          {['Overview','Relationships','Documents','Tasks','Activity'].map(function(tab) {
+            var isActive = activeDetailTab === tab;
+            return <button key={tab} onClick={() => setActiveDetailTab(tab)} style={{padding:'7px 8px 6px',fontSize:11,fontWeight:isActive?800:650,color:isActive?'#0D9488':'#64748B',background:'transparent',border:'none',borderBottom:isActive?'2px solid #0D9488':'2px solid transparent',cursor:'pointer',flexShrink:0,fontFamily:'inherit',whiteSpace:'nowrap',marginBottom:-1,lineHeight:1,letterSpacing:0}}>
+              {tab}
+            </button>;
+          })}
+        </div>}
+
+        {/* Tab body */}
+        {editMode
+          ? <div style={{flex:1,overflowY:'auto',padding:'16px 20px',display:'grid',gap:12,alignContent:'start'}}>
+              {(() => {
+                const reqF  = fieldSpecs.filter(f => f.required);
+                const optF  = fieldSpecs.filter(f => !f.required && !f.multi);
+                const noteF = fieldSpecs.filter(f => f.multi);
+                const renderEF = (f) => <div key={f.key}>
+                  <label style={{display:'block',marginBottom:5,fontSize:13,fontWeight:700,color:'#334155'}}>
+                    {f.label}{f.required && <span style={{color:'#DC2626',marginLeft:3}}>*</span>}
+                    {f.type === 'computed' && <span style={{marginLeft:6,fontSize:11,fontWeight:600,color:'#94A3B8'}}>auto</span>}
+                  </label>
+                  {f.multi
+                    ? <textarea value={editForm[f.key]||''} onChange={e => handleEditField(f.key, e.target.value)} rows={3} style={{...fieldStyle,resize:'vertical'}}/>
+                    : f.type === 'computed'
+                      ? <input type="text" value={formatComputedField(f.key, editForm[f.key])} readOnly placeholder="Calculated" style={{...fieldStyle,background:'#F0F4F8',color:editForm[f.key]?'#0F766E':'#94A3B8',cursor:'default'}}/>
+                    : f.type === 'select'
+                      ? <select value={editForm[f.key]||''} onChange={e => handleEditField(f.key, e.target.value)} style={{...fieldStyle,cursor:'pointer',color:editForm[f.key]?'#132033':'#94A3B8'}}>
+                          <option value="">Select...</option>
+                          {(f.source ? resolveFieldOptions(f.source, workspaceMode) : (f.options||[])).map(o => <option key={o} value={o}>{o}</option>)}
+                        </select>
+                      : <input type={f.type||'text'} value={editForm[f.key]||''} onChange={e => handleEditField(f.key, e.target.value)} style={fieldStyle}/>
+                  }
+                  {editErrors[f.key] && <span style={errStyle}>{editErrors[f.key]}</span>}
+                </div>;
+                return <>
+                  {reqF.length > 0 && <div style={{display:'grid',gap:12}}>{reqF.map(renderEF)}</div>}
+                  {optF.length > 0 && <>
+                    <div style={{display:'flex',alignItems:'center',gap:8,margin:'4px 0 -4px'}}>
+                      <span style={{fontSize:11,fontWeight:800,color:'#94A3B8',letterSpacing:'.1em',textTransform:'uppercase',flexShrink:0}}>Optional</span>
+                      <div style={{flex:1,height:1,background:'#EEF2F7'}}/>
+                    </div>
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>{optF.map(renderEF)}</div>
+                  </>}
+                  {noteF.length > 0 && <div style={{display:'grid',gap:12}}>{noteF.map(renderEF)}</div>}
+                </>;
+              })()}
+            </div>
+          : activeDetailTab === 'Overview'
+          ? <div style={{flex:1,overflowY:'auto',padding:'16px 20px',display:'grid',gap:10,alignContent:'start'}}>
+              {selectedRecord.isNew && <div style={{background:'#F6FEFC',border:'1px solid #DDEFEA',borderRadius:12,padding:'12px 14px',display:'grid',gap:10}}>
+                <div>
+                  <strong style={{display:'block',color:'#0B1F3A',fontSize:14,marginBottom:3}}>Record setup</strong>
+                  <span style={{color:'#64748B',fontSize:12,lineHeight:1.45}}>Complete this record from the correct tabs.</span>
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                  {[
+                    ['Attach document','Documents'],
+                    ['Link contract','Relationships'],
+                    ['Create task','Tasks'],
+                    ['Add notes','Activity']
+                  ].map(function(item) {
+                    return <button key={item[0]} type="button" onClick={() => setActiveDetailTab(item[1])} style={{...detailActionBtn,background:'#fff',borderColor:'#DDEFEA',color:'#0F766E',justifyContent:'flex-start'}}>
+                      {item[0]}
+                    </button>;
+                  })}
+                </div>
+              </div>}
+              {(() => {
+                const product = getDetailField(selectedRecord, 'License / Product', 'Product', 'Asset', 'Contract', 'Contract Name', 'Document', 'Document Name', 'Name') || selectedRecord.row[0];
+                const summaryRows = [
+                  ['Client / Department', getDetailField(selectedRecord, 'Client', 'Client / Department', 'Department')],
+                  ['Product / Record', product],
+                  ['Brand / Vendor', getDetailField(selectedRecord, 'Brand', 'Vendor', 'Provider / Vendor', 'Provider', 'Distributor', 'Provider / Distributor')],
+                  ['Quantity / Seats', getDetailField(selectedRecord, 'Quantity / Seats', 'Quantity', 'Seats', 'Users / Seats')]
+                ].filter(function(row) { return row[1]; });
+                const renewalRows = [
+                  ['Expiration / Renewal Date', getDetailField(selectedRecord, 'Renewal', 'Expiration', 'Expiration / Renewal Date', 'Warranty End', 'Warranty end', 'End Date', 'Renewal Date')],
+                  ['Status', getDetailField(selectedRecord, 'Status', 'System Status', 'Legal status', 'Approval Status', 'Document Status'), 'badge'],
+                  ['Owner', getDetailField(selectedRecord, 'Owner', 'Renewal Owner', 'Uploaded by')],
+                  ['Alert Policy', getDetailField(selectedRecord, 'Alert Policy')],
+                  ['Action', getDetailField(selectedRecord, 'Action', 'Next action', 'Next Action')]
+                ].filter(function(row) { return row[1]; });
+                const commercialRows = [
+                  ['Sale Price / Value', getDetailField(selectedRecord, 'Value', 'Annual Value', 'Sale Price / Annual Value')],
+                  ['Vendor Cost', getDetailField(selectedRecord, 'Cost', 'Vendor Cost', 'Annual Cost')],
+                  ['Margin', getDetailField(selectedRecord, 'Margin', 'Margin $', 'Margin %')]
+                ].filter(function(row) { return row[1]; });
+                const notes = getDetailField(selectedRecord, 'Notes', 'Note', 'Description');
+                const sectionStyle = {background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'};
+                const sectionTitle = {margin:0,padding:'10px 12px 8px',fontSize:11,fontWeight:900,color:'#64748B',textTransform:'uppercase',letterSpacing:'.08em',background:'#FAFCFF',borderBottom:'1px solid #EEF2F7'};
+                const renderRows = function(rows) {
+                  return <div>{rows.map(function(row, index) {
+                    return <div key={row[0]} style={{display:'grid',gridTemplateColumns:'128px minmax(0,1fr)',gap:12,alignItems:'center',padding:'9px 12px',borderTop:index===0?'none':'1px solid #F1F5F9'}}>
+                      <span style={{fontSize:12,color:'#94A3B8',fontWeight:700,lineHeight:1.3}}>{row[0]}</span>
+                      <span style={{fontSize:13,color:'#132033',fontWeight:650,lineHeight:1.35,wordBreak:'break-word'}}>{row[2] === 'badge' ? <Badge tone={row[1]}>{row[1]}</Badge> : row[1]}</span>
+                    </div>;
+                  })}</div>;
+                };
+                const renderSection = function(title, rows) {
+                  if (rows.length === 0) return null;
+                  return <section style={sectionStyle}>
+                    <h3 style={sectionTitle}>{title}</h3>
+                    {renderRows(rows)}
+                  </section>;
+                };
+                return <>
+                  {renderSection('Summary', summaryRows)}
+                  {renderSection('Renewal / Expiration', renewalRows)}
+                  {commercialRows.length > 0 && renderSection('Commercial', commercialRows)}
+                  <section style={{...sectionStyle,borderStyle:'dashed'}}>
+                    <h3 style={sectionTitle}>Notes</h3>
+                    <div style={{padding:'10px 12px',fontSize:13,color:notes?'#132033':'#94A3B8',lineHeight:1.45,wordBreak:'break-word'}}>{notes || 'No notes for this record yet.'}</div>
+                  </section>
+                </>;
+              })()}
+            </div>
+          : activeDetailTab === 'Relationships'
+          ? <div style={{flex:1,overflowY:'auto',padding:'16px 20px',display:'grid',gap:12,alignContent:'start'}}>
+              <section style={{background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'}}>
+                <div style={{padding:'12px 14px',borderBottom:'1px solid #EEF2F7',background:'#FAFCFF'}}>
+                  <h3 style={{margin:'0 0 4px',fontSize:14,color:'#0B1F3A',letterSpacing:'-.01em'}}>Relationships</h3>
+                  <p style={{margin:0,color:'#64748B',fontSize:12,lineHeight:1.45}}>Link contracts, licenses, hardware, support agreements or renewal bundles.</p>
+                  <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:10}}>
+                    <button style={detailActionBtn} title="Coming next">Link contract</button>
+                    <button style={detailActionBtn} title="Coming next">Link license</button>
+                    <button style={detailActionBtn} title="Coming next">Link hardware</button>
+                  </div>
+                </div>
+                <div style={{padding:'14px',display:'grid',gap:8}}>
+                  <strong style={{display:'block',color:'#132033',fontSize:13}}>No related records linked yet.</strong>
+                  <span style={{color:'#64748B',fontSize:12,lineHeight:1.45}}>Related records will appear here once contracts, assets or renewal bundles are linked to this record.</span>
+                </div>
+              </section>
+            </div>
+          : activeDetailTab === 'Documents'
+          ? (() => {
+              var linkedDocs = sessionDocs.filter(function(d) {
+                return d.linkedRecordId === selectedRecord.id && d.linkedModule === selectedRecord.moduleKey;
+              });
+              if (linkedDocs.length === 0) {
+                return <div style={{flex:1,overflowY:'auto',padding:'16px 20px',display:'grid',gap:12,alignContent:'start'}}>
+                  <section style={{background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'}}>
+                    <div style={{padding:'12px 14px',borderBottom:'1px solid #EEF2F7',background:'#FAFCFF'}}>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
+                        <div style={{minWidth:0}}>
+                          <h3 style={{margin:'0 0 4px',fontSize:14,color:'#0B1F3A',letterSpacing:'-.01em'}}>Documents</h3>
+                          <p style={{margin:0,color:'#64748B',fontSize:12,lineHeight:1.45}}>Attach quotes, invoices, purchase orders, license certificates, entitlement documents and evidence related to this record.</p>
+                        </div>
+                        <button style={{...detailActionBtn,borderColor:'#0D9488',color:'#0D9488',flexShrink:0}} onClick={openAttachDoc}>Attach document</button>
+                      </div>
+                    </div>
+                    <div style={{padding:'14px',display:'grid',gap:8}}>
+                      <strong style={{display:'block',color:'#132033',fontSize:13}}>No documents attached to this record yet.</strong>
+                      <span style={{color:'#64748B',fontSize:12,lineHeight:1.45}}>Attach signed contracts, quotes, warranties, certificates and approval evidence directly to this record.</span>
+                    </div>
+                  </section>
+                </div>;
+              }
+              return <div style={{flex:1,overflowY:'auto',display:'flex',flexDirection:'column'}}>
+                <div style={{padding:'16px 20px 8px',display:'grid',gap:10,flexShrink:0}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
+                    <div style={{minWidth:0}}>
+                      <h3 style={{margin:'0 0 4px',fontSize:14,color:'#0B1F3A',letterSpacing:'-.01em'}}>Documents</h3>
+                      <p style={{margin:0,color:'#64748B',fontSize:12,lineHeight:1.45}}>Attach quotes, invoices, purchase orders, license certificates, entitlement documents and evidence related to this record.</p>
+                    </div>
+                    <button style={{...detailActionBtn,fontSize:12,padding:'6px 10px',borderColor:'#0D9488',color:'#0D9488',flexShrink:0}} onClick={openAttachDoc}>+ Attach</button>
+                  </div>
+                  <span style={{fontSize:12,fontWeight:700,color:'#64748B'}}>{linkedDocs.length} document{linkedDocs.length !== 1 ? 's' : ''}</span>
+                </div>
+                <div style={{padding:'0 20px 16px',display:'flex',flexDirection:'column',gap:8}}>
+                  {linkedDocs.map(function(doc) {
+                    return <div key={doc.id} style={{border:'1px solid #EEF2F7',borderRadius:12,padding:'12px 14px',background:'#FAFCFF'}}>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8,marginBottom:6}}>
+                        <strong style={{fontSize:13,color:'#132033',lineHeight:1.3,wordBreak:'break-word',flex:1}}>{doc.name}</strong>
+                        <Badge tone={doc.status}>{doc.status}</Badge>
+                      </div>
+                      <div style={{display:'flex',flexWrap:'wrap',gap:6,alignItems:'center',marginBottom:6}}>
+                        <span style={{fontSize:11,fontWeight:700,color:'#94A3B8',textTransform:'uppercase',letterSpacing:'.06em'}}>{doc.type}</span>
+                        {doc.requirement && <span style={{fontSize:11,color:'#64748B',background:'#F0F4F8',padding:'2px 6px',borderRadius:4}}>{doc.requirement}</span>}
+                        {doc.access && <span style={{fontSize:11,color:'#64748B',background:'#F0F4F8',padding:'2px 6px',borderRadius:4}}>{doc.access}</span>}
+                      </div>
+                      <div style={{display:'flex',gap:12,fontSize:11,color:'#94A3B8'}}>
+                        <span>By {doc.uploadedBy}</span>
+                        <span>{doc.uploadDate}</span>
+                        {doc.fileRef && <span style={{color:'#0F766E',fontWeight:600}}>{doc.fileRef}</span>}
+                      </div>
+                    </div>;
+                  })}
+                </div>
+              </div>;
+            })()
+          : activeDetailTab === 'Tasks'
+          ? <div style={{flex:1,overflowY:'auto',padding:'16px 20px',display:'grid',gap:12,alignContent:'start'}}>
+              <section style={{background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'}}>
+                <div style={{padding:'12px 14px',borderBottom:'1px solid #EEF2F7',background:'#FAFCFF'}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
+                    <div style={{minWidth:0}}>
+                      <h3 style={{margin:'0 0 4px',fontSize:14,color:'#0B1F3A',letterSpacing:'-.01em'}}>Tasks</h3>
+                      <p style={{margin:0,color:'#64748B',fontSize:12,lineHeight:1.45}}>Track follow-ups, approvals and renewal actions related to this record.</p>
+                    </div>
+                    <button style={{...detailActionBtn,borderColor:'#0D9488',color:'#0D9488',flexShrink:0}} title="Create task - coming next">Create task</button>
+                  </div>
+                </div>
+                <div style={{padding:'14px',display:'grid',gap:8}}>
+                  <strong style={{display:'block',color:'#132033',fontSize:13}}>No tasks linked to this record yet.</strong>
+                  <span style={{color:'#64748B',fontSize:12,lineHeight:1.45}}>Create tasks for renewal follow-up, owner assignments, quote requests and approval submissions tied to this record.</span>
+                </div>
+              </section>
+            </div>
+          : <div style={{flex:1,overflowY:'auto',padding:'16px 20px',display:'grid',gap:12,alignContent:'start'}}>
+              <section style={{background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'}}>
+                <div style={{padding:'12px 14px',borderBottom:'1px solid #EEF2F7',background:'#FAFCFF'}}>
+                  <h3 style={{margin:'0 0 4px',fontSize:14,color:'#0B1F3A',letterSpacing:'-.01em'}}>Activity</h3>
+                  <p style={{margin:0,color:'#64748B',fontSize:12,lineHeight:1.45}}>Changes, document uploads, owner assignments and workflow events will appear here.</p>
+                </div>
+                <div style={{padding:'14px',display:'grid',gap:8}}>
+                  <strong style={{display:'block',color:'#132033',fontSize:13}}>No activity recorded yet.</strong>
+                  <span style={{color:'#64748B',fontSize:12,lineHeight:1.45}}>Future changes will appear here automatically, including document uploads, owner assignments, task creation, status updates and edit history.</span>
+                </div>
+              </section>
+            </div>
+        }
+
+        {/* Footer */}
+        {(editMode || activeDetailTab === 'Overview') && <div style={{padding:'14px 20px',borderTop:'1px solid #EEF2F7',display:'flex',gap:8,flexWrap:'wrap',flexShrink:0,background:'#FAFCFF'}}>
+          {editMode
+            ? <>
+                <button className="primary" onClick={handleEditSave}>Save changes</button>
+                <button onClick={() => setEditMode(false)}>Cancel</button>
+              </>
+            : <>
+                <button style={{...detailActionBtn,borderColor:'#0D9488',color:'#0D9488'}} onClick={() => { setEditForm(buildEditForm(selectedRecord, fieldSpecs)); setEditErrors({}); setEditMode(true); }}>Edit record</button>
+                <button style={detailActionBtn} title="Assign owner - coming next">Assign owner</button>
+              </>
+          }
+        </div>}
+      </aside>
+    </>}
   </main>;
 }
 
 const hardwareMsp = [
-  ['PowerEdge R750','Server','Banisi','Dell','PowerEdge R750','SN-7X4K2','May 26, 2026','Gold Support','María Chen','Expiring','Request renewal'],
-  ['FortiGate 200F','Firewall','Canal Bank','Fortinet','FG-200F','FGT-A91023','Jun 30, 2026','FortiCare','Luis Mora','Active','Review contract'],
-  ['PowerEdge R640','Server','Grupo Regency','Dell','PowerEdge R640','SN-4M2L9','Jul 15, 2026','ProSupport','Rafael Soto','Active','Prepare true-up'],
-  ['UPS Smart-UPS','UPS','Nova Finance','APC','Smart-UPS 3000','SU-003421','Apr 18, 2026','No support','Ana Ríos','Missing support','Assign support'],
-  ['HP ProLiant DL380','Server','Metro Retail Group','HP','DL380 Gen10','HPE-9928X','Aug 10, 2026','Foundation Care','Unassigned','Warranty gap','Assign owner'],
-  ['Cisco Catalyst 9300','Switch','Global Logistics','Cisco','Cat 9300-48P','CSC-88217','May 23, 2026','SNTC','Diego Paredes','Expiring','Request quote']
+  ['PowerEdge R750','Server','Banisi','Dell','PowerEdge R750','SN-7X4K2','May 26, 2026','Gold Support','María Chen','Expiring','High risk','Request renewal'],
+  ['FortiGate 200F','Firewall','Canal Bank','Fortinet','FG-200F','FGT-A91023','Jun 30, 2026','FortiCare','Luis Mora','Active','Low risk','Review contract'],
+  ['PowerEdge R640','Server','Grupo Regency','Dell','PowerEdge R640','SN-4M2L9','Jul 15, 2026','ProSupport','Rafael Soto','Active','Low risk','Prepare true-up'],
+  ['UPS Smart-UPS','UPS','Nova Finance','APC','Smart-UPS 3000','SU-003421','Apr 18, 2026','No support','Ana Ríos','Missing support','Critical risk','Assign support'],
+  ['HP ProLiant DL380','Server','Metro Retail Group','HP','DL380 Gen10','HPE-9928X','Aug 10, 2026','Foundation Care','Unassigned','Warranty gap','Medium risk','Assign owner'],
+  ['Cisco Catalyst 9300','Switch','Global Logistics','Cisco','Cat 9300-48P','CSC-88217','May 23, 2026','SNTC','Diego Paredes','Expiring','High risk','Request quote']
 ];
 const hardwareInternalIT = [
-  ['PowerEdge R750','Server','Dell','PowerEdge R750','SN-7X4K2','Infrastructure','Nextcom','May 26, 2026','CIO approval pending','Luis Mora','Expiring','Submit approval'],
-  ['FortiGate 200F','Firewall','Fortinet','FG-200F','FGT-A91023','Infrastructure','Nextcom','Jun 30, 2026','Approved','Luis Mora','Active','Monitor'],
-  ['HP ProLiant DL380','Server','HP','DL380 Gen10','HPE-9928X','Retail Operations','Oracle Direct','Jul 5, 2026','Owner gap','Unassigned','Missing owner','Assign owner'],
-  ['UPS Smart-UPS 3000','UPS','APC','Smart-UPS 3000','SU-003421','Finance','Local reseller','Apr 18, 2026','Budget review','Carlos Vega','Missing support','Request budget'],
-  ['Cisco Catalyst 9300','Switch','Cisco','Cat 9300-48P','CSC-88217','Digital Channels','Nextcom','May 23, 2026','Approval needed','Ana Ruiz','Expiring','Request renewal'],
-  ['MacBook Pro M3 fleet','Endpoint','Apple','MacBook Pro M3','FLEET-2024','Corporate IT','Apple Direct','Aug 10, 2026','Approved','Carlos Vega','Active','Review lifecycle']
+  ['PowerEdge R750','Server','Dell','PowerEdge R750','SN-7X4K2','Infrastructure','Nextcom','May 26, 2026','CIO approval pending','Luis Mora','Expiring','High risk','Submit approval'],
+  ['FortiGate 200F','Firewall','Fortinet','FG-200F','FGT-A91023','Infrastructure','Nextcom','Jun 30, 2026','Approved','Luis Mora','Active','Low risk','Monitor'],
+  ['HP ProLiant DL380','Server','HP','DL380 Gen10','HPE-9928X','Retail Operations','Oracle Direct','Jul 5, 2026','Owner gap','Unassigned','Missing owner','Medium risk','Assign owner'],
+  ['UPS Smart-UPS 3000','UPS','APC','Smart-UPS 3000','SU-003421','Finance','Local reseller','Apr 18, 2026','Budget review','Carlos Vega','Missing support','Critical risk','Request budget'],
+  ['Cisco Catalyst 9300','Switch','Cisco','Cat 9300-48P','CSC-88217','Digital Channels','Nextcom','May 23, 2026','Approval needed','Ana Ruiz','Expiring','High risk','Request renewal'],
+  ['MacBook Pro M3 fleet','Endpoint','Apple','MacBook Pro M3','FLEET-2024','Corporate IT','Apple Direct','Aug 10, 2026','Approved','Carlos Vega','Active','Low risk','Review lifecycle']
 ];
 
 function HardwareScreen({ workspaceMode = 'MSP / Integrator' }){
@@ -598,11 +1764,11 @@ function HardwareScreen({ workspaceMode = 'MSP / Integrator' }){
     ? 'Track client hardware assets, warranty dates, support contracts and renewal obligations across your portfolio.'
     : 'Track hardware assets, warranty dates, support coverage and ownership across the workspace.';
   const hardwareTabs = isInternalIT
-    ? ['All','Warranty expiring','Missing support','CIO approval needed','Unassigned']
-    : ['All','Warranty expiring','Missing support','Unassigned','High value'];
+    ? ['All','Warranty expiring','Missing support','High risk','CIO approval needed']
+    : ['All','Warranty expiring','Missing support','High risk','Unassigned'];
   const hardwareColumns = isInternalIT
-    ? ['Asset','Type','Brand','Model','Serial','Department','Provider','Warranty end','Approval status','Owner','Status','Action']
-    : ['Asset','Type','Client','Brand','Model','Serial','Warranty end','Support','Owner','Status','Action'];
+    ? ['Asset','Type','Brand','Model','Serial','Department','Provider','Warranty end','Approval status','Owner','Status','Risk','Action']
+    : ['Asset','Type','Client','Brand','Model','Serial','Warranty end','Support','Owner','Status','Risk','Action'];
   const hardwareAi = isInternalIT
     ? 'Opriva AI can surface hardware assets with expiring warranties, missing support coverage and approval blockers across IT departments.'
     : 'Opriva AI can identify hardware assets with expiring warranties, missing support contracts and unassigned ownership across your client portfolio.';
@@ -610,7 +1776,7 @@ function HardwareScreen({ workspaceMode = 'MSP / Integrator' }){
     ? 'Filter hardware by brand, department, provider, owner or warranty status…'
     : 'Filter hardware by client, brand, model, owner or warranty status…';
   const hardwareRows = isInternalIT ? hardwareInternalIT : hardwareMsp;
-  return <OperationalList active="Hardware" note={hardwareNote} tabs={hardwareTabs} columns={hardwareColumns} ai={hardwareAi} placeholder={hardwarePlaceholder} rows={hardwareRows}/>;
+  return <OperationalList active="Hardware" note={hardwareNote} tabs={hardwareTabs} columns={hardwareColumns} ai={hardwareAi} placeholder={hardwarePlaceholder} rows={hardwareRows} workspaceMode={workspaceMode}/>;
 }
 
 const contractsMsp = [
@@ -646,7 +1812,7 @@ function ContractsScreen({ workspaceMode = 'MSP / Integrator' }){
     ? 'Filter contracts by department, provider, owner or approval status…'
     : 'Filter contracts by client, provider, owner or risk…';
   const contractsRows = isInternalIT ? contractsInternalIT : contractsMsp;
-  return <OperationalList active="Contracts" note={contractsNote} tabs={contractsTabs} columns={contractsColumns} ai={contractsAi} placeholder={contractsPlaceholder} rows={contractsRows}/>;
+  return <OperationalList active="Contracts" note={contractsNote} tabs={contractsTabs} columns={contractsColumns} ai={contractsAi} placeholder={contractsPlaceholder} rows={contractsRows} workspaceMode={workspaceMode}/>;
 }
 
 const documentsMsp = [
@@ -682,7 +1848,7 @@ function DocumentsScreen({ workspaceMode = 'MSP / Integrator' }){
     ? 'Filter documents by department, record, type or status…'
     : 'Filter documents by client, record, type or status…';
   const documentsRows = isInternalIT ? documentsInternalIT : documentsMsp;
-  return <OperationalList active="Documents" note={documentsNote} tabs={documentsTabs} columns={documentsColumns} ai={documentsAi} placeholder={documentsPlaceholder} rows={documentsRows}/>;
+  return <OperationalList active="Documents" note={documentsNote} tabs={documentsTabs} columns={documentsColumns} ai={documentsAi} placeholder={documentsPlaceholder} rows={documentsRows} workspaceMode={workspaceMode}/>;
 }
 
 function TasksScreen({ workspaceMode = 'MSP / Integrator' }){
@@ -706,7 +1872,7 @@ function TasksScreen({ workspaceMode = 'MSP / Integrator' }){
   const boardMsp = [['To do','Request signed Trend Micro quote','Banisi','High','$11,500 margin · Proposal pending'],['In progress','Assign SSL certificate owner','Grupo Regency','Critical','Owner gap · Renewal at risk'],['Blocked','Legal approval for support contract','Banisi','Medium','$3,800 margin · Legal blocker']];
   const boardInternalIT = [['To do','Request Fortinet renewal quote','Infrastructure','Medium','Service continuity risk'],['In progress','Review endpoint security consolidation','IT Security','High','CIO approval blocked'],['Blocked','Submit CIO approval for Microsoft 365','Finance','High','$142,000 exposure']];
   const board = isInternalIT ? boardInternalIT : boardMsp;
-  return <main className="content"><ScreenHeader active="Tasks" subtitle={taskSubtitle}><button>Saved view</button><button className="primary">New task</button></ScreenHeader><section className="panel"><div className="tabs"><button className="active">List view</button><button>Board view</button><button>My tasks</button><button>Overdue</button></div><div className="toolbar"><input placeholder={taskPlaceholder}/><button>Bulk update</button><button>Group by owner</button></div><Table columns={taskColumns} rows={taskRows}/></section><section className="panel"><div className="panelTitle"><h2>Kanban board snapshot</h2><span>Board view for execution without losing list precision</span></div><div className="kanban">{['To do','In progress','Blocked'].map(status=><div className="kanbanCol" key={status}><h3>{status}</h3>{board.filter(card=>card[0]===status).map(card=><article className="taskCard" key={card[1]}><strong>{card[1]}</strong><span>{card[2]} · {card[4]}</span><Badge tone={card[3]}>{card[3]}</Badge></article>)}</div>)}</div></section></main>;
+  return <main className="content"><ScreenHeader active="Tasks" subtitle={taskSubtitle}><button>Saved view</button><button className="primary">New task</button></ScreenHeader><section className="panel"><div className="tabs"><button className="active">List view</button><button>Board view</button><button>My tasks</button><button>Overdue</button></div><div className="toolbar"><input placeholder={taskPlaceholder}/><button>Bulk update</button><button>Group by owner</button><button>Configure columns</button><button>Advanced filters</button><button>AI summary</button></div><Table columns={taskColumns} rows={taskRows}/></section><section className="panel"><div className="panelTitle"><h2>Kanban board snapshot</h2><span>Board view for execution without losing list precision</span></div><div className="kanban">{['To do','In progress','Blocked'].map(status=><div className="kanbanCol" key={status}><h3>{status}</h3>{board.filter(card=>card[0]===status).map(card=><article className="taskCard" key={card[1]}><strong>{card[1]}</strong><span>{card[2]} · {card[4]}</span><Badge tone={card[3]}>{card[3]}</Badge></article>)}</div>)}</div></section></main>;
 }
 
 function ReportsScreen({ workspaceMode = 'MSP / Integrator' }){
@@ -982,14 +2148,14 @@ function SettingsRow({ title, description, status, action }){
 
 const CONTEXTUAL_MICRO_MESSAGES = {
   Dashboard: [
-    { text: 'I can help you prioritize today’s alerts.', action: 'Prioritize' },
+    { text: "I can help you prioritize today's alerts.", action: 'Prioritize' },
     { text: 'Want me to summarize what needs attention?', action: 'Summarize' },
     { text: 'I found records missing owners. Want to review them?', action: 'Review' }
   ],
   'Data Import': [
     { text: 'Want me to guide you through uploading a spreadsheet?', action: 'Guide me' },
     { text: 'I can map columns and detect duplicates for you.', action: 'Map columns' },
-    { text: 'Upload your Excel and I’ll help organize the data.', action: 'Start import' }
+    { text: "Upload your Excel and I'll help organize the data.", action: 'Start import' }
   ],
   Expirations: [
     { text: 'I can help you create a new expiration.', action: 'Create' },
@@ -1039,7 +2205,12 @@ const CONTEXTUAL_MICRO_MESSAGES = {
   'Attention Center': [
     { text: 'Want me to triage these alerts?', action: 'Triage' },
     { text: 'I can separate urgent risk from routine reminders.', action: 'Sort' },
-    { text: 'Need a quick plan for today’s blockers?', action: 'Plan' }
+    { text: "Need a quick plan for today's blockers?", action: 'Plan' }
+  ],
+  Hardware: [
+    { text: 'I can find assets with warranties expiring soon.', action: 'Find expiring' },
+    { text: 'Want me to surface hardware without an assigned owner?', action: 'Find unassigned' },
+    { text: 'I can identify assets missing support coverage.', action: 'Find gaps' }
   ]
 };
 
@@ -1141,7 +2312,7 @@ function AiSettingsPanel(){
         <div className="aiSettingStack">{operator.map(([title, description, status, type, enabled]) => <AiSettingRow key={title} title={title} description={description} status={status} enabled={enabled} type={type} />)}</div>
       </div>
       <article className="aiInsightReadable">
-        <div><span className="eyebrow">AI Insight</span><p>“Your workspace is configured safely. License and certificate categories should require owner, renewal date and evidence before records become active.”</p></div>
+        <div><span className="eyebrow">AI Insight</span><p>"Your workspace is configured safely. License and certificate categories should require owner, renewal date and evidence before records become active."</p></div>
         <button type="button">Review policy</button>
       </article>
     </div>
@@ -1842,7 +3013,7 @@ function FloatingOprivaAgentButton({ isOpen, onClick, eyeFollowsCursor }){
   }, []);
 
   return <div className="agentWrap">
-    <span className={cx('agentTip', idleNudgeVisible && 'isVisible')} role="status">I’m here if you want help prioritizing renewals.</span>
+    <span className={cx('agentTip', idleNudgeVisible && 'isVisible')} role="status">I'm here if you want help prioritizing renewals.</span>
     <button className="agentButton" onClick={onClick} aria-label="Open Opriva AI Assistant" title="Open Opriva AI" type="button">
       <OprivaAgentMark open={isOpen} eyeFollowsCursor={eyeFollowsCursor} blinkSignal={blinkSignal} />
     </button>
@@ -1883,7 +3054,7 @@ function LicensePortfolioScreen({ workspaceMode = 'MSP / Integrator' }){
     : 'Filter licenses by client, brand, distributor, owner or status…';
   const licenseRows = isInternalIT ? licensesInternalIT : licensesMsp;
   const licenseTitle = isInternalIT ? 'Internal License Portfolio' : workspaceMode === 'MSP / Integrator' ? 'Client License Portfolio' : 'License Portfolio';
-  return <OperationalList active={licenseTitle} note={licenseNote} tabs={licenseTabs} columns={licenseColumns} ai={licenseAi} placeholder={licensePlaceholder} rows={licenseRows}/>;
+  return <OperationalList active={licenseTitle} note={licenseNote} tabs={licenseTabs} columns={licenseColumns} ai={licenseAi} placeholder={licensePlaceholder} rows={licenseRows} workspaceMode={workspaceMode}/>;
 }
 
 function MspVendorIntelligenceScreen(){
@@ -2034,7 +3205,7 @@ const settingsAdminOverrideStyles = `
 `;
 
 const styles = `
-:root{--accent:var(--ocd-tweak-accent-color,#2563EB);--density:var(--ocd-tweak-panel-density,1);--risk:var(--ocd-tweak-risk-emphasis,1);--navy:#0B1F3A;--bg:#F7F9FC;--card:#FFFFFF;--text:#111827;--muted:#6B7280;--border:#E5E7EB;--teal:#0D9488}*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--text)}button,input{font:inherit}button{border:1px solid var(--border);background:#fff;color:#243247;border-radius:10px;padding:9px 12px;font-weight:700;cursor:pointer}button:hover{border-color:#D6DEE9;background:#FAFCFF;box-shadow:0 1px 4px rgba(15,35,65,.025)}.app{min-height:100vh;display:grid;grid-template-columns:264px 1fr}.sidebar{background:var(--navy);color:#DDE8F7;padding:18px 14px;display:flex;flex-direction:column;gap:22px}.brand{display:flex;gap:12px;align-items:center;padding:8px 8px 14px;border-bottom:1px solid rgba(255,255,255,.12)}.mark{width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#2DD4BF,#2563EB);display:grid;place-items:center;color:white;font-weight:900}.brand strong{display:block;letter-spacing:.14em;font-size:13px}.brand span{display:block;color:#8EA2BC;font-size:12px;margin-top:2px}.navGroup{display:grid;gap:5px;margin-bottom:18px}.navGroup p{margin:0 8px 6px;color:#8EA2BC;font-size:11px;text-transform:uppercase;letter-spacing:.14em;font-weight:850}.navGroup button{width:100%;text-align:left;background:transparent;border-color:transparent;color:#C9D6E6;border-radius:10px;padding:9px 10px;font-size:14px}.navGroup button:hover{background:rgba(255,255,255,.055);color:#F8FAFC;border-color:transparent}.navGroup button.active{background:rgba(255,255,255,.085);color:#fff;border-color:rgba(255,255,255,.055)}.workspace{min-width:0;display:flex;flex-direction:column}.topbar{height:64px;background:rgba(255,255,255,.86);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:0 22px;position:sticky;top:0;z-index:10}.topbar div:first-child{margin-right:auto}.topbar span{display:block;color:var(--muted);font-size:12px}.topbar strong{font-size:14px}.topSearch{min-width:260px;text-align:left;color:#6B7280;background:#F8FAFC}.alertBtn{background:#FFF7ED;border-color:#FED7AA;color:#9A3412}.aiBtn{background:#F7FAFF;border-color:#D8E6FB;color:#1E4FB8}.avatar{width:32px;height:32px;border-radius:999px;background:#EAF2FF;color:#1D4ED8;display:inline-grid;place-items:center;font-size:12px;font-weight:900}.content{padding:28px;display:grid;gap:18px}.screenHeader{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}.screenHeader p{margin:0 0 6px;color:var(--teal);text-transform:uppercase;font-size:11px;letter-spacing:.14em;font-weight:900}.screenHeader h1{margin:0;color:#0F2138;font-size:clamp(26px,3vw,38px);letter-spacing:-.045em}.screenHeader span{display:block;margin-top:6px;color:#66758A;max-width:720px}.headerActions{display:flex;gap:10px}.primary{background:var(--accent);border-color:var(--accent);color:#fff}.statsGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.statCard,.panel,.settingsSearch,.settingsGroup{background:var(--card);border:1px solid var(--border);border-radius:18px;box-shadow:0 12px 30px rgba(15,35,65,.045)}.statCard{padding:18px}.statCard span{color:#66758A;font-size:13px}.statCard strong{display:block;margin:8px 0 3px;font-size:28px;letter-spacing:-.04em;color:#10223B}.statCard p{margin:0;color:#7B8797;font-size:13px}.split{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(280px,.7fr);gap:16px}.panel{padding:calc(var(--density)*18px);min-width:0}.panelTitle{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;margin-bottom:14px}.panelTitle h2{margin:0;color:#132033;font-size:17px}.panelTitle span{color:#75849A;font-size:13px}.tableWrap{overflow:auto;border:1px solid #EEF2F7;border-radius:14px}table{width:100%;border-collapse:collapse;min-width:760px;background:white}th,td{text-align:left;padding:13px 14px;border-bottom:1px solid #EEF2F7;font-size:13.5px;vertical-align:middle}th{background:#FAFCFF;color:#66758A;font-size:11px;text-transform:uppercase;letter-spacing:.1em}tr:last-child td{border-bottom:0}.badge{display:inline-flex;align-items:center;white-space:nowrap;border-radius:999px;padding:4px 8px;font-size:12px;font-weight:800;border:1px solid #DDE6F1;color:#40516A;background:#F8FAFC}.badge.critical{background:#FEF2F2;color:#B91C1C;border-color:#FECACA;box-shadow:0 0 0 calc((var(--risk) - 1)*2px) rgba(220,38,38,.12)}.badge.high{background:#FFF7ED;color:#C2410C;border-color:#FED7AA}.badge.medium{background:#FEFCE8;color:#A16207;border-color:#FDE68A}.badge.review{background:#EFF6FF;color:#1D4ED8;border-color:#BFDBFE}.badge.low{background:#F0FDF4;color:#15803D;border-color:#BBF7D0}.insight{line-height:1.55;color:#40516A}.searchHero,.settingsSearch{display:flex;gap:12px;align-items:center;padding:14px}.searchHero input,.settingsSearch input{width:100%;border:1px solid #DDE6F1;border-radius:12px;padding:12px 13px;outline:0;background:#FAFCFF}.tabs{display:flex;gap:8px;border-bottom:1px solid var(--border);padding-bottom:10px}.tabs button{background:transparent}.tabs .active{background:#F7FAFF;border-color:#D8E6FB;color:#1E4FB8}.settingsPage{gap:20px}.settingsSearch{justify-content:space-between}.settingsSearch strong{display:block;color:#10223B}.settingsSearch span{display:block;color:#66758A;font-size:13px;margin-top:3px}.settingsSearch input{max-width:360px}.settingsLayout{display:grid;grid-template-columns:220px 1fr;gap:18px;align-items:start}.settingsNav{position:sticky;top:84px;background:#fff;border:1px solid var(--border);border-radius:16px;padding:10px;display:grid;gap:4px}.settingsNav a{text-decoration:none;color:#526174;padding:9px 10px;border-radius:10px;font-weight:750;font-size:14px}.settingsNav a:hover{background:#F8FAFC;color:#0F2138}.settingsGroups{display:grid;gap:18px}.settingsGroup{padding:20px}.settingsGroup.important{border-color:#A7F3D0;box-shadow:0 14px 36px rgba(13,148,136,.08)}.settingsGroupHeader{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:14px}.settingsGroup h2{margin:0;color:#10223B;font-size:20px;letter-spacing:-.025em}.settingsGroup p{margin:5px 0 0;color:#66758A;line-height:1.45}.settingsGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.settingItem{height:auto;min-height:86px;display:flex;justify-content:space-between;align-items:flex-start;gap:14px;text-align:left;border-radius:14px;padding:14px;background:#fff}.settingItem strong{display:block;color:#132033}.settingItem span{display:block;margin-top:5px;color:#66758A;font-weight:500;line-height:1.35}.settingItem em{font-style:normal;color:#526174;background:#F8FAFC;border:1px solid #EEF2F7;border-radius:999px;padding:4px 8px;font-size:12px;white-space:nowrap}.moduleEnablement{margin-top:12px;border:1px dashed #99F6E4;background:#F0FDFA;border-radius:14px;padding:14px;display:flex;justify-content:space-between;gap:16px;align-items:center}.moduleEnablement h3{margin:0;color:#134E4A;font-size:15px}.moduleEnablement p{margin:4px 0 0;color:#0F766E;font-size:13px}.modulePills{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}.aiDrawer{position:fixed;right:14px;top:78px;bottom:14px;width:min(380px,calc(100vw - 28px));background:white;border:1px solid #DDE6F1;border-radius:20px;box-shadow:0 24px 80px rgba(11,31,58,.22);z-index:40;padding:18px;display:grid;align-content:start;gap:14px}.aiDrawer header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.aiDrawer header span{font-size:11px;text-transform:uppercase;letter-spacing:.14em;font-weight:900;color:#0D9488}.aiDrawer h2{margin:4px 0 0}.aiDrawer p{margin:0;color:#526174;line-height:1.5}.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 14px}.toolbar input{min-width:min(360px,100%);flex:1;border:1px solid #DDE6F1;border-radius:12px;padding:11px 12px;background:#FAFCFF;outline:0}.actionStack{display:grid;gap:10px}.actionStack button{text-align:left}.kanban{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.kanbanCol{border:1px solid #EEF2F7;background:#FAFCFF;border-radius:16px;padding:12px;display:grid;gap:10px;align-content:start}.kanbanCol h3{margin:0;font-size:13px;color:#526174;text-transform:uppercase;letter-spacing:.08em}.taskCard{background:white;border:1px solid #E7EDF5;border-radius:14px;padding:12px;display:grid;gap:8px}.taskCard strong{font-size:14px;color:#132033}.taskCard span{color:#66758A;font-size:12px}.wizardSteps{display:grid;grid-template-columns:repeat(9,minmax(96px,1fr));gap:8px;overflow:auto;padding-bottom:4px;margin-bottom:14px}.wizardStep{border:1px solid #E7EDF5;background:#fff;border-radius:14px;padding:10px;display:grid;gap:6px;min-height:76px}.wizardStep strong{width:24px;height:24px;border-radius:999px;display:grid;place-items:center;background:#EEF2F7;color:#526174;font-size:12px}.wizardStep span{font-size:12px;font-weight:800;color:#526174}.wizardStep.done strong{background:#DCFCE7;color:#15803D}.wizardStep.active{border-color:#BFDBFE;background:#EFF6FF}.wizardStep.active strong{background:#2563EB;color:white}a:focus-visible,button:focus-visible,input:focus-visible,.settingItem:focus-visible,.wizardStep:focus-visible{outline:2px solid rgba(37,99,235,.18);outline-offset:2px;box-shadow:none}button:active{transform:translateY(1px)}button:disabled,button[aria-disabled="true"]{cursor:not-allowed;opacity:.52;background:#F3F6FA;color:#8A97A8;border-color:#E1E8F0;box-shadow:none;transform:none}.statCard,.panel,.settingItem,.taskCard,.wizardStep,.settingsNav a,.actionStack button{transition:border-color .16s ease,box-shadow .16s ease,background .16s ease,transform .16s ease}.statCard:hover,.panel:hover,.settingItem:hover,.taskCard:hover,.wizardStep:hover,.actionStack button:hover{border-color:#E0E7F0;box-shadow:0 4px 14px rgba(15,35,65,.035);transform:none;background:#fff}tbody tr{transition:background .14s ease}tbody tr:hover td{background:#FAFBFD}.selectedRow td{background:#F8FBFF!important}.selectedRow td:first-child{box-shadow:inset 2px 0 0 #DBEAFE}.rowAction{padding:6px 9px;font-size:12px;border-radius:8px;background:#F8FAFC}.rowAction:hover{background:#F3F6FA;border-color:#E1E8F0;color:#334155}.rowAction:focus-visible{background:#F8FBFF;border-color:#C9D7EA;color:#1E4FB8}.companiesClientsPage{gap:16px}.companiesClientsPage .screenHeader span{max-width:760px}.companiesClientsPage .tabs{padding-bottom:8px}.companiesClientsPage .panel{box-shadow:0 10px 26px rgba(15,35,65,.035)}.companiesClientsPage .panelTitle{margin-bottom:10px}.companiesClientsPage .toolbar{margin:8px 0 12px}.companiesClientsPage th,.companiesClientsPage td{padding:11px 12px}.clientPortfolioPanel table{min-width:1040px}.departmentsReadabilityPage{gap:calc(var(--ocd-tweak-department-spacing, 22) * 1px);padding-right:118px;padding-bottom:calc(var(--ocd-tweak-department-bottom-padding, 168) * 1px)}.departmentsReadabilityPage .tabs{margin-top:2px}.departmentsReadabilityPage .clientPortfolioPanel{padding:calc(var(--ocd-tweak-department-panel-padding, 22) * 1px);display:grid;gap:16px}.departmentsReadabilityPage .toolbar{margin:0 0 2px}.departmentsReadabilityPage .assetsInsightBar{margin-top:2px;padding:13px 15px;gap:12px}.departmentsReadabilityPage .assetsInsightBar p{line-height:1.45;max-width:820px}.departmentsReadabilityPage .compactActions{min-width:0}.departmentsTableScroll{max-width:100%;overflow-x:auto;overflow-y:hidden;padding-bottom:14px}.departmentsTableScroll table{min-width:1120px}.departmentsTableScroll th,.departmentsTableScroll td{padding-top:13px;padding-bottom:13px}.departmentsTableScroll th:last-child,.departmentsTableScroll td:last-child{padding-right:24px;white-space:nowrap}.departmentsTableScroll .rowAction{white-space:nowrap}.selectedClientPanel{padding:18px 20px 20px;background:linear-gradient(180deg,#FFFFFF 0%,#FCFDFE 100%)}.selectedClientPanel .panelTitle{align-items:flex-start;margin-bottom:12px}.selectedClientPanel .panelTitle h2{font-size:16px}.selectedDepartmentOverview{display:grid;gap:10px;margin-bottom:14px}.selectedDepartmentRow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.selectedDepartmentRowWide{grid-template-columns:minmax(0,1.45fr) minmax(0,.95fr)}.selectedDepartmentItem{border:1px solid #EEF2F7;background:#FFFFFF;border-radius:calc(var(--ocd-tweak-selected-preview-softness, 14) * 1px);padding:12px;min-width:0}.selectedDepartmentItem span{display:block;color:#75849A;font-size:11px;text-transform:uppercase;letter-spacing:.1em;font-weight:850}.selectedDepartmentItem strong{display:block;margin-top:5px;color:#10223B;font-size:14px;line-height:1.35;overflow:hidden;text-overflow:ellipsis}.relatedDepartmentRecords{overflow-x:auto}.compactClientPreview{border-color:#EEF2F7}.compactClientPreview table{min-width:760px}.compactClientPreview th,.compactClientPreview td{padding:10px 12px;font-size:13px}.compactClientPreview .recordCell{font-weight:800;color:#10223B}.compactClientPreview .badge{padding:3px 7px;font-size:11.5px}.subtleRowAction{padding:5px 8px;font-size:11.5px;font-weight:750;background:#FBFCFE;color:#475569;border-color:#E6ECF3}.subtleRowAction:hover{background:#F8FAFC;color:#0F766E;border-color:#D6EAE5}.stateBox{border:1px solid #DDE6F1;border-radius:14px;background:#FAFCFF;padding:14px;display:grid;gap:8px;color:#40516A}.stateBox strong{color:#132033}.stateBox span{font-size:13px;line-height:1.45}.emptyState{background:#F8FAFC}.errorState{background:#FFF7F7;border-color:#FECACA}.errorState strong{color:#B91C1C}.errorState div{display:flex;gap:8px;flex-wrap:wrap}.ghostBtn{background:transparent}.skeletonRow td{background:#fff}.skeletonLine{display:block;width:100%;max-width:180px;height:12px;border-radius:999px;background:linear-gradient(90deg,#EEF2F7,#F8FAFC,#EEF2F7);background-size:200% 100%;animation:pulse 1.2s ease-in-out infinite}.miniState{display:flex;align-items:center;gap:9px;border:1px solid #DDE6F1;background:#F8FAFC;border-radius:12px;padding:10px 12px;color:#526174;font-size:13px}.loadingState{border-color:#BFDBFE;background:#EFF6FF;color:#1D4ED8}.spinner{width:14px;height:14px;border-radius:50%;border:2px solid rgba(37,99,235,.24);border-top-color:#2563EB;animation:spin .8s linear infinite}.validationPanel{border:1px solid #FDE68A;background:#FFFBEB;border-radius:16px;padding:14px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}.validationPanel div{background:#fff;border:1px solid #FDE68A;border-radius:12px;padding:10px}.validationPanel strong{display:block;color:#92400E;font-size:13px}.validationPanel span{display:block;color:#785E1E;font-size:12px;margin-top:3px}.toastStack{position:fixed;right:24px;bottom:96px;display:grid;gap:8px;z-index:75;pointer-events:none}.toast{background:#0B1F3A;color:white;border:1px solid rgba(255,255,255,.12);box-shadow:0 16px 40px rgba(11,31,58,.22);border-radius:12px;padding:10px 12px;font-size:13px;font-weight:750;animation:toastOut 4s ease forwards}.errorToast{background:#7F1D1D}@keyframes toastOut{0%,78%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(8px)}}@keyframes pulse{0%{background-position:200% 0}100%{background-position:-200% 0}}@keyframes spin{to{transform:rotate(360deg)}}@media(max-width:1050px){.app{grid-template-columns:1fr}.sidebar{position:static}.statsGrid,.split,.settingsLayout,.settingsGrid{grid-template-columns:1fr}.topbar{flex-wrap:wrap;height:auto;padding:12px}.topSearch{min-width:0;flex:1}.content{padding:20px}.settingsNav{position:static}.screenHeader{display:grid}.departmentsReadabilityPage{padding-right:24px}.selectedDepartmentRow{grid-template-columns:repeat(2,minmax(0,1fr))}.selectedDepartmentRowWide{grid-template-columns:1fr}}@media(max-width:720px){.sidebar nav{display:grid;grid-template-columns:1fr 1fr;gap:8px}.navGroup{margin:0}.statsGrid{grid-template-columns:1fr}.settingsSearch,.moduleEnablement{display:grid}.settingsSearch input{max-width:none}table{min-width:680px}.departmentsReadabilityPage{padding-bottom:176px}.selectedDepartmentRow{grid-template-columns:1fr}}
+:root{--accent:var(--ocd-tweak-accent-color,#2563EB);--density:var(--ocd-tweak-panel-density,1);--risk:var(--ocd-tweak-risk-emphasis,1);--navy:#0B1F3A;--bg:#F7F9FC;--card:#FFFFFF;--text:#111827;--muted:#6B7280;--border:#E5E7EB;--teal:#0D9488}*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--text)}button,input{font:inherit}button{border:1px solid var(--border);background:#fff;color:#243247;border-radius:10px;padding:9px 12px;font-weight:700;cursor:pointer}button:hover{border-color:#D6DEE9;background:#FAFCFF;box-shadow:0 1px 4px rgba(15,35,65,.025)}.app{min-height:100vh;display:grid;grid-template-columns:264px 1fr}.sidebar{background:var(--navy);color:#DDE8F7;padding:18px 14px;display:flex;flex-direction:column;gap:22px}.brand{display:flex;gap:12px;align-items:center;padding:8px 8px 14px;border-bottom:1px solid rgba(255,255,255,.12)}.mark{width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#2DD4BF,#2563EB);display:grid;place-items:center;color:white;font-weight:900}.brand strong{display:block;letter-spacing:.14em;font-size:13px}.brand span{display:block;color:#8EA2BC;font-size:12px;margin-top:2px}.navGroup{display:grid;gap:5px;margin-bottom:18px}.navGroup p{margin:0 8px 6px;color:#8EA2BC;font-size:11px;text-transform:uppercase;letter-spacing:.14em;font-weight:850}.navGroup button{width:100%;text-align:left;background:transparent;border-color:transparent;color:#C9D6E6;border-radius:10px;padding:9px 10px;font-size:14px}.navGroup button:hover{background:rgba(255,255,255,.055);color:#F8FAFC;border-color:transparent}.navGroup button.active{background:rgba(255,255,255,.085);color:#fff;border-color:rgba(255,255,255,.055)}.workspace{min-width:0;display:flex;flex-direction:column}.topbar{height:64px;background:rgba(255,255,255,.86);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:0 22px;position:sticky;top:0;z-index:10}.topbar div:first-child{margin-right:auto}.topbar span{display:block;color:var(--muted);font-size:12px}.topbar strong{font-size:14px}.topSearch{min-width:260px;text-align:left;color:#6B7280;background:#F8FAFC}.alertBtn{background:#FFF7ED;border-color:#FED7AA;color:#9A3412}.aiBtn{background:#F7FAFF;border-color:#D8E6FB;color:#1E4FB8}.avatar{width:32px;height:32px;border-radius:999px;background:#EAF2FF;color:#1D4ED8;display:inline-grid;place-items:center;font-size:12px;font-weight:900}.content{padding:28px;display:grid;gap:18px}.screenHeader{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}.screenHeader p{margin:0 0 6px;color:var(--teal);text-transform:uppercase;font-size:11px;letter-spacing:.14em;font-weight:900}.screenHeader h1{margin:0;color:#0F2138;font-size:clamp(26px,3vw,38px);letter-spacing:-.045em}.screenHeader span{display:block;margin-top:6px;color:#66758A;max-width:720px}.headerActions{display:flex;gap:10px}.primary{background:var(--accent);border-color:var(--accent);color:#fff}.primary:hover{background:#1D4ED8;border-color:#1D4ED8;color:#fff;box-shadow:0 2px 8px rgba(37,99,235,.28)}.statsGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.statCard,.panel,.settingsSearch,.settingsGroup{background:var(--card);border:1px solid var(--border);border-radius:18px;box-shadow:0 12px 30px rgba(15,35,65,.045)}.statCard{padding:18px}.statCard span{color:#66758A;font-size:13px}.statCard strong{display:block;margin:8px 0 3px;font-size:28px;letter-spacing:-.04em;color:#10223B}.statCard p{margin:0;color:#7B8797;font-size:13px}.split{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(280px,.7fr);gap:16px}.panel{padding:calc(var(--density)*18px);min-width:0}.panelTitle{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;margin-bottom:14px}.panelTitle h2{margin:0;color:#132033;font-size:17px}.panelTitle span{color:#75849A;font-size:13px}.tableWrap{overflow:auto;border:1px solid #EEF2F7;border-radius:14px}table{width:100%;border-collapse:collapse;min-width:760px;background:white}th,td{text-align:left;padding:13px 14px;border-bottom:1px solid #EEF2F7;font-size:13.5px;vertical-align:middle}th{background:#FAFCFF;color:#66758A;font-size:11px;text-transform:uppercase;letter-spacing:.1em}tr:last-child td{border-bottom:0}.badge{display:inline-flex;align-items:center;white-space:nowrap;border-radius:999px;padding:4px 8px;font-size:12px;font-weight:800;border:1px solid #DDE6F1;color:#40516A;background:#F8FAFC}.badge.critical{background:#FEF2F2;color:#B91C1C;border-color:#FECACA;box-shadow:0 0 0 calc((var(--risk) - 1)*2px) rgba(220,38,38,.12)}.badge.high{background:#FFF7ED;color:#C2410C;border-color:#FED7AA}.badge.medium{background:#FEFCE8;color:#A16207;border-color:#FDE68A}.badge.review{background:#EFF6FF;color:#1D4ED8;border-color:#BFDBFE}.badge.low{background:#F0FDF4;color:#15803D;border-color:#BBF7D0}.insight{line-height:1.55;color:#40516A}.searchHero,.settingsSearch{display:flex;gap:12px;align-items:center;padding:14px}.searchHero input,.settingsSearch input{width:100%;border:1px solid #DDE6F1;border-radius:12px;padding:12px 13px;outline:0;background:#FAFCFF}.tabs{display:flex;gap:8px;border-bottom:1px solid var(--border);padding-bottom:10px}.tabs button{background:transparent}.tabs .active{background:#F7FAFF;border-color:#D8E6FB;color:#1E4FB8}.settingsPage{gap:20px}.settingsSearch{justify-content:space-between}.settingsSearch strong{display:block;color:#10223B}.settingsSearch span{display:block;color:#66758A;font-size:13px;margin-top:3px}.settingsSearch input{max-width:360px}.settingsLayout{display:grid;grid-template-columns:220px 1fr;gap:18px;align-items:start}.settingsNav{position:sticky;top:84px;background:#fff;border:1px solid var(--border);border-radius:16px;padding:10px;display:grid;gap:4px}.settingsNav a{text-decoration:none;color:#526174;padding:9px 10px;border-radius:10px;font-weight:750;font-size:14px}.settingsNav a:hover{background:#F8FAFC;color:#0F2138}.settingsGroups{display:grid;gap:18px}.settingsGroup{padding:20px}.settingsGroup.important{border-color:#A7F3D0;box-shadow:0 14px 36px rgba(13,148,136,.08)}.settingsGroupHeader{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:14px}.settingsGroup h2{margin:0;color:#10223B;font-size:20px;letter-spacing:-.025em}.settingsGroup p{margin:5px 0 0;color:#66758A;line-height:1.45}.settingsGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.settingItem{height:auto;min-height:86px;display:flex;justify-content:space-between;align-items:flex-start;gap:14px;text-align:left;border-radius:14px;padding:14px;background:#fff}.settingItem strong{display:block;color:#132033}.settingItem span{display:block;margin-top:5px;color:#66758A;font-weight:500;line-height:1.35}.settingItem em{font-style:normal;color:#526174;background:#F8FAFC;border:1px solid #EEF2F7;border-radius:999px;padding:4px 8px;font-size:12px;white-space:nowrap}.moduleEnablement{margin-top:12px;border:1px dashed #99F6E4;background:#F0FDFA;border-radius:14px;padding:14px;display:flex;justify-content:space-between;gap:16px;align-items:center}.moduleEnablement h3{margin:0;color:#134E4A;font-size:15px}.moduleEnablement p{margin:4px 0 0;color:#0F766E;font-size:13px}.modulePills{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}.aiDrawer{position:fixed;right:14px;top:78px;bottom:14px;width:min(380px,calc(100vw - 28px));background:white;border:1px solid #DDE6F1;border-radius:20px;box-shadow:0 24px 80px rgba(11,31,58,.22);z-index:40;padding:18px;display:grid;align-content:start;gap:14px}.aiDrawer header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.aiDrawer header span{font-size:11px;text-transform:uppercase;letter-spacing:.14em;font-weight:900;color:#0D9488}.aiDrawer h2{margin:4px 0 0}.aiDrawer p{margin:0;color:#526174;line-height:1.5}.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 14px}.toolbar input{min-width:min(360px,100%);flex:1;border:1px solid #DDE6F1;border-radius:12px;padding:11px 12px;background:#FAFCFF;outline:0}.actionStack{display:grid;gap:10px}.actionStack button{text-align:left}.kanban{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.kanbanCol{border:1px solid #EEF2F7;background:#FAFCFF;border-radius:16px;padding:12px;display:grid;gap:10px;align-content:start}.kanbanCol h3{margin:0;font-size:13px;color:#526174;text-transform:uppercase;letter-spacing:.08em}.taskCard{background:white;border:1px solid #E7EDF5;border-radius:14px;padding:12px;display:grid;gap:8px}.taskCard strong{font-size:14px;color:#132033}.taskCard span{color:#66758A;font-size:12px}.wizardSteps{display:grid;grid-template-columns:repeat(9,minmax(96px,1fr));gap:8px;overflow:auto;padding-bottom:4px;margin-bottom:14px}.wizardStep{border:1px solid #E7EDF5;background:#fff;border-radius:14px;padding:10px;display:grid;gap:6px;min-height:76px}.wizardStep strong{width:24px;height:24px;border-radius:999px;display:grid;place-items:center;background:#EEF2F7;color:#526174;font-size:12px}.wizardStep span{font-size:12px;font-weight:800;color:#526174}.wizardStep.done strong{background:#DCFCE7;color:#15803D}.wizardStep.active{border-color:#BFDBFE;background:#EFF6FF}.wizardStep.active strong{background:#2563EB;color:white}a:focus-visible,button:focus-visible,input:focus-visible,.settingItem:focus-visible,.wizardStep:focus-visible{outline:2px solid rgba(37,99,235,.18);outline-offset:2px;box-shadow:none}button:active{transform:translateY(1px)}button:disabled,button[aria-disabled="true"]{cursor:not-allowed;opacity:.52;background:#F3F6FA;color:#8A97A8;border-color:#E1E8F0;box-shadow:none;transform:none}.statCard,.panel,.settingItem,.taskCard,.wizardStep,.settingsNav a,.actionStack button{transition:border-color .16s ease,box-shadow .16s ease,background .16s ease,transform .16s ease}.statCard:hover,.panel:hover,.settingItem:hover,.taskCard:hover,.wizardStep:hover,.actionStack button:hover{border-color:#E0E7F0;box-shadow:0 4px 14px rgba(15,35,65,.035);transform:none;background:#fff}tbody tr{transition:background .14s ease}tbody tr:hover td{background:#FAFBFD}.selectedRow td{background:#F8FBFF!important}.selectedRow td:first-child{box-shadow:inset 2px 0 0 #DBEAFE}.rowAction{padding:6px 9px;font-size:12px;border-radius:8px;background:#F8FAFC}.rowAction:hover{background:#F3F6FA;border-color:#E1E8F0;color:#334155}.rowAction:focus-visible{background:#F8FBFF;border-color:#C9D7EA;color:#1E4FB8}.companiesClientsPage{gap:16px}.companiesClientsPage .screenHeader span{max-width:760px}.companiesClientsPage .tabs{padding-bottom:8px}.companiesClientsPage .panel{box-shadow:0 10px 26px rgba(15,35,65,.035)}.companiesClientsPage .panelTitle{margin-bottom:10px}.companiesClientsPage .toolbar{margin:8px 0 12px}.companiesClientsPage th,.companiesClientsPage td{padding:11px 12px}.clientPortfolioPanel table{min-width:1040px}.departmentsReadabilityPage{gap:calc(var(--ocd-tweak-department-spacing, 22) * 1px);padding-right:118px;padding-bottom:calc(var(--ocd-tweak-department-bottom-padding, 168) * 1px)}.departmentsReadabilityPage .tabs{margin-top:2px}.departmentsReadabilityPage .clientPortfolioPanel{padding:calc(var(--ocd-tweak-department-panel-padding, 22) * 1px);display:grid;gap:16px}.departmentsReadabilityPage .toolbar{margin:0 0 2px}.departmentsReadabilityPage .assetsInsightBar{margin-top:2px;padding:13px 15px;gap:12px}.departmentsReadabilityPage .assetsInsightBar p{line-height:1.45;max-width:820px}.departmentsReadabilityPage .compactActions{min-width:0}.departmentsTableScroll{max-width:100%;overflow-x:auto;overflow-y:hidden;padding-bottom:14px}.departmentsTableScroll table{min-width:1120px}.departmentsTableScroll th,.departmentsTableScroll td{padding-top:13px;padding-bottom:13px}.departmentsTableScroll th:last-child,.departmentsTableScroll td:last-child{padding-right:24px;white-space:nowrap}.departmentsTableScroll .rowAction{white-space:nowrap}.selectedClientPanel{padding:18px 20px 20px;background:linear-gradient(180deg,#FFFFFF 0%,#FCFDFE 100%)}.selectedClientPanel .panelTitle{align-items:flex-start;margin-bottom:12px}.selectedClientPanel .panelTitle h2{font-size:16px}.selectedDepartmentOverview{display:grid;gap:10px;margin-bottom:14px}.selectedDepartmentRow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.selectedDepartmentRowWide{grid-template-columns:minmax(0,1.45fr) minmax(0,.95fr)}.selectedDepartmentItem{border:1px solid #EEF2F7;background:#FFFFFF;border-radius:calc(var(--ocd-tweak-selected-preview-softness, 14) * 1px);padding:12px;min-width:0}.selectedDepartmentItem span{display:block;color:#75849A;font-size:11px;text-transform:uppercase;letter-spacing:.1em;font-weight:850}.selectedDepartmentItem strong{display:block;margin-top:5px;color:#10223B;font-size:14px;line-height:1.35;overflow:hidden;text-overflow:ellipsis}.relatedDepartmentRecords{overflow-x:auto}.compactClientPreview{border-color:#EEF2F7}.compactClientPreview table{min-width:760px}.compactClientPreview th,.compactClientPreview td{padding:10px 12px;font-size:13px}.compactClientPreview .recordCell{font-weight:800;color:#10223B}.compactClientPreview .badge{padding:3px 7px;font-size:11.5px}.subtleRowAction{padding:5px 8px;font-size:11.5px;font-weight:750;background:#FBFCFE;color:#475569;border-color:#E6ECF3}.subtleRowAction:hover{background:#F8FAFC;color:#0F766E;border-color:#D6EAE5}.stateBox{border:1px solid #DDE6F1;border-radius:14px;background:#FAFCFF;padding:14px;display:grid;gap:8px;color:#40516A}.stateBox strong{color:#132033}.stateBox span{font-size:13px;line-height:1.45}.emptyState{background:#F8FAFC}.errorState{background:#FFF7F7;border-color:#FECACA}.errorState strong{color:#B91C1C}.errorState div{display:flex;gap:8px;flex-wrap:wrap}.ghostBtn{background:transparent}.skeletonRow td{background:#fff}.skeletonLine{display:block;width:100%;max-width:180px;height:12px;border-radius:999px;background:linear-gradient(90deg,#EEF2F7,#F8FAFC,#EEF2F7);background-size:200% 100%;animation:pulse 1.2s ease-in-out infinite}.miniState{display:flex;align-items:center;gap:9px;border:1px solid #DDE6F1;background:#F8FAFC;border-radius:12px;padding:10px 12px;color:#526174;font-size:13px}.loadingState{border-color:#BFDBFE;background:#EFF6FF;color:#1D4ED8}.spinner{width:14px;height:14px;border-radius:50%;border:2px solid rgba(37,99,235,.24);border-top-color:#2563EB;animation:spin .8s linear infinite}.validationPanel{border:1px solid #FDE68A;background:#FFFBEB;border-radius:16px;padding:14px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}.validationPanel div{background:#fff;border:1px solid #FDE68A;border-radius:12px;padding:10px}.validationPanel strong{display:block;color:#92400E;font-size:13px}.validationPanel span{display:block;color:#785E1E;font-size:12px;margin-top:3px}.toastStack{position:fixed;right:24px;bottom:96px;display:grid;gap:8px;z-index:75;pointer-events:none}.toast{background:#0B1F3A;color:white;border:1px solid rgba(255,255,255,.12);box-shadow:0 16px 40px rgba(11,31,58,.22);border-radius:12px;padding:10px 12px;font-size:13px;font-weight:750;animation:toastOut 4s ease forwards}.errorToast{background:#7F1D1D}@keyframes toastOut{0%,78%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(8px)}}@keyframes pulse{0%{background-position:200% 0}100%{background-position:-200% 0}}@keyframes spin{to{transform:rotate(360deg)}}@media(max-width:1050px){.app{grid-template-columns:1fr}.sidebar{position:static}.statsGrid,.split,.settingsLayout,.settingsGrid{grid-template-columns:1fr}.topbar{flex-wrap:wrap;height:auto;padding:12px}.topSearch{min-width:0;flex:1}.content{padding:20px}.settingsNav{position:static}.screenHeader{display:grid}.departmentsReadabilityPage{padding-right:24px}.selectedDepartmentRow{grid-template-columns:repeat(2,minmax(0,1fr))}.selectedDepartmentRowWide{grid-template-columns:1fr}}@media(max-width:720px){.sidebar nav{display:grid;grid-template-columns:1fr 1fr;gap:8px}.navGroup{margin:0}.statsGrid{grid-template-columns:1fr}.settingsSearch,.moduleEnablement{display:grid}.settingsSearch input{max-width:none}table{min-width:680px}.departmentsReadabilityPage{padding-bottom:176px}.selectedDepartmentRow{grid-template-columns:1fr}}
 .aiInsightBar{display:flex;align-items:center;gap:16px;background:#F0FDFA;border:1px solid #A7F3D0;border-radius:14px;padding:11px 16px;flex-wrap:wrap;row-gap:8px}
   .attentionContent{padding-top:28px}
 
@@ -2222,7 +3393,7 @@ const settingsDirectoryOverrideStyles = `
 
 
 const oprivaUpgradeStyles = `
-.app{min-height:100vh;display:flex}.sidebar{width:282px;background:linear-gradient(180deg,#0B1F3A,#07111F);color:#EAF4F7;padding:24px 18px;position:fixed;inset:0 auto 0 0;overflow:auto}.workspace{margin-left:282px;min-width:0;flex:1;display:flex;flex-direction:column;transition:margin-left .22s ease}.appSidebarCollapsed .workspace{margin-left:86px}.brand{height:62px;display:flex;align-items:center;gap:12px;margin-bottom:18px;padding:0;border-bottom:0}.brandMark{width:36px;height:36px;display:grid;place-items:center;flex:0 0 auto}.brandMark svg{width:36px;height:36px;overflow:visible}.oprivaOpenContour,.agentContour{fill:none;stroke:#24BFA6;stroke-width:2.35;stroke-linecap:round;stroke-linejoin:round}.oprivaFocusDot,.agentFocusDot{fill:#0B7D63;filter:drop-shadow(0 2px 7px rgba(13,148,136,.28))}.brandCopy{display:flex;flex-direction:column;line-height:1.05}.brandCopy strong{font-size:19px;font-weight:650;letter-spacing:.01em;color:#fff}.brandCopy span{margin-top:5px;color:#94A3B8;font-size:11px;letter-spacing:.06em;text-transform:uppercase}.navGroup{margin-top:20px}.navGroup p{margin:0 0 8px 8px;color:#8BA4BD;font-size:11px;text-transform:uppercase;letter-spacing:.1em}.navGroup button{width:100%;border:0;background:transparent;color:#C8D7E5;text-align:left;padding:10px 12px;border-radius:12px;cursor:pointer}.navGroup button:hover,.navGroup button.active{background:rgba(255,255,255,.08);color:#fff}.topbar{height:60px;background:#fff;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px;padding:0 20px;position:sticky;top:0;z-index:5}.tenantLockupWrap{position:relative;flex:0 0 auto}.tenantLockup{display:inline-flex;align-items:center;gap:10px;border:0;background:transparent;text-align:left;padding:6px 10px 6px 6px;border-radius:10px;box-shadow:none;cursor:pointer;font-family:inherit;flex:0 0 auto;transition:background .14s ease}.tenantLockup:hover,.tenantLockupOpen{background:#F7F9FC;box-shadow:none;border-color:transparent}.tenantLockup:focus-visible{outline:2px solid rgba(13,148,136,.3);outline-offset:2px}.tenantLogo{width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,#0B1F3A 0%,#1E3A5F 100%);color:#fff;font-weight:800;font-size:13px;display:inline-flex !important;align-items:center !important;justify-content:center !important;text-align:center !important;line-height:1 !important;letter-spacing:-.01em;flex:0 0 auto;box-shadow:0 1px 2px rgba(11,31,58,.18),inset 0 1px 0 rgba(255,255,255,.08)}.tenantName{font-size:14px;font-weight:700;color:#0F2138;letter-spacing:-.012em;white-space:nowrap;line-height:1}.tenantChevron{color:#94A3B8;flex:0 0 auto;margin-left:1px;transition:transform .16s ease}.tenantLockupOpen .tenantChevron{transform:rotate(180deg)}.topSpacer{flex:1;min-width:0}.topSearchTrigger{appearance:none;display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 8px 0 12px;border:1px solid var(--border);border-radius:10px;background:#F8FAFC;color:#64748B;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;flex:0 0 auto;transition:background .14s ease,border-color .14s ease,color .14s ease;box-shadow:none;line-height:1}.topSearchTrigger:hover{background:#F1F5F9;border-color:#CBD5E1;color:#0F2138}.topSearchTrigger:focus-visible{outline:2px solid rgba(13,148,136,.3);outline-offset:2px}.topSearchTrigger svg{color:#94A3B8;flex:0 0 auto;transition:color .14s ease}.topSearchTrigger:hover svg{color:#475569}.topSearchTriggerLabel{display:inline;line-height:1}.topSearchTriggerKbd{display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:5px;background:#fff;border:1px solid #E2E8F0;color:#64748B;font-size:10.5px;font-weight:700;font-family:inherit;flex-shrink:0;box-shadow:0 1px 0 rgba(15,35,65,.04);line-height:1;margin-left:4px}.topMenuWrap{position:relative;flex:0 0 auto}.topActionNew{appearance:none;display:inline-flex;align-items:center;gap:5px;height:36px;padding:0 10px 0 11px;border:1px solid var(--border);border-radius:10px;background:#fff;color:#0F2138;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;flex:0 0 auto;transition:background .14s ease,border-color .14s ease;box-shadow:none;line-height:1}.topActionNew:hover,.topActionNewOpen{background:#F8FAFC;border-color:#CBD5E1}.topActionNew:focus-visible{outline:2px solid rgba(13,148,136,.3);outline-offset:2px}.topActionNew svg{flex-shrink:0}.topActionNewLabel{display:inline;line-height:1}.topActionNewChev{color:#94A3B8;transition:transform .16s ease}.topActionNewOpen .topActionNewChev{transform:rotate(180deg)}.topMenu{position:absolute;top:calc(100% + 6px);background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:0 18px 40px rgba(11,31,58,.18),0 2px 4px rgba(11,31,58,.04);min-width:240px;padding:6px;z-index:50;animation:topMenuIn .14s ease-out}.workspaceMenu{left:0}.newMenu{right:0}@keyframes topMenuIn{from{opacity:0;transform:translateY(-4px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}.topMenuHeader{padding:8px 10px 10px;border-bottom:1px solid #F1F5F9;margin-bottom:6px;display:flex;flex-direction:column;gap:2px}.topMenuHeader strong{color:#0F2138;font-size:13px;font-weight:800;letter-spacing:-.005em;line-height:1.2}.topMenuHeader small{color:#94A3B8;font-size:11.5px;font-weight:600;line-height:1.2}.topMenuItem{appearance:none;display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border:0;background:transparent;border-radius:8px;color:#475569;font-family:inherit;font-size:13px;font-weight:600;text-align:left;cursor:pointer;transition:background .12s ease,color .12s ease;box-shadow:none;line-height:1.2}.topMenuItem:hover{background:#F1F5F9;color:#0F2138}.topMenuItem svg{color:#94A3B8;flex-shrink:0;transition:color .12s ease}.topMenuItem:hover svg{color:#475569}.topActionBtn{width:36px;height:36px;border-radius:9px;display:grid;place-items:center;position:relative;border:0;background:transparent;color:#475569;cursor:pointer;font-family:inherit;flex:0 0 auto;padding:0;box-shadow:none;transition:background .14s ease,color .14s ease}.topActionBtn:hover{background:#F1F5F9;color:#0F2138;border-color:transparent;box-shadow:none}.topActionBtn:focus-visible{outline:2px solid rgba(13,148,136,.3);outline-offset:2px}.topActionAlertsBadge{position:absolute;top:2px;right:2px;height:15px;min-width:15px;padding:0 4px;border-radius:999px;background:#DC2626;color:#fff;font-size:10px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px #fff;font-family:inherit;letter-spacing:-.02em;line-height:1}.topRightDivider{width:1px;height:22px;background:var(--border);flex:0 0 auto;margin:0 6px}.avatar{width:34px;height:34px;border-radius:50%;background:#EAF2FF;color:#1D4ED8;font-size:12px;font-weight:800;border:1px solid #DDE6F1;padding:0;display:grid;place-items:center;font-family:inherit;cursor:pointer;flex:0 0 auto;transition:background .14s ease,border-color .14s ease,box-shadow .14s ease}.avatar:hover{background:#DBEAFE;border-color:#BFDBFE;color:#1D4ED8;box-shadow:0 0 0 3px rgba(37,99,235,.08)}.avatar:focus-visible{outline:2px solid rgba(37,99,235,.4);outline-offset:2px}.agentWrap{position:fixed;right:24px;bottom:96px;z-index:90;display:flex;align-items:center;gap:12px}.agentTip{max-width:244px;background:#0F172A;color:#EAF4F7;padding:10px 12px;border-radius:14px;font-size:12px;box-shadow:0 18px 45px rgba(15,23,42,.2);opacity:0;transform:translateX(6px);pointer-events:none;transition:opacity .22s ease,transform .22s ease}.agentTip.isVisible{opacity:.94;transform:translateX(0)}.agentButton{width:62px;height:62px;border:1px solid rgba(13,148,136,.22);border-radius:20px;background:rgba(255,255,255,.92);box-shadow:0 16px 40px rgba(15,23,42,.16);display:grid;place-items:center;cursor:pointer;backdrop-filter:blur(18px);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}.agentButton:hover{box-shadow:0 20px 48px rgba(15,23,42,.22),0 0 0 6px rgba(45,212,191,.08);border-color:rgba(13,148,136,.45)}.agentMark{width:38px;height:38px;display:grid;place-items:center}.agentMarkSvg{width:38px;height:38px;overflow:visible}.agentContour{transform-origin:16px 16px}.agentFocusDot{transform-origin:center}.aiDrawer{position:fixed;right:24px;bottom:174px;top:auto;width:min(360px,calc(100vw - 48px));max-height:calc(100vh - 210px);overflow:auto;background:#fff;border:1px solid var(--border);border-radius:22px;box-shadow:0 24px 70px rgba(15,23,42,.2);z-index:88;padding:18px;display:block}.drawerHeader{display:flex;justify-content:space-between;gap:12px;align-items:start}.drawerHeader h2{margin:0;font-size:18px}.drawerHeader p,.drawerText,.meta{color:var(--muted);font-size:13px}.drawerHeader button{border:0;background:#F1F5F9;border-radius:10px;width:30px;height:30px;padding:0}.drawerInput{width:100%;border:1px solid var(--border);border-radius:14px;padding:12px;margin:12px 0}.drawerInput:focus{outline:0;border-color:var(--teal);box-shadow:0 0 0 3px rgba(13,148,136,.12)}.suggestions{display:grid;gap:8px}.suggestions button{border:1px solid var(--border);background:#fff;text-align:left;border-radius:12px;padding:10px}.agentSettings{margin-top:12px;padding-top:12px;border-top:1px solid #EEF2F7}.agentSettings label{display:flex;align-items:center;gap:9px;color:#334155;font-size:13px}
+.app{min-height:100vh;display:flex;flex-direction:row;align-items:stretch}.sidebar{width:264px;flex-shrink:0;background:linear-gradient(180deg,#0B1F3A,#07111F);color:#EAF4F7;padding:24px 18px;position:sticky;top:0;height:100vh;overflow:auto}.workspace{flex:1;min-width:0;display:flex;flex-direction:column}.appSidebarCollapsed .sidebar{width:86px}.appSidebarCollapsed .workspace{flex:1}.brand{height:62px;display:flex;align-items:center;gap:12px;margin-bottom:18px;padding:0;border-bottom:0}.brandMark{width:36px;height:36px;display:grid;place-items:center;flex:0 0 auto}.brandMark svg{width:36px;height:36px;overflow:visible}.oprivaOpenContour,.agentContour{fill:none;stroke:#24BFA6;stroke-width:2.35;stroke-linecap:round;stroke-linejoin:round}.oprivaFocusDot,.agentFocusDot{fill:#0B7D63;filter:drop-shadow(0 2px 7px rgba(13,148,136,.28))}.brandCopy{display:flex;flex-direction:column;line-height:1.05}.brandCopy strong{font-size:19px;font-weight:650;letter-spacing:.01em;color:#fff}.brandCopy span{margin-top:5px;color:#94A3B8;font-size:11px;letter-spacing:.06em;text-transform:uppercase}.navGroup{margin-top:20px}.navGroup p{margin:0 0 8px 8px;color:#8BA4BD;font-size:11px;text-transform:uppercase;letter-spacing:.1em}.navGroup button{width:100%;border:0;background:transparent;color:#C8D7E5;text-align:left;padding:10px 12px;border-radius:12px;cursor:pointer}.navGroup button:hover,.navGroup button.active{background:rgba(255,255,255,.08);color:#fff}.topbar{height:60px;background:#fff;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px;padding:0 20px;position:sticky;top:0;z-index:5}.tenantLockupWrap{position:relative;flex:0 0 auto}.tenantLockup{display:inline-flex;align-items:center;gap:10px;border:0;background:transparent;text-align:left;padding:6px 10px 6px 6px;border-radius:10px;box-shadow:none;cursor:pointer;font-family:inherit;flex:0 0 auto;transition:background .14s ease}.tenantLockup:hover,.tenantLockupOpen{background:#F7F9FC;box-shadow:none;border-color:transparent}.tenantLockup:focus-visible{outline:2px solid rgba(13,148,136,.3);outline-offset:2px}.tenantLogo{width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,#0B1F3A 0%,#1E3A5F 100%);color:#fff;font-weight:800;font-size:13px;display:inline-flex !important;align-items:center !important;justify-content:center !important;text-align:center !important;line-height:1 !important;letter-spacing:-.01em;flex:0 0 auto;box-shadow:0 1px 2px rgba(11,31,58,.18),inset 0 1px 0 rgba(255,255,255,.08)}.tenantName{font-size:14px;font-weight:700;color:#0F2138;letter-spacing:-.012em;white-space:nowrap;line-height:1}.tenantChevron{color:#94A3B8;flex:0 0 auto;margin-left:1px;transition:transform .16s ease}.tenantLockupOpen .tenantChevron{transform:rotate(180deg)}.topSpacer{flex:1;min-width:0}.topSearchTrigger{appearance:none;display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 8px 0 12px;border:1px solid var(--border);border-radius:10px;background:#F8FAFC;color:#64748B;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;flex:0 0 auto;transition:background .14s ease,border-color .14s ease,color .14s ease;box-shadow:none;line-height:1}.topSearchTrigger:hover{background:#F1F5F9;border-color:#CBD5E1;color:#0F2138}.topSearchTrigger:focus-visible{outline:2px solid rgba(13,148,136,.3);outline-offset:2px}.topSearchTrigger svg{color:#94A3B8;flex:0 0 auto;transition:color .14s ease}.topSearchTrigger:hover svg{color:#475569}.topSearchTriggerLabel{display:inline;line-height:1}.topSearchTriggerKbd{display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:5px;background:#fff;border:1px solid #E2E8F0;color:#64748B;font-size:10.5px;font-weight:700;font-family:inherit;flex-shrink:0;box-shadow:0 1px 0 rgba(15,35,65,.04);line-height:1;margin-left:4px}.topMenuWrap{position:relative;flex:0 0 auto}.topActionNew{appearance:none;display:inline-flex;align-items:center;gap:5px;height:36px;padding:0 10px 0 11px;border:1px solid var(--border);border-radius:10px;background:#fff;color:#0F2138;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;flex:0 0 auto;transition:background .14s ease,border-color .14s ease;box-shadow:none;line-height:1}.topActionNew:hover,.topActionNewOpen{background:#F8FAFC;border-color:#CBD5E1}.topActionNew:focus-visible{outline:2px solid rgba(13,148,136,.3);outline-offset:2px}.topActionNew svg{flex-shrink:0}.topActionNewLabel{display:inline;line-height:1}.topActionNewChev{color:#94A3B8;transition:transform .16s ease}.topActionNewOpen .topActionNewChev{transform:rotate(180deg)}.topMenu{position:absolute;top:calc(100% + 6px);background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:0 18px 40px rgba(11,31,58,.18),0 2px 4px rgba(11,31,58,.04);min-width:240px;padding:6px;z-index:50;animation:topMenuIn .14s ease-out}.workspaceMenu{left:0}.newMenu{right:0}@keyframes topMenuIn{from{opacity:0;transform:translateY(-4px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}.topMenuHeader{padding:8px 10px 10px;border-bottom:1px solid #F1F5F9;margin-bottom:6px;display:flex;flex-direction:column;gap:2px}.topMenuHeader strong{color:#0F2138;font-size:13px;font-weight:800;letter-spacing:-.005em;line-height:1.2}.topMenuHeader small{color:#94A3B8;font-size:11.5px;font-weight:600;line-height:1.2}.topMenuItem{appearance:none;display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border:0;background:transparent;border-radius:8px;color:#475569;font-family:inherit;font-size:13px;font-weight:600;text-align:left;cursor:pointer;transition:background .12s ease,color .12s ease;box-shadow:none;line-height:1.2}.topMenuItem:hover{background:#F1F5F9;color:#0F2138}.topMenuItem svg{color:#94A3B8;flex-shrink:0;transition:color .12s ease}.topMenuItem:hover svg{color:#475569}.topActionBtn{width:36px;height:36px;border-radius:9px;display:grid;place-items:center;position:relative;border:0;background:transparent;color:#475569;cursor:pointer;font-family:inherit;flex:0 0 auto;padding:0;box-shadow:none;transition:background .14s ease,color .14s ease}.topActionBtn:hover{background:#F1F5F9;color:#0F2138;border-color:transparent;box-shadow:none}.topActionBtn:focus-visible{outline:2px solid rgba(13,148,136,.3);outline-offset:2px}.topActionAlertsBadge{position:absolute;top:2px;right:2px;height:15px;min-width:15px;padding:0 4px;border-radius:999px;background:#DC2626;color:#fff;font-size:10px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px #fff;font-family:inherit;letter-spacing:-.02em;line-height:1}.topRightDivider{width:1px;height:22px;background:var(--border);flex:0 0 auto;margin:0 6px}.avatar{width:34px;height:34px;border-radius:50%;background:#EAF2FF;color:#1D4ED8;font-size:12px;font-weight:800;border:1px solid #DDE6F1;padding:0;display:grid;place-items:center;font-family:inherit;cursor:pointer;flex:0 0 auto;transition:background .14s ease,border-color .14s ease,box-shadow .14s ease}.avatar:hover{background:#DBEAFE;border-color:#BFDBFE;color:#1D4ED8;box-shadow:0 0 0 3px rgba(37,99,235,.08)}.avatar:focus-visible{outline:2px solid rgba(37,99,235,.4);outline-offset:2px}.agentWrap{position:fixed;right:24px;bottom:96px;z-index:90;display:flex;align-items:center;gap:12px}.agentTip{max-width:244px;background:#0F172A;color:#EAF4F7;padding:10px 12px;border-radius:14px;font-size:12px;box-shadow:0 18px 45px rgba(15,23,42,.2);opacity:0;transform:translateX(6px);pointer-events:none;transition:opacity .22s ease,transform .22s ease}.agentTip.isVisible{opacity:.94;transform:translateX(0)}.agentButton{width:62px;height:62px;border:1px solid rgba(13,148,136,.22);border-radius:20px;background:rgba(255,255,255,.92);box-shadow:0 16px 40px rgba(15,23,42,.16);display:grid;place-items:center;cursor:pointer;backdrop-filter:blur(18px);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}.agentButton:hover{box-shadow:0 20px 48px rgba(15,23,42,.22),0 0 0 6px rgba(45,212,191,.08);border-color:rgba(13,148,136,.45)}.agentMark{width:38px;height:38px;display:grid;place-items:center}.agentMarkSvg{width:38px;height:38px;overflow:visible}.agentContour{transform-origin:16px 16px}.agentFocusDot{transform-origin:center}.aiDrawer{position:fixed;right:24px;bottom:174px;top:auto;width:min(360px,calc(100vw - 48px));max-height:calc(100vh - 210px);overflow:auto;background:#fff;border:1px solid var(--border);border-radius:22px;box-shadow:0 24px 70px rgba(15,23,42,.2);z-index:88;padding:18px;display:block}.drawerHeader{display:flex;justify-content:space-between;gap:12px;align-items:start}.drawerHeader h2{margin:0;font-size:18px}.drawerHeader p,.drawerText,.meta{color:var(--muted);font-size:13px}.drawerHeader button{border:0;background:#F1F5F9;border-radius:10px;width:30px;height:30px;padding:0}.drawerInput{width:100%;border:1px solid var(--border);border-radius:14px;padding:12px;margin:12px 0}.drawerInput:focus{outline:0;border-color:var(--teal);box-shadow:0 0 0 3px rgba(13,148,136,.12)}.suggestions{display:grid;gap:8px}.suggestions button{border:1px solid var(--border);background:#fff;text-align:left;border-radius:12px;padding:10px}.agentSettings{margin-top:12px;padding-top:12px;border-top:1px solid #EEF2F7}.agentSettings label{display:flex;align-items:center;gap:9px;color:#334155;font-size:13px}
 /* Final Settings overview polish */
 .settingsOverviewCards{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;max-width:980px}
 .settingsOverviewCard{border:1px solid #E6EDF4;background:#fff;border-radius:16px;padding:16px 16px 15px;box-shadow:0 1px 2px rgba(15,35,65,.035);display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:18px}

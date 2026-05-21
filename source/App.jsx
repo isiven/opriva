@@ -725,15 +725,11 @@ const NEW_RECORD_FIELDS = {
   ],
   Documents: [
     { key: 'name',          label: 'Document Name',       required: true },
-    { key: 'type',          label: 'Document Type',       type: 'select', options: ['Contract','Quote','Invoice','Warranty','Certificate','Approval form','SLA','NDA','Report','Other'] },
+    { key: 'type',          label: 'Document Type',       type: 'select', options: ['Vendor Quote','Client Proposal','Purchase Order','Invoice','License Entitlement','Signed Contract','Warranty Document','Support Evidence','Compliance Evidence','Legal Document','Other'] },
     { key: 'relatedRecord', label: 'Linked Record',       type: 'select', source: 'relatedContracts' },
     { key: 'client',        label: 'Client / Department', type: 'select', source: 'clientDepartment' },
     { key: 'vendor',        label: 'Provider / Vendor',   type: 'select', source: 'vendors' },
     { key: 'uploadedBy',    label: 'Uploaded by',         type: 'select', source: 'users' },
-    { key: 'version',       label: 'Version' },
-    { key: 'access',        label: 'Access',              type: 'select', options: ['Internal','Restricted','Confidential','Public'] },
-    { key: 'requirement',   label: 'Requirement',         type: 'select', options: ['Required','Optional','Requested'] },
-    { key: 'status',        label: 'Status',              type: 'select', options: ['Current','Expiring','Expired','Missing','Pending review'] },
     { key: 'notes',         label: 'Notes',               multi: true },
   ],
 };
@@ -866,7 +862,7 @@ function buildNewRow(form, safeColumns) {
 
 const ATTACH_DOC_FIELDS = [
   { key: 'name',       label: 'Document Name',  required: true },
-  { key: 'type',       label: 'Document Type',  required: true, type: 'select', options: ['Quote','Purchase Order','Invoice','License Entitlement','Signed Contract','Warranty Document','Support Evidence','Compliance Evidence','Legal Document','Other'] },
+  { key: 'type',       label: 'Document Type',  required: true, type: 'select', options: ['Vendor Quote','Client Proposal','Purchase Order','Invoice','License Entitlement','Signed Contract','Warranty Document','Support Evidence','Compliance Evidence','Legal Document','Other'] },
   { key: 'uploadedBy', label: 'Uploaded By',    required: true, type: 'select', source: 'users' },
   { key: 'notes',      label: 'Notes',          multi: true },
 ];

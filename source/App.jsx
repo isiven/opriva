@@ -724,14 +724,14 @@ const NEW_RECORD_FIELDS = {
     { key: 'notes',          label: 'Notes',                  multi: true },
   ],
   Documents: [
-    { key: 'name',          label: 'Document Name',              required: true },
-    { key: 'type',          label: 'Document Type',              required: true, type: 'select', options: ['Vendor Quote','Client Proposal','Purchase Order','Invoice','License Entitlement','Signed Contract','Warranty Document','Support Evidence','Compliance Evidence','Legal Document','Other'] },
-    { key: 'uploadedBy',    label: 'Uploaded by',                required: true, type: 'select', source: 'users' },
-    { key: 'fileReference', label: 'Attach file / Document reference', required: true, placeholder: 'Upload coming soon — enter file name, URL or reference' },
-    { key: 'relatedRecord', label: 'Linked Record',              type: 'select', source: 'relatedContracts' },
-    { key: 'client',        label: 'Client / Department',        type: 'select', source: 'clientDepartment' },
-    { key: 'vendor',        label: 'Provider / Vendor',          type: 'select', source: 'vendors' },
-    { key: 'notes',         label: 'Notes',                      multi: true },
+    { key: 'filePick',   label: 'Attach file',          required: true, type: 'file' },
+    { key: 'name',       label: 'Document Name',         required: true },
+    { key: 'type',       label: 'Document Type',         required: true, type: 'select', options: ['Vendor Quote','Client Proposal','Purchase Order','Invoice','License Entitlement','Signed Contract','Warranty Document','Support Evidence','Compliance Evidence','Legal Document','Other'] },
+    { key: 'uploadedBy', label: 'Uploaded by',           required: true, type: 'select', source: 'users' },
+    { key: 'relatedRecord', label: 'Linked Record',      type: 'select', source: 'relatedContracts' },
+    { key: 'client',     label: 'Client / Department',   type: 'select', source: 'clientDepartment' },
+    { key: 'vendor',     label: 'Provider / Vendor',     type: 'select', source: 'vendors' },
+    { key: 'notes',      label: 'Notes',                 multi: true },
   ],
 };
 
@@ -821,8 +821,8 @@ function buildNewRow(form, safeColumns) {
     'Version':                v.version,
     'Access':                 v.access,
     'Requirement':            v.requirement,
-    'File / Document reference': v.fileReference || v.fileRef,
-    'File reference':         v.fileReference || v.fileRef,
+    'File / Document reference': v.fileName || v.fileReference || v.fileRef,
+    'File reference':         v.fileName || v.fileReference || v.fileRef,
     'Linked record':          v.relatedRecord,
     'Warranty end':           v.warrantyEnd,
     'Support':                v.support,
@@ -863,7 +863,15 @@ function buildNewRow(form, safeColumns) {
   return safeColumns.map(col => (map[col] !== undefined && map[col] !== '') ? map[col] : '-');
 }
 
+function fmtFileSize(bytes) {
+  if (!bytes || bytes === 0) return '';
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1048576).toFixed(1) + ' MB';
+}
+
 const ATTACH_DOC_FIELDS = [
+  { key: 'filePick',   label: 'Attach file',    required: true, type: 'file' },
   { key: 'name',       label: 'Document Name',  required: true },
   { key: 'type',       label: 'Document Type',  required: true, type: 'select', options: ['Vendor Quote','Client Proposal','Purchase Order','Invoice','License Entitlement','Signed Contract','Warranty Document','Support Evidence','Compliance Evidence','Legal Document','Other'] },
   { key: 'uploadedBy', label: 'Uploaded By',    required: true, type: 'select', source: 'users' },
@@ -1112,6 +1120,13 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
       empty.alertPolicy = 'Workspace default';
       applyLicenseComputedFields(empty);
     }
+    if (module === 'Documents') {
+      empty.fileName = '';
+      empty.fileType = '';
+      empty.fileSize = 0;
+      empty.fileLastModified = 0;
+      empty.uploadedAt = '';
+    }
     setForm(empty);
     setErrors({});
     setNewOpen(true);
@@ -1119,7 +1134,11 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
 
   function handleSave() {
     const errs = {};
-    formFields.forEach(f => { if (f.required && !(form[f.key] || '').trim()) errs[f.key] = 'Required'; });
+    formFields.forEach(f => {
+      if (!f.required) return;
+      if (f.type === 'file') { if (!form.fileName) errs[f.key] = 'Required'; }
+      else if (!(form[f.key] || '').trim()) errs[f.key] = 'Required';
+    });
     if (Object.keys(errs).length) { setErrors(errs); return; }
     const newRecord = { id: createRecordId(moduleKey), row: buildNewRow(form, safeColumns) };
     setLocalRows(function(prev) {
@@ -1161,6 +1180,11 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
   function openAttachDoc() {
     var empty = {};
     ATTACH_DOC_FIELDS.forEach(function(f) { empty[f.key] = ''; });
+    empty.fileName = '';
+    empty.fileType = '';
+    empty.fileSize = 0;
+    empty.fileLastModified = 0;
+    empty.uploadedAt = '';
     setAttachDocForm(empty);
     setAttachDocErrors({});
     setAttachDocOpen(true);
@@ -1169,7 +1193,9 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
   function handleAttachDocSave() {
     var errs = {};
     ATTACH_DOC_FIELDS.forEach(function(f) {
-      if (f.required && !(attachDocForm[f.key] || '').trim()) errs[f.key] = 'Required';
+      if (!f.required) return;
+      if (f.type === 'file') { if (!attachDocForm.fileName) errs[f.key] = 'Required'; }
+      else if (!(attachDocForm[f.key] || '').trim()) errs[f.key] = 'Required';
     });
     if (Object.keys(errs).length) { setAttachDocErrors(errs); return; }
     var today = new Date().toISOString().slice(0, 10);
@@ -1182,11 +1208,15 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
       linkedRecordName: selectedRecord.row[0] || '',
       uploadedBy:       attachDocForm.uploadedBy,
       uploadDate:       today,
+      fileName:         attachDocForm.fileName || '',
+      fileType:         attachDocForm.fileType || '',
+      fileSize:         attachDocForm.fileSize || 0,
+      uploadedAt:       attachDocForm.uploadedAt || today,
       status:           'Attached',
       requirement:      'Optional',
       access:           'Internal',
       version:          '',
-      fileRef:          '',
+      fileRef:          attachDocForm.fileName || '',
       effectiveDate:    '',
       expirationDate:   '',
       notes:            attachDocForm.notes || '',
@@ -1326,12 +1356,42 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
               ? <textarea value={form[f.key]||''} onChange={e => handleFormField(f.key, e.target.value)} rows={3} style={{...fieldStyle,resize:'vertical'}}/>
               : f.type === 'computed'
                 ? <input type="text" value={formatComputedField(f.key, form[f.key])} readOnly placeholder="Calculated" style={{...fieldStyle,background:'#F0F4F8',color:form[f.key]?'#0F766E':'#94A3B8',cursor:'default'}}/>
-                : f.type === 'select'
-                  ? <select value={form[f.key]||''} onChange={e => handleFormField(f.key, e.target.value)} style={{...fieldStyle,cursor:'pointer',color:form[f.key]?'#132033':'#94A3B8'}}>
-                      <option value="">Select...</option>
-                      {(f.source ? resolveFieldOptions(f.source, workspaceMode) : (f.options||[])).map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                  : <input type={f.type||'text'} value={form[f.key]||''} onChange={e => handleFormField(f.key, e.target.value)} placeholder={f.placeholder||''} style={fieldStyle}/>
+                : f.type === 'file'
+                  ? <div>
+                      <input type="file" id={'fpick-new-'+f.key} style={{display:'none'}} onChange={function(e) {
+                        var file = e.target.files && e.target.files[0];
+                        if (!file) return;
+                        var nameNoExt = file.name.replace(/\.[^.]+$/, '');
+                        var uploadedAt = new Date().toISOString();
+                        setForm(function(prev) {
+                          var next = Object.assign({}, prev, {
+                            filePick: file.name,
+                            fileName: file.name,
+                            fileType: file.type || '',
+                            fileSize: file.size || 0,
+                            fileLastModified: file.lastModified || 0,
+                            uploadedAt: uploadedAt,
+                          });
+                          if (!prev.name) next.name = nameNoExt;
+                          return next;
+                        });
+                      }}/>
+                      <label htmlFor={'fpick-new-'+f.key} style={{...fieldStyle,display:'flex',alignItems:'center',gap:8,cursor:'pointer',background:form.fileName?'#F6FEFC':'#FAFCFF',borderColor:form.fileName?'#99E6DA':'#DDE6F1',userSelect:'none'}}>
+                        <span style={{fontSize:16,flexShrink:0}}>📎</span>
+                        <span style={{fontSize:13,flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:form.fileName?'#132033':'#94A3B8'}}>{form.fileName || 'Choose file...'}</span>
+                        {form.fileName && <span style={{fontSize:11,color:'#0F766E',fontWeight:700,flexShrink:0}}>✓</span>}
+                      </label>
+                      {form.fileName && <div style={{marginTop:5,fontSize:11,color:'#64748B',display:'flex',gap:8,flexWrap:'wrap'}}>
+                        {form.fileType && <span>{form.fileType}</span>}
+                        {form.fileSize > 0 && <span>{fmtFileSize(form.fileSize)}</span>}
+                      </div>}
+                    </div>
+                  : f.type === 'select'
+                    ? <select value={form[f.key]||''} onChange={e => handleFormField(f.key, e.target.value)} style={{...fieldStyle,cursor:'pointer',color:form[f.key]?'#132033':'#94A3B8'}}>
+                        <option value="">Select...</option>
+                        {(f.source ? resolveFieldOptions(f.source, workspaceMode) : (f.options||[])).map(o => <option key={o} value={o}>{o}</option>)}
+                      </select>
+                    : <input type={f.type||'text'} value={form[f.key]||''} onChange={e => handleFormField(f.key, e.target.value)} placeholder={f.placeholder||''} style={fieldStyle}/>
             }
             {errors[f.key] && <span style={errStyle}>{errors[f.key]}</span>}
           </div>;
@@ -1408,14 +1468,44 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
               </label>
               {f.multi
                 ? <textarea value={attachDocForm[f.key]||''} onChange={function(e) { setAttachDocForm(function(p) { return Object.assign({},p,{[f.key]:e.target.value}); }); }} rows={3} style={{...fieldStyle,resize:'vertical'}}/>
-                : f.type === 'select'
-                  ? <select value={attachDocForm[f.key]||''} onChange={function(e) { setAttachDocForm(function(p) { return Object.assign({},p,{[f.key]:e.target.value}); }); }} style={{...fieldStyle,cursor:'pointer',color:attachDocForm[f.key]?'#132033':'#94A3B8'}}>
-                      <option value="">Select...</option>
-                      {(f.source ? resolveFieldOptions(f.source, workspaceMode) : (f.options||[])).map(function(o) { return <option key={o} value={o}>{o}</option>; })}
-                    </select>
-                  : f.type === 'date'
-                  ? <input type="date" value={attachDocForm[f.key]||''} onChange={function(e) { setAttachDocForm(function(p) { return Object.assign({},p,{[f.key]:e.target.value}); }); }} style={fieldStyle}/>
-                  : <input type="text" value={attachDocForm[f.key]||''} onChange={function(e) { setAttachDocForm(function(p) { return Object.assign({},p,{[f.key]:e.target.value}); }); }} style={fieldStyle}/>
+                : f.type === 'file'
+                  ? <div>
+                      <input type="file" id={'fpick-af-'+f.key} style={{display:'none'}} onChange={function(e) {
+                        var file = e.target.files && e.target.files[0];
+                        if (!file) return;
+                        var nameNoExt = file.name.replace(/\.[^.]+$/, '');
+                        var uploadedAt = new Date().toISOString();
+                        setAttachDocForm(function(p) {
+                          var next = Object.assign({}, p, {
+                            filePick: file.name,
+                            fileName: file.name,
+                            fileType: file.type || '',
+                            fileSize: file.size || 0,
+                            fileLastModified: file.lastModified || 0,
+                            uploadedAt: uploadedAt,
+                          });
+                          if (!p.name) next.name = nameNoExt;
+                          return next;
+                        });
+                      }}/>
+                      <label htmlFor={'fpick-af-'+f.key} style={{...fieldStyle,display:'flex',alignItems:'center',gap:8,cursor:'pointer',background:attachDocForm.fileName?'#F6FEFC':'#FAFCFF',borderColor:attachDocForm.fileName?'#99E6DA':'#DDE6F1',userSelect:'none'}}>
+                        <span style={{fontSize:16,flexShrink:0}}>📎</span>
+                        <span style={{fontSize:13,flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:attachDocForm.fileName?'#132033':'#94A3B8'}}>{attachDocForm.fileName || 'Choose file...'}</span>
+                        {attachDocForm.fileName && <span style={{fontSize:11,color:'#0F766E',fontWeight:700,flexShrink:0}}>✓</span>}
+                      </label>
+                      {attachDocForm.fileName && <div style={{marginTop:5,fontSize:11,color:'#64748B',display:'flex',gap:8,flexWrap:'wrap'}}>
+                        {attachDocForm.fileType && <span>{attachDocForm.fileType}</span>}
+                        {attachDocForm.fileSize > 0 && <span>{fmtFileSize(attachDocForm.fileSize)}</span>}
+                      </div>}
+                    </div>
+                  : f.type === 'select'
+                    ? <select value={attachDocForm[f.key]||''} onChange={function(e) { setAttachDocForm(function(p) { return Object.assign({},p,{[f.key]:e.target.value}); }); }} style={{...fieldStyle,cursor:'pointer',color:attachDocForm[f.key]?'#132033':'#94A3B8'}}>
+                        <option value="">Select...</option>
+                        {(f.source ? resolveFieldOptions(f.source, workspaceMode) : (f.options||[])).map(function(o) { return <option key={o} value={o}>{o}</option>; })}
+                      </select>
+                    : f.type === 'date'
+                    ? <input type="date" value={attachDocForm[f.key]||''} onChange={function(e) { setAttachDocForm(function(p) { return Object.assign({},p,{[f.key]:e.target.value}); }); }} style={fieldStyle}/>
+                    : <input type="text" value={attachDocForm[f.key]||''} onChange={function(e) { setAttachDocForm(function(p) { return Object.assign({},p,{[f.key]:e.target.value}); }); }} style={fieldStyle}/>
               }
               {attachDocErrors[f.key] && <span style={errStyle}>{attachDocErrors[f.key]}</span>}
             </div>;
@@ -1700,13 +1790,12 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
                       </div>
                       <div style={{display:'flex',flexWrap:'wrap',gap:6,alignItems:'center',marginBottom:6}}>
                         <span style={{fontSize:11,fontWeight:700,color:'#94A3B8',textTransform:'uppercase',letterSpacing:'.06em'}}>{doc.type}</span>
-                        {doc.requirement && <span style={{fontSize:11,color:'#64748B',background:'#F0F4F8',padding:'2px 6px',borderRadius:4}}>{doc.requirement}</span>}
-                        {doc.access && <span style={{fontSize:11,color:'#64748B',background:'#F0F4F8',padding:'2px 6px',borderRadius:4}}>{doc.access}</span>}
+                        {doc.fileName && <span style={{fontSize:11,color:'#0F766E',background:'#F0FDF4',padding:'2px 6px',borderRadius:4,fontWeight:600,maxWidth:180,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={doc.fileName}>📎 {doc.fileName}</span>}
+                        {doc.fileSize > 0 && <span style={{fontSize:11,color:'#64748B',background:'#F0F4F8',padding:'2px 6px',borderRadius:4}}>{fmtFileSize(doc.fileSize)}</span>}
                       </div>
                       <div style={{display:'flex',gap:12,fontSize:11,color:'#94A3B8'}}>
                         <span>By {doc.uploadedBy}</span>
                         <span>{doc.uploadDate}</span>
-                        {doc.fileRef && <span style={{color:'#0F766E',fontWeight:600}}>{doc.fileRef}</span>}
                         {doc.expirationDate && <span>Expires {doc.expirationDate}</span>}
                       </div>
                     </div>;

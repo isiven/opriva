@@ -1619,7 +1619,7 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
               <section style={{background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'}}>
                 <div style={{padding:'12px 14px',borderBottom:'1px solid #EEF2F7',background:'#FAFCFF'}}>
                   <h3 style={{margin:'0 0 4px',fontSize:14,color:'#0B1F3A',letterSpacing:'-.01em'}}>Relationships</h3>
-                  <p style={{margin:0,color:'#64748B',fontSize:12,lineHeight:1.45}}>Link contracts, licenses, hardware, support agreements or renewal bundles.</p>
+                  <p style={{margin:0,color:'#64748B',fontSize:12,lineHeight:1.45}}>Link records that belong to the same customer, package, renewal or operational context.</p>
                   <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:10}}>
                     <button style={detailActionBtn} title="Coming next">Link contract</button>
                     <button style={detailActionBtn} title="Coming next">Link license</button>
@@ -1636,13 +1636,13 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
                     <div style={{minWidth:0}}>
                       <h3 style={{margin:'0 0 4px',fontSize:14,color:'#0B1F3A',letterSpacing:'-.01em'}}>Support coverage</h3>
-                      <p style={{margin:0,color:'#64748B',fontSize:12,lineHeight:1.45}}>Create or link renewable support contracts, warranties, vendor support, managed support or SLA coverage related to this record.</p>
+                      <p style={{margin:0,color:'#64748B',fontSize:12,lineHeight:1.45}}>Create or link support, warranty, managed service or SLA coverage for this record.</p>
                     </div>
                     <button style={{...detailActionBtn,flexShrink:0}} title="Support coverage creation coming in record setup">Add support coverage</button>
                   </div>
                 </div>
                 <div style={{padding:'14px',display:'grid',gap:8}}>
-                  <span style={{color:'#64748B',fontSize:12,lineHeight:1.45}}>Support coverage will create or link a renewable support contract for this record.</span>
+                  <span style={{color:'#64748B',fontSize:12,lineHeight:1.45}}>No support coverage linked yet.</span>
                 </div>
               </section>}
             </div>

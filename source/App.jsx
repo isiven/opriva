@@ -1615,38 +1615,49 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
               })()}
             </div>
           : activeDetailTab === 'Relationships'
-          ? <div style={{flex:1,overflowY:'auto',padding:'16px 20px',display:'grid',gap:12,alignContent:'start'}}>
-              <section style={{background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'}}>
-                <div style={{padding:'12px 14px',borderBottom:'1px solid #EEF2F7',background:'#FAFCFF'}}>
-                  <h3 style={{margin:'0 0 4px',fontSize:14,color:'#0B1F3A',letterSpacing:'-.01em'}}>Relationships</h3>
-                  <p style={{margin:0,color:'#64748B',fontSize:12,lineHeight:1.45}}>{workspaceMode === 'Internal IT' ? 'Link records that belong to the same department, provider, renewal, budget or operational context.' : 'Link records that belong to the same customer, package, renewal or commercial context.'}</p>
-                  <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:10}}>
-                    <button style={detailActionBtn}>Link contract</button>
-                    <button style={detailActionBtn}>Link license</button>
-                    <button style={detailActionBtn}>Link hardware</button>
-                  </div>
-                </div>
-                <div style={{padding:'14px',display:'grid',gap:8}}>
-                  <strong style={{display:'block',color:'#132033',fontSize:13}}>No related records linked yet.</strong>
-                  <span style={{color:'#64748B',fontSize:12,lineHeight:1.45}}>Related records will appear here once contracts, assets or renewal bundles are linked to this record.</span>
-                </div>
-              </section>
-              {['licenses','hardware'].includes(selectedRecord.moduleKey) && <section style={{background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'}}>
-                <div style={{padding:'12px 14px',borderBottom:'1px solid #EEF2F7',background:'#FAFCFF'}}>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
-                    <div style={{minWidth:0}}>
-                      <h3 style={{margin:'0 0 4px',fontSize:14,color:'#0B1F3A',letterSpacing:'-.01em'}}>Support coverage</h3>
-                      <p style={{margin:0,color:'#64748B',fontSize:12,lineHeight:1.45}}>{workspaceMode === 'Internal IT' ? 'Create or link internal support, manufacturer support, maintenance agreement or SLA coverage for this record.' : 'Create or link support, warranty, managed service or SLA coverage for this record.'}</p>
+          ? (() => {
+              var mk = selectedRecord.moduleKey;
+              var isLicHw    = mk === 'licenses' || mk === 'hardware';
+              var isContract = mk === 'contracts';
+              var isDocument = mk === 'documents';
+              var relHelper  = isContract ? 'Connect this contract to the licenses, hardware, services or packages it covers.'
+                             : isDocument ? 'Connect this document to the record, package or items it supports.'
+                             : 'Connect this record to the items, contracts or packages that belong to the same renewal or operational context.';
+              var relButtons = isContract ? ['Link license','Link hardware','Link package']
+                             : isDocument ? ['Link record','Link package','Select covered records']
+                             : ['Link contract','Link related record','Link package'];
+              var relEmpty   = isContract ? 'No covered records linked yet.'
+                             : isDocument ? 'No linked records yet.'
+                             : 'No related records linked yet.';
+              return <div style={{flex:1,overflowY:'auto',padding:'16px 20px',display:'grid',gap:12,alignContent:'start'}}>
+                <section style={{background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'}}>
+                  <div style={{padding:'12px 14px',borderBottom:'1px solid #EEF2F7',background:'#FAFCFF'}}>
+                    <h3 style={{margin:'0 0 4px',fontSize:14,color:'#0B1F3A',letterSpacing:'-.01em'}}>Relationships</h3>
+                    <p style={{margin:0,color:'#64748B',fontSize:12,lineHeight:1.45}}>{relHelper}</p>
+                    <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:10}}>
+                      {relButtons.map(function(label) { return <button key={label} style={detailActionBtn}>{label}</button>; })}
                     </div>
-                    <button style={{...detailActionBtn,flexShrink:0}}>Add support coverage</button>
                   </div>
-                </div>
-                <div style={{padding:'14px',display:'grid',gap:6}}>
-                  <strong style={{display:'block',color:'#132033',fontSize:13}}>No linked support coverage record yet.</strong>
-                  <span style={{color:'#64748B',fontSize:12,lineHeight:1.45}}>Support coverage will appear here once a support, warranty or SLA record is linked.</span>
-                </div>
-              </section>}
-            </div>
+                  <div style={{padding:'14px'}}>
+                    <span style={{color:'#64748B',fontSize:12,lineHeight:1.45}}>{relEmpty}</span>
+                  </div>
+                </section>
+                {isLicHw && <section style={{background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'}}>
+                  <div style={{padding:'12px 14px',borderBottom:'1px solid #EEF2F7',background:'#FAFCFF'}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
+                      <div style={{minWidth:0}}>
+                        <h3 style={{margin:'0 0 4px',fontSize:14,color:'#0B1F3A',letterSpacing:'-.01em'}}>Support coverage</h3>
+                        <p style={{margin:0,color:'#64748B',fontSize:12,lineHeight:1.45}}>Track support, warranty, maintenance or SLA coverage linked to this record.</p>
+                      </div>
+                      <button style={{...detailActionBtn,flexShrink:0}}>Add support coverage</button>
+                    </div>
+                  </div>
+                  <div style={{padding:'14px'}}>
+                    <span style={{color:'#64748B',fontSize:12,lineHeight:1.45}}>No support coverage record linked yet.</span>
+                  </div>
+                </section>}
+              </div>;
+            })()
           : activeDetailTab === 'Documents'
           ? (() => {
               var linkedDocs = sessionDocs.filter(function(d) {

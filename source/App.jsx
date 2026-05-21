@@ -668,6 +668,12 @@ function toRecords(rows, moduleKey) {
   });
 }
 
+const DOC_TYPE_OPTIONS = [
+  'Vendor Quote','Client Proposal','Purchase Order','Invoice',
+  'License Entitlement','Signed Contract','Warranty Document',
+  'Support Evidence','Compliance Evidence','Legal Document','Other',
+];
+
 const NEW_RECORD_FIELDS = {
   Licenses: [
     { key: 'name',          label: 'License / Product',      required: true,  type: 'select', source: 'products' },
@@ -726,7 +732,7 @@ const NEW_RECORD_FIELDS = {
   Documents: [
     { key: 'filePick',   label: 'Attach file',          required: true, type: 'file' },
     { key: 'name',       label: 'Document Name',         required: true },
-    { key: 'type',       label: 'Document Type',         required: true, type: 'select', options: ['Vendor Quote','Client Proposal','Purchase Order','Invoice','License Entitlement','Signed Contract','Warranty Document','Support Evidence','Compliance Evidence','Legal Document','Other'] },
+    { key: 'type',       label: 'Document Type',         required: true, type: 'select', options: DOC_TYPE_OPTIONS },
     { key: 'uploadedBy', label: 'Uploaded by',           required: true, type: 'select', source: 'users' },
     { key: 'relatedRecord', label: 'Linked Record',      type: 'select', source: 'relatedContracts' },
     { key: 'client',     label: 'Client / Department',   type: 'select', source: 'clientDepartment' },
@@ -870,10 +876,34 @@ function fmtFileSize(bytes) {
   return (bytes / 1048576).toFixed(1) + ' MB';
 }
 
+function fmtUploadedAt(isoStr) {
+  if (!isoStr) return '';
+  try { return new Date(isoStr).toLocaleDateString('en-US', {year:'numeric',month:'long',day:'numeric'}); }
+  catch(e) { return isoStr.slice(0,10); }
+}
+
+function autoFillDocName(rawFileName) {
+  return rawFileName
+    .replace(/\.[^.]+$/, '')    // strip extension
+    .replace(/[_-]+/g, ' ')    // underscores / hyphens → spaces
+    .trim();
+}
+
+function extractFileMetadata(file) {
+  return {
+    filePick:         file.name,
+    fileName:         file.name,
+    fileType:         file.type || '',
+    fileSize:         file.size || 0,
+    fileLastModified: file.lastModified || 0,
+    uploadedAt:       new Date().toISOString(),
+  };
+}
+
 const ATTACH_DOC_FIELDS = [
   { key: 'filePick',   label: 'Attach file',    required: true, type: 'file' },
   { key: 'name',       label: 'Document Name',  required: true },
-  { key: 'type',       label: 'Document Type',  required: true, type: 'select', options: ['Vendor Quote','Client Proposal','Purchase Order','Invoice','License Entitlement','Signed Contract','Warranty Document','Support Evidence','Compliance Evidence','Legal Document','Other'] },
+  { key: 'type',       label: 'Document Type',  required: true, type: 'select', options: DOC_TYPE_OPTIONS },
   { key: 'uploadedBy', label: 'Uploaded By',    required: true, type: 'select', source: 'users' },
   { key: 'notes',      label: 'Notes',          multi: true },
 ];
@@ -1361,18 +1391,10 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
                       <input type="file" id={'fpick-new-'+f.key} style={{display:'none'}} onChange={function(e) {
                         var file = e.target.files && e.target.files[0];
                         if (!file) return;
-                        var nameNoExt = file.name.replace(/\.[^.]+$/, '');
-                        var uploadedAt = new Date().toISOString();
+                        var meta = extractFileMetadata(file);
                         setForm(function(prev) {
-                          var next = Object.assign({}, prev, {
-                            filePick: file.name,
-                            fileName: file.name,
-                            fileType: file.type || '',
-                            fileSize: file.size || 0,
-                            fileLastModified: file.lastModified || 0,
-                            uploadedAt: uploadedAt,
-                          });
-                          if (!prev.name) next.name = nameNoExt;
+                          var next = Object.assign({}, prev, meta);
+                          if (!prev.name) next.name = autoFillDocName(file.name);
                           return next;
                         });
                       }}/>
@@ -1381,9 +1403,8 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
                         <span style={{fontSize:13,flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:form.fileName?'#132033':'#94A3B8'}}>{form.fileName || 'Choose file...'}</span>
                         {form.fileName && <span style={{fontSize:11,color:'#0F766E',fontWeight:700,flexShrink:0}}>✓</span>}
                       </label>
-                      {form.fileName && <div style={{marginTop:5,fontSize:11,color:'#64748B',display:'flex',gap:8,flexWrap:'wrap'}}>
-                        {form.fileType && <span>{form.fileType}</span>}
-                        {form.fileSize > 0 && <span>{fmtFileSize(form.fileSize)}</span>}
+                      {form.fileName && <div style={{marginTop:5,fontSize:11,color:'#64748B'}}>
+                        {[form.fileName.split('.').pop().toUpperCase(), fmtFileSize(form.fileSize)].filter(Boolean).join(' · ')}
                       </div>}
                     </div>
                   : f.type === 'select'
@@ -1473,18 +1494,10 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
                       <input type="file" id={'fpick-af-'+f.key} style={{display:'none'}} onChange={function(e) {
                         var file = e.target.files && e.target.files[0];
                         if (!file) return;
-                        var nameNoExt = file.name.replace(/\.[^.]+$/, '');
-                        var uploadedAt = new Date().toISOString();
+                        var meta = extractFileMetadata(file);
                         setAttachDocForm(function(p) {
-                          var next = Object.assign({}, p, {
-                            filePick: file.name,
-                            fileName: file.name,
-                            fileType: file.type || '',
-                            fileSize: file.size || 0,
-                            fileLastModified: file.lastModified || 0,
-                            uploadedAt: uploadedAt,
-                          });
-                          if (!p.name) next.name = nameNoExt;
+                          var next = Object.assign({}, p, meta);
+                          if (!p.name) next.name = autoFillDocName(file.name);
                           return next;
                         });
                       }}/>
@@ -1493,9 +1506,8 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
                         <span style={{fontSize:13,flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:attachDocForm.fileName?'#132033':'#94A3B8'}}>{attachDocForm.fileName || 'Choose file...'}</span>
                         {attachDocForm.fileName && <span style={{fontSize:11,color:'#0F766E',fontWeight:700,flexShrink:0}}>✓</span>}
                       </label>
-                      {attachDocForm.fileName && <div style={{marginTop:5,fontSize:11,color:'#64748B',display:'flex',gap:8,flexWrap:'wrap'}}>
-                        {attachDocForm.fileType && <span>{attachDocForm.fileType}</span>}
-                        {attachDocForm.fileSize > 0 && <span>{fmtFileSize(attachDocForm.fileSize)}</span>}
+                      {attachDocForm.fileName && <div style={{marginTop:5,fontSize:11,color:'#64748B'}}>
+                        {[attachDocForm.fileName.split('.').pop().toUpperCase(), fmtFileSize(attachDocForm.fileSize)].filter(Boolean).join(' · ')}
                       </div>}
                     </div>
                   : f.type === 'select'
@@ -1784,18 +1796,21 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
                 </div>
                 <div style={{padding:'0 20px 16px',display:'flex',flexDirection:'column',gap:8}}>
                   {linkedDocs.map(function(doc) {
+                    var ext = doc.fileName ? doc.fileName.split('.').pop().toUpperCase() : '';
+                    var metaParts = [ext, fmtFileSize(doc.fileSize)].filter(Boolean);
+                    var dateLabel = doc.uploadedAt ? ('Uploaded ' + fmtUploadedAt(doc.uploadedAt)) : (doc.uploadDate ? ('Uploaded ' + doc.uploadDate) : '');
+                    if (dateLabel) metaParts.push(dateLabel);
                     return <div key={doc.id} style={{border:'1px solid #EEF2F7',borderRadius:12,padding:'12px 14px',background:'#FAFCFF'}}>
-                      <div style={{marginBottom:6}}>
+                      <div style={{marginBottom:4}}>
                         <strong style={{fontSize:13,color:'#132033',lineHeight:1.3,wordBreak:'break-word',display:'block'}}>{doc.name}</strong>
                       </div>
-                      <div style={{display:'flex',flexWrap:'wrap',gap:6,alignItems:'center',marginBottom:6}}>
-                        <span style={{fontSize:11,fontWeight:700,color:'#94A3B8',textTransform:'uppercase',letterSpacing:'.06em'}}>{doc.type}</span>
-                        {doc.fileName && <span style={{fontSize:11,color:'#0F766E',background:'#F0FDF4',padding:'2px 6px',borderRadius:4,fontWeight:600,maxWidth:180,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={doc.fileName}>📎 {doc.fileName}</span>}
-                        {doc.fileSize > 0 && <span style={{fontSize:11,color:'#64748B',background:'#F0F4F8',padding:'2px 6px',borderRadius:4}}>{fmtFileSize(doc.fileSize)}</span>}
+                      {doc.fileName && <div style={{fontSize:11,color:'#0F766E',fontWeight:600,marginBottom:4,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={doc.fileName}>📎 {doc.fileName}</div>}
+                      <div style={{display:'flex',flexWrap:'wrap',gap:6,alignItems:'center',marginBottom:4}}>
+                        {doc.type && <span style={{fontSize:11,fontWeight:700,color:'#94A3B8',textTransform:'uppercase',letterSpacing:'.06em'}}>{doc.type}</span>}
+                        {metaParts.length > 0 && <span style={{fontSize:11,color:'#64748B'}}>{metaParts.join(' · ')}</span>}
                       </div>
                       <div style={{display:'flex',gap:12,fontSize:11,color:'#94A3B8'}}>
-                        <span>By {doc.uploadedBy}</span>
-                        <span>{doc.uploadDate}</span>
+                        {doc.uploadedBy && <span>By {doc.uploadedBy}</span>}
                         {doc.expirationDate && <span>Expires {doc.expirationDate}</span>}
                       </div>
                     </div>;

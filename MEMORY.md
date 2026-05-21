@@ -182,7 +182,448 @@ Licenses must represent per-record license/product inventory. Brand / Provider /
 
 Contracts tracks counterparty obligations, notice periods, document evidence and approval blockers. In MSP / Integrator it surfaces client/provider contract risk and commercial renewal actions. In Internal IT it surfaces department/provider exposure, approval gaps and evidence requirements.
 
-## 15. Next Steps
+## 15. Core Record + Related Tabs + Workspace Policies Model
+
+This section documents the approved product architecture for record creation, related-tab management, document handling, license logic, renewal workflows, and the document policy model. Do not implement these decisions unless explicitly requested. This section is the authoritative product reference.
+
+---
+
+### 15.1 Core Record Creation
+
+Opriva follows a **core-record + related-tabs model**.
+
+Creation forms should remain minimal. They should only capture the required information needed to create the base record.
+
+The initial creation form must **not** include:
+- computed fields
+- analytics fields
+- relationship fields
+- document workflow fields
+- task fields
+- activity / history fields
+- renewal workflow stages
+- manually selected expiration statuses
+
+Relationships, documents, tasks, and activity should be managed **after record creation** through the record drawer tabs.
+
+The record drawer must include these tabs:
+1. **Overview** — summary, renewal/expiration, commercial fields, notes, record setup guidance
+2. **Relationships** — link contracts, licenses, hardware, support agreements
+3. **Documents** — attach and view evidence linked to this record
+4. **Tasks** — create and track follow-up actions for this record
+5. **Activity** — generated history, workflow events, audit trail
+
+---
+
+### 15.2 Fields That Should Not Be Manually Entered
+
+Opriva must not ask users to manually enter values that can be calculated, inherited, derived from policy, or generated from workflow actions.
+
+**Fields that must be calculated or derived — never user-entered:**
+
+| Field | Derived from |
+|---|---|
+| System Status | Expiration Date + Alert Policy |
+| Days to Expiration | Expiration Date vs today |
+| Alert Status | Alert Policy threshold |
+| Margin $ | Sale Price − Vendor Cost |
+| Margin % | Margin $ ÷ Sale Price |
+| Validity Status | Document policy + dates |
+| Evidence Gap | Document policy + attached docs |
+| Renewal Stage | Workflow events and actions |
+| Risk signals | Calculated — unless a clear override model is approved |
+
+These values should be calculated in the background and surfaced in:
+- tables
+- record drawer insights
+- dashboards
+- reports
+- Attention Center
+- AI summaries
+
+---
+
+### 15.3 License Record Logic
+
+A **License record** is not the same as a Renewal Opportunity or Renewal Workflow. The base License form tracks what is being managed, not how it will be renewed.
+
+**MSP / Integrator license creation form fields:**
+
+Required:
+- License / Product
+- Client
+- Expiration / Renewal Date
+- Renewal Owner
+- Alert Policy
+- Quantity / Seats
+- Distributor / Provider
+- Sale Price / Annual Value
+- Vendor Cost
+
+Optional:
+- Start Date
+- License Term
+- Notes
+
+**System calculates (never user-entered):**
+- Brand — from selected product
+- System Status — from Expiration Date + Alert Policy
+- Days to Expiration — from Expiration Date vs today
+- Margin $ — from Sale Price − Vendor Cost
+- Margin % — from Margin $ ÷ Sale Price
+
+**Internal IT license creation form fields:**
+
+Required:
+- License / Product
+- Department
+- Expiration / Renewal Date
+- IT Owner / Budget Owner
+- Alert Policy
+- Quantity / Seats
+- Provider
+- Annual Cost
+- Cost Center
+- Approval Status
+- Business Criticality
+
+Optional:
+- Notes
+
+**Internal IT must not show commercial resale margin fields:**
+- Sale Price (as a resale price)
+- Vendor Cost (as a resale cost)
+- Margin $
+- Margin %
+
+---
+
+### 15.4 Expiration Status Logic
+
+Expiration-related status must **not** be manually selected by the user.
+
+**User enters:**
+- Expiration / Renewal Date
+- Alert Policy
+
+**Opriva calculates:**
+
+| Condition | Status |
+|---|---|
+| No expiration date entered | Pending date |
+| Expiration date is in the past | Expired |
+| Inside alert window | Expiring soon |
+| Outside alert window | Active |
+
+---
+
+### 15.5 Renewal Workflow Logic
+
+**Renewal Stage must not appear in the initial License creation form.**
+
+Renewal Stage belongs to a future renewal workflow that is generated when the item enters its alert / renewal window.
+
+**Potential renewal workflow stages (future, not yet implemented):**
+- Not started
+- Quote needed
+- Quote requested
+- Proposal sent
+- Waiting for client
+- Approved
+- Renewed
+- Cancelled / Lost
+
+These stages must be driven by actions, tasks, documents, and workflow events — not manually selected during initial license creation.
+
+---
+
+### 15.6 Record Creation Flow
+
+The creation form should stay simple. The **post-creation flow** should allow users to complete the record immediately without restarting from scratch.
+
+**Approved flow:**
+1. Fill in core creation form
+2. Save record
+3. Automatically open the record drawer
+4. Show a **Record Setup / Complete Setup** section in the Overview tab
+5. Guide the user to complete the record through the correct tabs:
+   - Attach document → Documents tab
+   - Link contract / license / hardware / support → Relationships tab
+   - Create follow-up task → Tasks tab
+   - View generated history → Activity tab
+
+Contracts, documents, tasks, and workflow history must not be placed inside the initial creation form.
+
+---
+
+### 15.7 Document Management Model
+
+Opriva must not use one generic document status for all documents.
+
+Document logic must be governed by workspace-level policies, module policies, and document type policies.
+
+**A document may be:**
+- attached to one specific record
+- attached to a package / renewal bundle
+- linked to multiple specific records inside a package
+
+**Documents work in two contexts simultaneously:**
+- as global records in the **Documents module**
+- as attached evidence inside the **Documents tab** of any record drawer
+
+When a document is attached from a record drawer, it should eventually:
+- create a document record in the Documents module
+- link to `selectedRecord.moduleKey`
+- link to `selectedRecord.id`
+- store `linkedRecordName`
+- appear in the record's Documents tab
+- appear in the global Documents module
+
+---
+
+### 15.8 Attach Document MVP Form
+
+The MVP Attach Document form should be simple.
+
+**Required fields:**
+- Document Name
+- Document Type
+- Uploaded By
+
+**Optional fields (currently visible):**
+- File Name / Reference
+- Requirement
+- Access
+- Version
+- Effective Date
+- Expiration Date
+- Notes
+
+> **Note:** The approved minimal form (per product decision) should eventually show only the three required fields plus Notes in the basic view. The remaining optional fields (File Name / Reference, Requirement, Access, Version, Effective Date, Expiration Date) are candidates for an "Advanced / More options" section once the policy engine is in place. The current form exposes them while policies are not yet implemented.
+
+**Do not show in the basic Attach Document form:**
+- Status (generic)
+- Review Status
+- Signature Status
+- Validity Status
+- Missing Evidence
+
+These concepts must be handled by policies, inherited values, role permissions, document history, or future advanced settings.
+
+**Internal behavior:**
+- When a document is attached, `status` is set internally to `'Attached'`
+- This value is never shown in the form
+- Document state beyond "Attached" derives from policies and workflow, not manual selection
+
+---
+
+### 15.9 Document Type Taxonomy
+
+Vendor-issued license proof must be standardized under one document type:
+
+**`License Entitlement`**
+
+License Entitlement includes:
+- license certificates
+- entitlement documents
+- vendor licensing confirmations
+- software rights evidence
+- license keys / rights documents
+- similar vendor-issued proof of purchased software rights
+
+**Do not use separate selectable types for:**
+- License Certificate
+- Entitlement Document
+
+**Approved MVP document type list:**
+- Vendor Quote
+- Client Proposal
+- Purchase Order
+- Invoice
+- License Entitlement
+- Signed Contract
+- Warranty Document
+- Support Evidence
+- Compliance Evidence
+- Legal Document
+- Other
+
+> **Note:** Current implementation uses `Quote` and `Purchase Order`. `Vendor Quote` and `Client Proposal` are the approved direction and should replace `Quote` when the form is next updated.
+
+---
+
+### 15.10 Requirement Logic
+
+Requirement must **not** be manually selected every time a user attaches a document.
+
+Requirement must be determined by **document policies**, not manual user input.
+
+**Example policy for MSP / Renewal Package:**
+
+| Document Type | Requirement |
+|---|---|
+| Vendor Quote | Required |
+| Client Proposal | Required |
+| Purchase Order | Requested |
+| License Entitlement | Required |
+| Invoice | Optional |
+
+A document is only considered **missing** if:
+- a policy says it is Required, **and**
+- no document matching that requirement exists for the record
+
+If a document type is not required by policy, it must not be treated as missing.
+
+---
+
+### 15.11 Access Logic
+
+Access must **not** be manually selected in the basic Attach Document form.
+
+Document visibility must be controlled centrally by roles, permissions, workspace policies, and document type policies.
+
+**Default access by document type (reference):**
+
+| Document Type | Default visibility |
+|---|---|
+| Invoice | Finance / Admin |
+| Signed Contract | Legal / Admin / Manager |
+| Client Proposal | Sales / Manager |
+| License Entitlement | Sales / Support / Admin |
+| Compliance Evidence | Compliance / Security / Admin |
+
+Per-document access overrides are Phase 2 / admin-only advanced settings.
+
+---
+
+### 15.12 Version Logic
+
+Version must **not** be a standard visible field in the MVP Attach Document form.
+
+Opriva is not primarily a CRM-style document versioning system. The attached document generally represents the latest / current relevant version.
+
+If version tracking is needed, it must be handled through:
+- Activity
+- Document History
+- Advanced Document Management (Phase 2)
+
+---
+
+### 15.13 Document Date / Validity Logic
+
+Effective Date and Expiration Date must **not** appear as generic required fields in the basic Attach Document form.
+
+Document validity must be policy-driven.
+
+**A document may derive validity from:**
+
+| Document Type | Validity source |
+|---|---|
+| License Entitlement | Inherits from linked license record |
+| Warranty Document | Inherits from linked hardware warranty / support end date |
+| Signed Contract | Inherits or exposes contract start / end dates |
+| Vendor Quote | Own "Valid Until" date |
+| Invoice | No validity date needed |
+| Purchase Order | No validity date needed |
+| Compliance Evidence | Own expiration date |
+
+Only document types with independent validity should expose date fields, and only based on workspace-level document policy configuration.
+
+---
+
+### 15.14 Document Policies
+
+Opriva must support a **Document Policy engine** governing:
+- workspace
+- module
+- document type
+- record type
+- package type
+- role
+
+**A Document Policy should eventually define:**
+- Required? (yes / no / conditional)
+- Review required?
+- Approval required?
+- Signature required?
+- Has own validity date?
+- Inherits validity from linked record?
+- Default access level?
+- Applies to: record, package, or multiple records?
+
+This policy engine does not need to be implemented immediately. This section defines the correct product direction.
+
+---
+
+### 15.15 Package / Renewal Bundle Model
+
+Opriva must support the reality that many business transactions contain **multiple licenses, products, contracts, and documents**.
+
+Real deals frequently include multiple licenses or products under one proposal or renewal package. Vendors may issue one entitlement / licensing document with multiple pages or line items covering different licenses.
+
+**Opriva must support a parent grouping concept such as:**
+- Deal
+- Renewal Package
+- Bundle
+
+**A package can group:**
+- multiple licenses
+- hardware assets
+- support agreements
+- contracts
+- documents (quotes, invoices, purchase orders, entitlements)
+- tasks
+- activity events
+
+**Documents must be attachable to:**
+1. One specific record
+2. An entire package / renewal group
+3. Multiple selected records inside the same package
+
+Package / multi-record linking UI is Phase 2. The concept must be defined now so that the data model and document linking architecture does not need to be reconstructed later.
+
+---
+
+### 15.16 Custom Fields Roadmap
+
+Controlled custom fields are part of the **MVP roadmap**, but must be implemented only after core workspace-specific forms are stabilized.
+
+**MVP custom fields must allow admins to add fields per module with controlled types:**
+- text
+- number
+- date
+- dropdown
+- currency
+- checkbox
+- URL
+- long text
+
+**Custom fields must extend core modules but must not replace:**
+- required core fields
+- calculated fields
+- expiration logic
+- alert policies
+- relationship models
+- document policy logic
+
+**Phase 2 custom field capabilities:**
+- formulas
+- conditional fields
+- field-level permissions
+- workflow automation
+- AI interpretation of custom fields
+
+---
+
+### 15.17 Implementation Guidance
+
+Do not implement the decisions in this section immediately unless explicitly requested.
+
+These decisions document the **approved architecture and product direction**. Implementation happens in controlled phases with explicit approval per step.
+
+---
+
+## 16. Next Steps
 
 Safe Phase 1 candidates:
 
@@ -203,7 +644,32 @@ Later:
 
 - Plan a component split only after the current single-file prototype is stable and validated.
 
-## 16. Recent History
+---
+
+### MVP Roadmap (approved product decisions, not yet fully implemented)
+
+The following items are architecturally approved and should be implemented only when explicitly requested:
+
+- Core record + related-tabs model (Overview, Relationships, Documents, Tasks, Activity)
+- Workspace-specific creation forms (MSP vs Internal IT field sets per module)
+- Simple Attach Document form (Document Name, Document Type, Uploaded By + optional fields only)
+- License Entitlement document type standardization (replaces License Certificate + Entitlement Document)
+- RECORD_STORE / record identity foundation (module-level mutable store for cross-tab linking)
+- Package / Bundle / Renewal Bundle concept defined and documented
+- Controlled custom fields per module — after core workspace-specific forms stabilize
+
+### Phase 2 Roadmap (deferred, do not implement yet)
+
+- Full document policy engine (workspace → module → document type → record type → role)
+- Package / multi-record linking UI (attach documents to bundles or multiple records)
+- Document review / approval / signature workflow states
+- Advanced per-document access overrides
+- Document version history and activity-driven document audit trail
+- Activity-driven renewal workflow stages (Quote needed → Proposal sent → Approved → Renewed)
+- Custom field formulas, conditional fields, field-level permissions and workflow automation
+- Advanced custom logic and AI interpretation of custom fields
+
+## 17. Recent History
 
 - Repository cloned and inspected on branch `audit/opriva-healthcheck`.
 - `MEMORY.md` and `DESIGN.md` were not present before this documentation phase.
@@ -226,3 +692,7 @@ Later:
 - 2026-05-19: Enterprise Table Rule added. All major Opriva tables should support configurable columns, filters, saved views, bulk actions and export behavior. MVP may represent these controls visually while full persistence is deferred to Phase 2.
 - 2026-05-19: Hardware module added as a first-class sidebar route. Hardware tracks physical IT assets, serials, models, warranty end dates, support coverage, ownership, approval status and renewal actions across MSP / Integrator and Internal IT workspaces without changing runtime, layout, topbar, Floating AI or existing routes.
 - 2026-05-19: Licenses route corrected to render a true workspace-aware License Portfolio. MSP / Integrator now shows client license records with brand, distributor, value, margin and owner context. Internal IT now shows internal license records with brand, provider, department, approval status and owner context. Previous Brand Intelligence screens were preserved in code as Phase 2 candidates but disconnected from the Licenses route.
+- 2026-05-21: Tabbed record drawer implemented. RECORD_STORE established as module-level mutable store. Licenses creation form improved. Attach Document feature added to drawer Documents tab with sessionDocs state dual-written to RECORD_STORE.documents. normalizeDocumentRecords guard prevents document overwrite on DocumentsScreen mount. handleEditField, formatComputedField, and computed-field read-only guard added. Floating AI suppression injected when drawer is open.
+- 2026-05-21: Document type taxonomy standardized. "License Certificate" replaced by "License Entitlement" in ATTACH_DOC_FIELDS. License Entitlement covers vendor-issued license proof including certificates, entitlement docs, licensing confirmations, and software rights evidence.
+- 2026-05-21: Attach Document form simplified per approved document policy decision. Generic required "Status" field removed. Internal status defaults to 'Attached' on save. Two new optional date fields added: Effective Date and Expiration Date. Document card in drawer no longer shows a status Badge (always 'Attached' = no signal); expiration date is shown if entered.
+- 2026-05-21: Master BRIEF updated. Section 15 "Core Record + Related Tabs + Workspace Policies Model" added to MEMORY.md documenting 17 approved product architecture decisions covering: core record creation model, fields that must not be manually entered, License record logic (MSP vs Internal IT), expiration status logic, renewal workflow logic, record creation flow, document management model, Attach Document MVP form, document type taxonomy, requirement logic, access logic, version logic, document date/validity logic, document policy engine direction, package/renewal bundle model, custom fields roadmap, and implementation guidance. MVP and Phase 2 roadmap sections added to Next Steps. No application code modified.

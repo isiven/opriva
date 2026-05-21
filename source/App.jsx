@@ -1555,6 +1555,7 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
                   {[
                     ['Attach document','Documents'],
                     ['Link contract','Relationships'],
+                    ...(['licenses','hardware'].includes(selectedRecord.moduleKey) ? [['Add support coverage','Relationships']] : []),
                     ['Create task','Tasks'],
                     ['Add notes','Activity']
                   ].map(function(item) {
@@ -1630,6 +1631,20 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
                   <span style={{color:'#64748B',fontSize:12,lineHeight:1.45}}>Related records will appear here once contracts, assets or renewal bundles are linked to this record.</span>
                 </div>
               </section>
+              {['licenses','hardware'].includes(selectedRecord.moduleKey) && <section style={{background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'}}>
+                <div style={{padding:'12px 14px',borderBottom:'1px solid #EEF2F7',background:'#FAFCFF'}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
+                    <div style={{minWidth:0}}>
+                      <h3 style={{margin:'0 0 4px',fontSize:14,color:'#0B1F3A',letterSpacing:'-.01em'}}>Support coverage</h3>
+                      <p style={{margin:0,color:'#64748B',fontSize:12,lineHeight:1.45}}>Create or link renewable support contracts, warranties, vendor support, managed support or SLA coverage related to this record.</p>
+                    </div>
+                    <button style={{...detailActionBtn,flexShrink:0}} title="Support coverage creation coming in record setup">Add support coverage</button>
+                  </div>
+                </div>
+                <div style={{padding:'14px',display:'grid',gap:8}}>
+                  <span style={{color:'#64748B',fontSize:12,lineHeight:1.45}}>Support coverage will create or link a renewable support contract for this record.</span>
+                </div>
+              </section>}
             </div>
           : activeDetailTab === 'Documents'
           ? (() => {

@@ -865,16 +865,10 @@ function buildNewRow(form, safeColumns) {
 }
 
 const ATTACH_DOC_FIELDS = [
-  { key: 'name',           label: 'Document Name',         required: true },
-  { key: 'type',           label: 'Document Type',         required: true,  type: 'select', options: ['Quote','Purchase Order','Invoice','License Entitlement','Signed Contract','Warranty Document','Support Evidence','Compliance Evidence','Legal Document','Other'] },
-  { key: 'uploadedBy',     label: 'Uploaded By',           required: true,  type: 'select', source: 'users' },
-  { key: 'fileRef',        label: 'File Name / Reference' },
-  { key: 'requirement',    label: 'Requirement',           type: 'select',  options: ['Required','Optional','Requested'] },
-  { key: 'access',         label: 'Access',                type: 'select',  options: ['Internal','Restricted','Confidential','Public'] },
-  { key: 'version',        label: 'Version' },
-  { key: 'effectiveDate',  label: 'Effective Date',        type: 'date' },
-  { key: 'expirationDate', label: 'Expiration Date',       type: 'date' },
-  { key: 'notes',          label: 'Notes',                 multi: true },
+  { key: 'name',       label: 'Document Name',  required: true },
+  { key: 'type',       label: 'Document Type',  required: true, type: 'select', options: ['Quote','Purchase Order','Invoice','License Entitlement','Signed Contract','Warranty Document','Support Evidence','Compliance Evidence','Legal Document','Other'] },
+  { key: 'uploadedBy', label: 'Uploaded By',    required: true, type: 'select', source: 'users' },
+  { key: 'notes',      label: 'Notes',          multi: true },
 ];
 
 const FILTER_SPECS = {
@@ -1190,12 +1184,12 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
       uploadedBy:       attachDocForm.uploadedBy,
       uploadDate:       today,
       status:           'Attached',
-      requirement:      attachDocForm.requirement || '',
-      access:           attachDocForm.access || '',
-      version:          attachDocForm.version || '',
-      fileRef:          attachDocForm.fileRef || '',
-      effectiveDate:    attachDocForm.effectiveDate || '',
-      expirationDate:   attachDocForm.expirationDate || '',
+      requirement:      'Optional',
+      access:           'Internal',
+      version:          '',
+      fileRef:          '',
+      effectiveDate:    '',
+      expirationDate:   '',
       notes:            attachDocForm.notes || '',
     };
     RECORD_STORE.documents.push(doc);

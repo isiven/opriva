@@ -865,15 +865,16 @@ function buildNewRow(form, safeColumns) {
 }
 
 const ATTACH_DOC_FIELDS = [
-  { key: 'name',        label: 'Document Name',         required: true },
-  { key: 'type',        label: 'Document Type',         required: true,  type: 'select', options: ['Quote','Purchase Order','Invoice','License Entitlement','Signed Contract','Warranty Document','Support Evidence','Compliance Evidence','Legal Document','Other'] },
-  { key: 'status',      label: 'Status',                required: true,  type: 'select', options: ['Current','Pending review','Missing evidence','Expiring soon','Archived'] },
-  { key: 'uploadedBy',  label: 'Uploaded By',           required: true,  type: 'select', source: 'users' },
-  { key: 'fileRef',     label: 'File Name / Reference' },
-  { key: 'requirement', label: 'Requirement',           type: 'select',  options: ['Required','Optional','Requested'] },
-  { key: 'access',      label: 'Access',                type: 'select',  options: ['Internal','Restricted','Confidential','Public'] },
-  { key: 'version',     label: 'Version' },
-  { key: 'notes',       label: 'Notes',                 multi: true },
+  { key: 'name',           label: 'Document Name',         required: true },
+  { key: 'type',           label: 'Document Type',         required: true,  type: 'select', options: ['Quote','Purchase Order','Invoice','License Entitlement','Signed Contract','Warranty Document','Support Evidence','Compliance Evidence','Legal Document','Other'] },
+  { key: 'uploadedBy',     label: 'Uploaded By',           required: true,  type: 'select', source: 'users' },
+  { key: 'fileRef',        label: 'File Name / Reference' },
+  { key: 'requirement',    label: 'Requirement',           type: 'select',  options: ['Required','Optional','Requested'] },
+  { key: 'access',         label: 'Access',                type: 'select',  options: ['Internal','Restricted','Confidential','Public'] },
+  { key: 'version',        label: 'Version' },
+  { key: 'effectiveDate',  label: 'Effective Date',        type: 'date' },
+  { key: 'expirationDate', label: 'Expiration Date',       type: 'date' },
+  { key: 'notes',          label: 'Notes',                 multi: true },
 ];
 
 const FILTER_SPECS = {
@@ -1188,11 +1189,13 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
       linkedRecordName: selectedRecord.row[0] || '',
       uploadedBy:       attachDocForm.uploadedBy,
       uploadDate:       today,
-      status:           attachDocForm.status,
+      status:           'Attached',
       requirement:      attachDocForm.requirement || '',
       access:           attachDocForm.access || '',
       version:          attachDocForm.version || '',
       fileRef:          attachDocForm.fileRef || '',
+      effectiveDate:    attachDocForm.effectiveDate || '',
+      expirationDate:   attachDocForm.expirationDate || '',
       notes:            attachDocForm.notes || '',
     };
     RECORD_STORE.documents.push(doc);
@@ -1417,6 +1420,8 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
                       <option value="">Select...</option>
                       {(f.source ? resolveFieldOptions(f.source, workspaceMode) : (f.options||[])).map(function(o) { return <option key={o} value={o}>{o}</option>; })}
                     </select>
+                  : f.type === 'date'
+                  ? <input type="date" value={attachDocForm[f.key]||''} onChange={function(e) { setAttachDocForm(function(p) { return Object.assign({},p,{[f.key]:e.target.value}); }); }} style={fieldStyle}/>
                   : <input type="text" value={attachDocForm[f.key]||''} onChange={function(e) { setAttachDocForm(function(p) { return Object.assign({},p,{[f.key]:e.target.value}); }); }} style={fieldStyle}/>
               }
               {attachDocErrors[f.key] && <span style={errStyle}>{attachDocErrors[f.key]}</span>}
@@ -1670,9 +1675,8 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
                 <div style={{padding:'0 20px 16px',display:'flex',flexDirection:'column',gap:8}}>
                   {linkedDocs.map(function(doc) {
                     return <div key={doc.id} style={{border:'1px solid #EEF2F7',borderRadius:12,padding:'12px 14px',background:'#FAFCFF'}}>
-                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8,marginBottom:6}}>
-                        <strong style={{fontSize:13,color:'#132033',lineHeight:1.3,wordBreak:'break-word',flex:1}}>{doc.name}</strong>
-                        <Badge tone={doc.status}>{doc.status}</Badge>
+                      <div style={{marginBottom:6}}>
+                        <strong style={{fontSize:13,color:'#132033',lineHeight:1.3,wordBreak:'break-word',display:'block'}}>{doc.name}</strong>
                       </div>
                       <div style={{display:'flex',flexWrap:'wrap',gap:6,alignItems:'center',marginBottom:6}}>
                         <span style={{fontSize:11,fontWeight:700,color:'#94A3B8',textTransform:'uppercase',letterSpacing:'.06em'}}>{doc.type}</span>
@@ -1683,6 +1687,7 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
                         <span>By {doc.uploadedBy}</span>
                         <span>{doc.uploadDate}</span>
                         {doc.fileRef && <span style={{color:'#0F766E',fontWeight:600}}>{doc.fileRef}</span>}
+                        {doc.expirationDate && <span>Expires {doc.expirationDate}</span>}
                       </div>
                     </div>;
                   })}

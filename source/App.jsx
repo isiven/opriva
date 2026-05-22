@@ -668,6 +668,55 @@ function toRecords(rows, moduleKey) {
   });
 }
 
+// Returns the workspace-correct column array for any module.
+// Mirrors the column definitions in each Screen wrapper component exactly,
+// so rec.row[i] maps cleanly to cols[i] in openLinkedRecord.
+function getModuleColumns(moduleKey, workspaceMode) {
+  var isIT = workspaceMode === 'Internal IT';
+  if (moduleKey === 'licenses') return isIT
+    ? ['License / Product','Brand','Provider','Department','Quantity','Renewal','Value','Approval status','Owner','Status','Action']
+    : ['License / Product','Client','Brand','Distributor','Quantity','Renewal','Value','Margin','Owner','Status','Action'];
+  if (moduleKey === 'hardware') return isIT
+    ? ['Asset','Type','Brand','Model','Serial','Department','Provider','Warranty end','Approval status','Owner','Status','Risk','Action']
+    : ['Asset','Type','Client','Brand','Model','Serial','Warranty end','Support','Owner','Status','Risk','Action'];
+  if (moduleKey === 'contracts') return isIT
+    ? ['Contract','Type','Department','Provider','Owner','Document','Renewal','Notice','Approval status','Next action','Risk']
+    : ['Contract','Type','Client','Provider / Distributor','Owner','Document','Renewal','Notice','Legal status','Next action','Risk'];
+  if (moduleKey === 'documents') return isIT
+    ? ['Document','Type','Linked record','Department','Uploaded by','Version','Access','Requirement','Status']
+    : ['Document','Type','Linked record','Client','Uploaded by','Version','Access','Requirement','Status'];
+  return [];
+}
+
+// Returns the workspace-correct mock rows for any module.
+// Used to pre-seed RECORD_STORE when a module has never been visited.
+function getModuleMockRows(moduleKey, workspaceMode) {
+  var isIT = workspaceMode === 'Internal IT';
+  if (moduleKey === 'licenses')  return isIT ? licensesInternalIT  : licensesMsp;
+  if (moduleKey === 'hardware')  return isIT ? hardwareInternalIT  : hardwareMsp;
+  if (moduleKey === 'contracts') return isIT ? contractsInternalIT : contractsMsp;
+  if (moduleKey === 'documents') return isIT ? documentsInternalIT : documentsMsp;
+  return [];
+}
+
+// Returns the row index for the Client / Department column in a module's mock rows.
+function getModuleClientDeptIndex(moduleKey, workspaceMode) {
+  var isIT = workspaceMode === 'Internal IT';
+  if (moduleKey === 'licenses')  return isIT ? 3 : 1;
+  if (moduleKey === 'hardware')  return isIT ? 5 : 2;
+  if (moduleKey === 'contracts') return 2; // same index for both modes
+  if (moduleKey === 'documents') return 3; // same index for both modes
+  return -1;
+}
+
+// Ensures RECORD_STORE[moduleKey] is populated (loads mock rows if empty).
+// Called before any linked-record lookup to avoid false misses.
+function ensureModuleRecordsLoaded(moduleKey, workspaceMode) {
+  if (Array.isArray(RECORD_STORE[moduleKey]) && RECORD_STORE[moduleKey].length > 0) return;
+  var rows = getModuleMockRows(moduleKey, workspaceMode);
+  if (rows.length > 0) RECORD_STORE[moduleKey] = toRecords(rows, moduleKey);
+}
+
 const DOC_TYPE_OPTIONS = [
   'Vendor Quote','Client Proposal','Purchase Order','Invoice',
   'License Entitlement','Signed Contract','Warranty Document',
@@ -992,8 +1041,8 @@ const TASK_STATUS_OPTIONS   = ['Open','In progress','Waiting','Done'];
 
 function getTaskTypeOptions(workspaceMode) {
   return workspaceMode === 'Internal IT'
-    ? ['Approval follow-up','Budget review','Request provider quote','Upload evidence','Review renewal','Validate coverage','Other']
-    : ['Client follow-up','Request vendor quote','Send proposal','Review renewal','Upload evidence','Confirm purchase order','Other'];
+    ? ['Approval follow-up','Budget review','Request provider quote','Validate coverage','Upload evidence','Review renewal','Confirm internal owner','Escalate operational risk','Other']
+    : ['Client follow-up','Request vendor quote','Send proposal','Prepare renewal','Confirm purchase order','Upload evidence','Review support coverage','Escalate renewal risk','Other'];
 }
 
 function getSupportCoverageFields(workspaceMode) {
@@ -1535,11 +1584,36 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
       'Open task',
     ];
     task.sourceClientOrDepartment = clientOrDept || '';
+    // Snapshot the linked record's row + columns so the task drawer can always
+    // show the source record's details without relying on RECORD_STORE stability.
+    task.linkedRecordSnapshot = {
+      name:        task.sourceRecordName,
+      moduleKey:   task.sourceModule,
+      clientOrDept: task.sourceClientOrDepartment,
+      row:         selectedRecord.row,
+      columns:     selectedRecord.columns,
+    };
     RECORD_STORE.tasks.push({ id: task.id, row: taskRow, meta: task });
     setSessionTasks(function(prev) { return prev.concat([task]); });
     setTaskOpen(false);
     setTaskForm({});
     setTaskErrors({});
+  }
+
+  // Opens any linked record in this same drawer.
+  // Tries exact ID match first; falls back to row[0] name match so stale IDs
+  // (caused by RECORD_STORE re-initialisation on module mount) still resolve.
+  function openLinkedRecord(targetModuleKey, targetRecordId, fallbackName) {
+    ensureModuleRecordsLoaded(targetModuleKey, workspaceMode);
+    var storeArr = RECORD_STORE[targetModuleKey];
+    if (!Array.isArray(storeArr)) return;
+    var rec = storeArr.find(function(r) { return r.id === targetRecordId; })
+           || (fallbackName ? storeArr.find(function(r) { return r.row && r.row[0] === fallbackName; }) : null);
+    if (!rec) return;
+    var cols = getModuleColumns(targetModuleKey, workspaceMode);
+    setSelectedRecord({ id: rec.id, moduleKey: targetModuleKey, columns: cols, row: rec.row, localRowIndex: -1, meta: rec.meta || null });
+    setActiveDetailTab('Overview');
+    setDetailOpen(true);
   }
 
   function handleFormField(key, value) {
@@ -2019,7 +2093,7 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
           return <div style={{padding:'12px 16px 10px',borderBottom:'1px solid #EEF2F7',display:'grid',gap:7,flexShrink:0}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:10}}>
               <div style={{minWidth:0,flex:1}}>
-                <p style={{margin:'0 0 3px',color:'#0D9488',textTransform:'uppercase',fontSize:9.5,letterSpacing:'.14em',fontWeight:900,lineHeight:1}}>{module.toUpperCase()}</p>
+                <p style={{margin:'0 0 3px',color:'#0D9488',textTransform:'uppercase',fontSize:9.5,letterSpacing:'.14em',fontWeight:900,lineHeight:1}}>{(selectedRecord.moduleKey || module).toUpperCase()}</p>
                 <h2 style={{margin:0,color:'#0B1F3A',fontSize:16.5,letterSpacing:'-.015em',lineHeight:1.18,wordBreak:'break-word',fontWeight:800}}>{recordTitle}</h2>
               </div>
               <button style={{...closeBtn,width:26,height:26,borderRadius:7,fontSize:12,background:'#fff',borderColor:'#EEF2F7',color:'#94A3B8',boxShadow:'none'}} onClick={() => { setDetailOpen(false); setEditMode(false); }} aria-label="Close">x</button>
@@ -2195,6 +2269,11 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
                           {covMeta.alertPolicy && <span><span style={{color:'#94A3B8',fontWeight:700}}>Alert policy: </span>{covMeta.alertPolicy}</span>}
                           {covMeta.value && <span style={{gridColumn:'1 / -1'}}><span style={{color:'#94A3B8',fontWeight:700}}>{covMeta.workspaceMode === 'Internal IT' ? 'Annual cost: ' : 'Annual value: '}</span>{'$' + Number(covMeta.value).toLocaleString()}</span>}
                         </div>
+                        {covMeta.coveredModule && covMeta.coveredRecordId && (
+                          <div style={{borderTop:'1px solid #F1F5F9',paddingTop:8,marginTop:4}}>
+                            <button style={{...detailActionBtn,fontSize:12,padding:'5px 10px'}} onClick={function() { openLinkedRecord(covMeta.coveredModule, covMeta.coveredRecordId, covMeta.coveredRecordName); }}>Open covered record</button>
+                          </div>
+                        )}
                       </div>
                     </section>
                   : <section style={{background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'}}>
@@ -2240,6 +2319,9 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
                                 {cov.owner && <span><span style={{color:'#94A3B8',fontWeight:700}}>Coverage Owner: </span>{cov.owner}</span>}
                                 {cov.alertPolicy && <span><span style={{color:'#94A3B8',fontWeight:700}}>Alerts: </span>{cov.alertPolicy}</span>}
                                 {cov.value && <span style={{gridColumn:'1 / -1'}}><span style={{color:'#94A3B8',fontWeight:700}}>{workspaceMode === 'Internal IT' ? 'Annual Cost: ' : 'Annual Value: '}</span>{'$' + Number(cov.value).toLocaleString()}</span>}
+                              </div>
+                              <div style={{borderTop:'1px solid #F1F5F9',paddingTop:8,marginTop:2}}>
+                                <button style={{...detailActionBtn,fontSize:12,padding:'5px 10px'}} onClick={function() { openLinkedRecord('contracts', cov.id, cov.name); }}>Open contract</button>
                               </div>
                             </div>;
                           })
@@ -2382,7 +2464,9 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
                 <button onClick={() => setEditMode(false)}>Cancel</button>
               </>
             : <>
-                <button style={{...detailActionBtn,borderColor:'#0D9488',color:'#0D9488'}} onClick={() => { setEditForm(buildEditForm(selectedRecord, fieldSpecs)); setEditErrors({}); setEditMode(true); }}>Edit record</button>
+                {selectedRecord.moduleKey === moduleKey && (
+                  <button style={{...detailActionBtn,borderColor:'#0D9488',color:'#0D9488'}} onClick={() => { setEditForm(buildEditForm(selectedRecord, fieldSpecs)); setEditErrors({}); setEditMode(true); }}>Edit record</button>
+                )}
                 <button style={detailActionBtn} title="Assign owner - coming next">Assign owner</button>
               </>
           }
@@ -2506,6 +2590,138 @@ function DocumentsScreen({ workspaceMode = 'MSP / Integrator' }){
 
 function TasksScreen({ workspaceMode = 'MSP / Integrator' }){
   const isInternalIT = workspaceMode === 'Internal IT';
+
+  // ── Linked-record options for global New Task modal ──────────────────────
+  // Built from RECORD_STORE across all four modules (pre-seeded from mock rows
+  // if a module hasn't been visited yet).  Each option carries enough data to
+  // populate the full task meta without relying on RECORD_STORE stability later.
+  function buildLinkedRecordOptions() {
+    var modules = ['licenses','hardware','contracts','documents'];
+    var opts = [];
+    modules.forEach(function(mk) {
+      ensureModuleRecordsLoaded(mk, workspaceMode);
+      var cols = getModuleColumns(mk, workspaceMode);
+      var cdIdx = getModuleClientDeptIndex(mk, workspaceMode);
+      var recs = RECORD_STORE[mk] || [];
+      recs.forEach(function(rec) {
+        var name = (rec.row && rec.row[0]) || '';
+        if (!name || name === '-') return;
+        var clientOrDept = (cdIdx >= 0 && rec.row && rec.row[cdIdx]) || '';
+        if (clientOrDept === '-') clientOrDept = '';
+        var label = name
+          + ' · ' + (mk.charAt(0).toUpperCase() + mk.slice(1))
+          + (clientOrDept ? ' · ' + clientOrDept : '');
+        opts.push({ value: rec.id, label: label, moduleKey: mk, recordName: name, clientOrDept: clientOrDept, row: rec.row, columns: cols, meta: rec.meta || null });
+      });
+    });
+    return opts;
+  }
+
+  // ── Global New Task state ─────────────────────────────────────────────────
+  const [newTaskOpen, setNewTaskOpen] = React.useState(false);
+  const [newTaskForm, setNewTaskForm] = React.useState({});
+  const [newTaskErrors, setNewTaskErrors] = React.useState({});
+  const [linkedRecordOptions, setLinkedRecordOptions] = React.useState([]);
+
+  function openNewTaskModal() {
+    var opts = buildLinkedRecordOptions();
+    setLinkedRecordOptions(opts);
+    setNewTaskForm({ status: 'Open', priority: 'Medium' });
+    setNewTaskErrors({});
+    setNewTaskOpen(true);
+  }
+
+  function handleGlobalTaskSave() {
+    var errs = {};
+    if (!(newTaskForm.title      || '').trim()) errs.title      = 'Required';
+    if (!(newTaskForm.taskType   || '').trim()) errs.taskType   = 'Required';
+    if (!(newTaskForm.linkedRec  || '').trim()) errs.linkedRec  = 'Required';
+    if (!(newTaskForm.owner      || '').trim()) errs.owner      = 'Required';
+    if (!(newTaskForm.dueDate    || '').trim()) errs.dueDate    = 'Required';
+    if (!(newTaskForm.priority   || '').trim()) errs.priority   = 'Required';
+    if (!(newTaskForm.status     || '').trim()) errs.status     = 'Required';
+    if (Object.keys(errs).length) { setNewTaskErrors(errs); return; }
+
+    var opt = linkedRecordOptions.find(function(o) { return o.value === newTaskForm.linkedRec; });
+    if (!opt) { setNewTaskErrors({ linkedRec: 'Please select a linked record' }); return; }
+
+    var today = new Date().toISOString().slice(0, 10);
+    var task = {
+      id:                   'task-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
+      moduleKey:            'tasks',
+      source:               'userCreated',
+      title:                newTaskForm.title.trim(),
+      taskType:             newTaskForm.taskType,
+      owner:                newTaskForm.owner,
+      dueDate:              newTaskForm.dueDate,
+      priority:             newTaskForm.priority,
+      status:               newTaskForm.status,
+      notes:                newTaskForm.notes || '',
+      sourceModule:         opt.moduleKey,
+      sourceRecordId:       opt.value,
+      sourceRecordName:     opt.recordName,
+      sourceClientOrDepartment: opt.clientOrDept || '',
+      workspaceMode:        workspaceMode,
+      createdAt:            today,
+    };
+    // Snapshot the linked record so the task drawer can always render it,
+    // even if RECORD_STORE is reinitialised later.
+    task.linkedRecordSnapshot = {
+      name:        opt.recordName,
+      moduleKey:   opt.moduleKey,
+      clientOrDept: opt.clientOrDept || '',
+      row:         opt.row,
+      columns:     opt.columns,
+    };
+
+    var taskRow = [
+      task.title,
+      task.sourceClientOrDepartment || '-',
+      task.sourceRecordName || '-',
+      task.sourceModule,
+      task.taskType || '-',
+      task.owner,
+      task.priority,
+      task.dueDate,
+      task.status,
+      'Open task',
+    ];
+    RECORD_STORE.tasks.push({ id: task.id, row: taskRow, meta: task });
+    setNewTaskOpen(false);
+    setNewTaskForm({});
+    setNewTaskErrors({});
+  }
+
+  // ── Linked-record detail overlay (from task Relationships tab) ────────────
+  const [lrOverlayOpen, setLrOverlayOpen] = React.useState(false);
+  const [lrOverlayData, setLrOverlayData] = React.useState(null); // { row, columns, name, moduleKey, clientOrDept }
+
+  function openLinkedRecordOverlay(meta) {
+    if (!meta) return;
+    var snap = meta.linkedRecordSnapshot || null;
+    if (snap && snap.row && snap.columns) {
+      setLrOverlayData(snap);
+      setLrOverlayOpen(true);
+      return;
+    }
+    // Fallback: try RECORD_STORE lookup
+    var mk = meta.sourceModule;
+    if (!mk) return;
+    ensureModuleRecordsLoaded(mk, workspaceMode);
+    var recs = RECORD_STORE[mk] || [];
+    var rec = recs.find(function(r) { return r.id === meta.sourceRecordId; })
+           || recs.find(function(r) { return r.row && r.row[0] === meta.sourceRecordName; });
+    var cols = getModuleColumns(mk, workspaceMode);
+    setLrOverlayData({
+      name:        meta.sourceRecordName || '-',
+      moduleKey:   mk,
+      clientOrDept: meta.sourceClientOrDepartment || '',
+      row:         rec ? rec.row : [],
+      columns:     cols,
+    });
+    setLrOverlayOpen(true);
+  }
+
   const taskSubtitle = isInternalIT
     ? 'Manage renewal approvals, department ownership gaps, budget reviews and evidence requests across IT operations.'
     : workspaceMode === 'MSP / Integrator'
@@ -2583,9 +2799,21 @@ function TasksScreen({ workspaceMode = 'MSP / Integrator' }){
   const boardInternalIT = [['To do','Request Fortinet renewal quote','Infrastructure','Medium','Service continuity risk'],['In progress','Review endpoint security consolidation','IT Security','High','CIO approval blocked'],['Blocked','Submit CIO approval for Microsoft 365','Finance','High','$142,000 exposure']];
   const board = isInternalIT ? boardInternalIT : boardMsp;
 
+  // ── Shared style tokens ───────────────────────────────────────────────────
+  var tActionBtn  = { fontSize: 13, padding: '7px 12px', color: '#64748B', background: '#F8FAFC', borderColor: '#E5E7EB', cursor: 'pointer' };
+  var tFieldStyle = { width: '100%', border: '1px solid #DDE6F1', borderRadius: 10, padding: '10px 12px', fontSize: 14, fontFamily: 'inherit', outline: 0, background: '#FAFCFF', color: '#132033', boxSizing: 'border-box' };
+  var tErrStyle   = { color: '#DC2626', fontSize: 12, marginTop: 4, display: 'block' };
+  var tModalWrap  = { position: 'fixed', inset: 0, background: 'rgba(11,31,58,.42)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center' };
+  var tModalBox   = { background: '#fff', border: '1px solid #E5E7EB', borderRadius: 20, padding: 24, width: 540, maxWidth: 'calc(100vw - 32px)', maxHeight: 'calc(100vh - 64px)', overflowY: 'auto', boxShadow: '0 24px 80px rgba(11,31,58,.22)', display: 'grid', gap: 16 };
+  var tModalFoot  = { display: 'flex', gap: 10, justifyContent: 'flex-end', alignItems: 'center', paddingTop: 12, borderTop: '1px solid #EEF2F7' };
+  var tEyebrow    = { margin: '0 0 4px', color: '#0D9488', textTransform: 'uppercase', fontSize: 11, letterSpacing: '.14em', fontWeight: 900 };
+
+  var typeOpts = getTaskTypeOptions(workspaceMode);
+  var userOpts = resolveFieldOptions('users', workspaceMode);
+
   return <>
     <main className="content">
-      <ScreenHeader active="Tasks" subtitle={taskSubtitle}><button>Saved view</button><button className="primary">New task</button></ScreenHeader>
+      <ScreenHeader active="Tasks" subtitle={taskSubtitle}><button>Saved view</button><button className="primary" onClick={openNewTaskModal}>New task</button></ScreenHeader>
       <section className="panel">
         <div className="tabs"><button className="active">List view</button><button>Board view</button><button>My tasks</button><button>Overdue</button></div>
         <div className="toolbar"><input placeholder={taskPlaceholder}/><button>Bulk update</button><button>Group by owner</button><button>Configure columns</button><button>Advanced filters</button><button>AI summary</button></div>
@@ -2694,12 +2922,17 @@ function TasksScreen({ workspaceMode = 'MSP / Integrator' }){
               </div>
               <div style={{padding:'14px'}}>
                 {sourceRec
-                  ? <div style={{border:'1px solid #EEF2F7',borderRadius:10,padding:'12px 14px',background:'#FAFCFF',display:'grid',gap:6}}>
+                  ? <div style={{border:'1px solid #EEF2F7',borderRadius:10,padding:'12px 14px',background:'#FAFCFF',display:'grid',gap:8}}>
                       <strong style={{fontSize:13,color:'#132033',lineHeight:1.3,wordBreak:'break-word'}}>{sourceRec}</strong>
                       <div style={{display:'flex',flexWrap:'wrap',gap:6,alignItems:'center'}}>
                         {moduleLabel && <Badge tone={moduleLabel}>{moduleLabel}</Badge>}
                         {clientOrDept && <span style={{fontSize:12,color:'#64748B'}}>{clientOrDept}</span>}
                       </div>
+                      {meta && (meta.linkedRecordSnapshot || meta.sourceModule) && (
+                        <div style={{borderTop:'1px solid #F1F5F9',paddingTop:8,marginTop:2}}>
+                          <button style={{...tActionBtn,fontSize:12,padding:'5px 10px'}} onClick={function() { openLinkedRecordOverlay(meta); }}>Open linked record</button>
+                        </div>
+                      )}
                     </div>
                   : <div style={{padding:'4px 0'}}>
                       <span style={{fontSize:12,color:'#64748B'}}>No linked record information available for this task.</span>
@@ -2736,6 +2969,134 @@ function TasksScreen({ workspaceMode = 'MSP / Integrator' }){
         </div>
       </aside>
     </>}
+
+    {/* ── Linked-record detail overlay (opened from Relationships tab) ── */}
+    {lrOverlayOpen && lrOverlayData && (
+      <div style={{...tModalWrap, zIndex: 70}} onClick={function() { setLrOverlayOpen(false); }} role="dialog" aria-modal="true" aria-label="Linked record detail">
+        <div style={{...tModalBox, width: 500}} onClick={function(e) { e.stopPropagation(); }}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
+            <div>
+              <p style={tEyebrow}>{lrOverlayData.moduleKey}</p>
+              <h2 style={{margin:0,color:'#0B1F3A',fontSize:20,letterSpacing:'-.03em'}}>{lrOverlayData.name}</h2>
+              {lrOverlayData.clientOrDept && <p style={{margin:'4px 0 0',fontSize:12,color:'#64748B'}}>{lrOverlayData.clientOrDept}</p>}
+            </div>
+            <button style={tCloseBtn} onClick={function() { setLrOverlayOpen(false); }} aria-label="Close">x</button>
+          </div>
+          <div style={{display:'grid',gap:0,borderTop:'1px solid #F1F5F9',marginTop:4}}>
+            {(lrOverlayData.columns || []).map(function(col, i) {
+              var val = lrOverlayData.row && lrOverlayData.row[i] !== undefined ? lrOverlayData.row[i] : '';
+              if (!val || val === '-') return null;
+              return <div key={col} style={{display:'grid',gridTemplateColumns:'140px 1fr',gap:8,alignItems:'start',padding:'8px 0',borderBottom:'1px solid #F8FAFC'}}>
+                <span style={{fontSize:12,color:'#94A3B8',fontWeight:700,textTransform:'uppercase',letterSpacing:'.04em',lineHeight:1.4}}>{col}</span>
+                <span style={{fontSize:13,color:'#132033',lineHeight:1.4,wordBreak:'break-word'}}>{val}</span>
+              </div>;
+            })}
+            {(!lrOverlayData.row || lrOverlayData.row.length === 0) && (
+              <p style={{color:'#64748B',fontSize:13,margin:'12px 0 0'}}>No additional field data available for this record.</p>
+            )}
+          </div>
+          <div style={tModalFoot}>
+            <button onClick={function() { setLrOverlayOpen(false); }}>Close</button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* ── Global New Task modal ── */}
+    {newTaskOpen && (
+      <div style={tModalWrap} onClick={function() { setNewTaskOpen(false); }} role="dialog" aria-modal="true" aria-label="Create task">
+        <div style={tModalBox} onClick={function(e) { e.stopPropagation(); }}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
+            <div>
+              <p style={tEyebrow}>Tasks</p>
+              <h2 style={{margin:0,color:'#0B1F3A',fontSize:20,letterSpacing:'-.03em'}}>New task</h2>
+              <p style={{margin:'4px 0 0',fontSize:12,color:'#64748B',lineHeight:1.4}}>Create a task linked to a specific record. Tasks without a linked record cannot be tracked against renewal or operational context.</p>
+            </div>
+            <button style={tCloseBtn} onClick={function() { setNewTaskOpen(false); }} aria-label="Close">x</button>
+          </div>
+
+          {/* Required fields */}
+          <div style={{display:'grid',gap:12}}>
+            {[
+              { key:'title',    label:'Task title',  type:'text',   placeholder:'e.g. Request renewal quote from vendor' },
+            ].map(function(f) {
+              return <div key={f.key}>
+                <label style={{display:'block',marginBottom:5,fontSize:13,fontWeight:700,color:'#334155'}}>{f.label}<span style={{color:'#DC2626',marginLeft:3}}>*</span></label>
+                <input type="text" value={newTaskForm[f.key]||''} onChange={function(e) { setNewTaskForm(function(p) { return Object.assign({},p,{[f.key]:e.target.value}); }); }} style={tFieldStyle} placeholder={f.placeholder}/>
+                {newTaskErrors[f.key] && <span style={tErrStyle}>{newTaskErrors[f.key]}</span>}
+              </div>;
+            })}
+
+            <div>
+              <label style={{display:'block',marginBottom:5,fontSize:13,fontWeight:700,color:'#334155'}}>Task type<span style={{color:'#DC2626',marginLeft:3}}>*</span></label>
+              <select value={newTaskForm.taskType||''} onChange={function(e) { setNewTaskForm(function(p) { return Object.assign({},p,{taskType:e.target.value}); }); }} style={{...tFieldStyle,cursor:'pointer',color:newTaskForm.taskType?'#132033':'#94A3B8'}}>
+                <option value="">Select type...</option>
+                {typeOpts.map(function(o) { return <option key={o} value={o}>{o}</option>; })}
+              </select>
+              {newTaskErrors.taskType && <span style={tErrStyle}>{newTaskErrors.taskType}</span>}
+            </div>
+
+            <div>
+              <label style={{display:'block',marginBottom:5,fontSize:13,fontWeight:700,color:'#334155'}}>Linked record<span style={{color:'#DC2626',marginLeft:3}}>*</span></label>
+              <select value={newTaskForm.linkedRec||''} onChange={function(e) { setNewTaskForm(function(p) { return Object.assign({},p,{linkedRec:e.target.value}); }); }} style={{...tFieldStyle,cursor:'pointer',color:newTaskForm.linkedRec?'#132033':'#94A3B8'}}>
+                <option value="">Select record...</option>
+                {linkedRecordOptions.map(function(o) { return <option key={o.value} value={o.value}>{o.label}</option>; })}
+              </select>
+              {newTaskErrors.linkedRec && <span style={tErrStyle}>{newTaskErrors.linkedRec}</span>}
+            </div>
+
+            <div>
+              <label style={{display:'block',marginBottom:5,fontSize:13,fontWeight:700,color:'#334155'}}>Owner<span style={{color:'#DC2626',marginLeft:3}}>*</span></label>
+              <select value={newTaskForm.owner||''} onChange={function(e) { setNewTaskForm(function(p) { return Object.assign({},p,{owner:e.target.value}); }); }} style={{...tFieldStyle,cursor:'pointer',color:newTaskForm.owner?'#132033':'#94A3B8'}}>
+                <option value="">Select owner...</option>
+                {userOpts.map(function(o) { return <option key={o} value={o}>{o}</option>; })}
+              </select>
+              {newTaskErrors.owner && <span style={tErrStyle}>{newTaskErrors.owner}</span>}
+            </div>
+          </div>
+
+          {/* Second row: Due date, Priority, Status */}
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+            <div>
+              <label style={{display:'block',marginBottom:5,fontSize:13,fontWeight:700,color:'#334155'}}>Due date<span style={{color:'#DC2626',marginLeft:3}}>*</span></label>
+              <input type="date" value={newTaskForm.dueDate||''} onChange={function(e) { setNewTaskForm(function(p) { return Object.assign({},p,{dueDate:e.target.value}); }); }} style={tFieldStyle}/>
+              {newTaskErrors.dueDate && <span style={tErrStyle}>{newTaskErrors.dueDate}</span>}
+            </div>
+            <div>
+              <label style={{display:'block',marginBottom:5,fontSize:13,fontWeight:700,color:'#334155'}}>Priority<span style={{color:'#DC2626',marginLeft:3}}>*</span></label>
+              <select value={newTaskForm.priority||''} onChange={function(e) { setNewTaskForm(function(p) { return Object.assign({},p,{priority:e.target.value}); }); }} style={{...tFieldStyle,cursor:'pointer',color:newTaskForm.priority?'#132033':'#94A3B8'}}>
+                <option value="">Select...</option>
+                {TASK_PRIORITY_OPTIONS.map(function(o) { return <option key={o} value={o}>{o}</option>; })}
+              </select>
+              {newTaskErrors.priority && <span style={tErrStyle}>{newTaskErrors.priority}</span>}
+            </div>
+            <div>
+              <label style={{display:'block',marginBottom:5,fontSize:13,fontWeight:700,color:'#334155'}}>Status<span style={{color:'#DC2626',marginLeft:3}}>*</span></label>
+              <select value={newTaskForm.status||''} onChange={function(e) { setNewTaskForm(function(p) { return Object.assign({},p,{status:e.target.value}); }); }} style={{...tFieldStyle,cursor:'pointer',color:newTaskForm.status?'#132033':'#94A3B8'}}>
+                <option value="">Select...</option>
+                {TASK_STATUS_OPTIONS.map(function(o) { return <option key={o} value={o}>{o}</option>; })}
+              </select>
+              {newTaskErrors.status && <span style={tErrStyle}>{newTaskErrors.status}</span>}
+            </div>
+          </div>
+
+          {/* Optional: Notes */}
+          <div style={{display:'flex',alignItems:'center',gap:8,margin:'0 0 -8px'}}>
+            <span style={{fontSize:11,fontWeight:800,color:'#94A3B8',letterSpacing:'.1em',textTransform:'uppercase',flexShrink:0}}>Optional</span>
+            <div style={{flex:1,height:1,background:'#EEF2F7'}}/>
+          </div>
+          <div>
+            <label style={{display:'block',marginBottom:5,fontSize:13,fontWeight:700,color:'#334155'}}>Notes</label>
+            <textarea value={newTaskForm.notes||''} onChange={function(e) { setNewTaskForm(function(p) { return Object.assign({},p,{notes:e.target.value}); }); }} rows={3} style={{...tFieldStyle,resize:'vertical'}} placeholder="Context, links or impact notes…"/>
+          </div>
+
+          <div style={tModalFoot}>
+            <button onClick={function() { setNewTaskOpen(false); }}>Cancel</button>
+            <button className="primary" onClick={handleGlobalTaskSave}>Save task</button>
+          </div>
+        </div>
+      </div>
+    )}
   </>;
 }
 

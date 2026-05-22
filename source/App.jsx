@@ -1339,7 +1339,7 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
   }
 
   return <main className="content">
-    <ScreenHeader active={active} subtitle={note}><button>Bulk actions</button><button onClick={() => setConfigOpen(true)}>Configure columns</button><button className="primary" onClick={openNew}>{module === 'Documents' ? 'Add document' : 'New record'}</button></ScreenHeader>
+    <ScreenHeader active={active} subtitle={note}><button>Bulk actions</button><button onClick={() => setConfigOpen(true)}>Configure columns</button><button className="primary" onClick={openNew}>{module === 'Documents' ? 'Upload document' : 'New record'}</button></ScreenHeader>
     <AiInsightBar active={active}/>
 
     {configOpen && <div style={modalWrap} onClick={() => setConfigOpen(false)} role="dialog" aria-modal="true" aria-label="Configure columns">
@@ -1370,7 +1370,11 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
     {newOpen && <div style={modalWrap} onClick={() => setNewOpen(false)} role="dialog" aria-modal="true" aria-label={'New ' + module + ' record'}>
       <div style={modalBox(520)} onClick={e => e.stopPropagation()}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
-          <div><p style={eyebrow}>{module}</p><h2 style={modalH2}>{module === 'Documents' ? 'Add document' : 'New record'}</h2></div>
+          <div>
+            <p style={eyebrow}>{module}</p>
+            <h2 style={modalH2}>{module === 'Documents' ? 'Upload document' : 'New record'}</h2>
+            {module === 'Documents' && <p style={{margin:'4px 0 0',fontSize:12,color:'#64748B',lineHeight:1.45}}>Upload a document to the vault. You can link it to a record now or later.</p>}
+          </div>
           <button style={closeBtn} onClick={() => setNewOpen(false)} aria-label="Close">x</button>
         </div>
         {(() => {

@@ -2561,8 +2561,7 @@ function TasksScreen({ workspaceMode = 'MSP / Integrator' }){
   }
 
   // Style constants — local copies matching OperationalList values
-  var tCloseBtnBase = { border: '1px solid #E5E7EB', background: '#F8FAFC', color: '#64748B', fontSize: 16, width: 32, height: 32, borderRadius: 8, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 };
-  var tCloseBtn = Object.assign({}, tCloseBtnBase, { width: 26, height: 26, borderRadius: 7, fontSize: 12, background: '#fff', borderColor: '#EEF2F7', color: '#94A3B8', boxShadow: 'none' });
+  var tCloseBtn = { border: '1px solid #EEF2F7', background: '#fff', color: '#94A3B8', fontSize: 12, width: 26, height: 26, borderRadius: 7, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, boxShadow: 'none' };
 
   function tPriorityColor(p) {
     if (p === 'Critical') return '#DC2626';
@@ -2571,11 +2570,11 @@ function TasksScreen({ workspaceMode = 'MSP / Integrator' }){
     return '#64748B';
   }
 
-  // Renders a label/value row in the task details card
+  // Renders a label / value row inside the details card
   function tField(label, value) {
     if (!value || value === '-') return null;
-    return <div key={label} style={{display:'grid',gridTemplateColumns:'130px 1fr',gap:8,alignItems:'start',padding:'7px 0',borderBottom:'1px solid #F1F5F9'}}>
-      <span style={{fontSize:12,color:'#64748B',fontWeight:600,lineHeight:1.4}}>{label}</span>
+    return <div key={label} style={{display:'grid',gridTemplateColumns:'130px 1fr',gap:8,alignItems:'start',padding:'8px 0',borderBottom:'1px solid #F1F5F9'}}>
+      <span style={{fontSize:12,color:'#94A3B8',fontWeight:700,lineHeight:1.4,textTransform:'uppercase',letterSpacing:'.04em'}}>{label}</span>
       <span style={{fontSize:13,color:'#132033',lineHeight:1.4,wordBreak:'break-word'}}>{value}</span>
     </div>;
   }
@@ -2600,17 +2599,20 @@ function TasksScreen({ workspaceMode = 'MSP / Integrator' }){
       <div style={{position:'fixed',inset:0,background:'rgba(11,31,58,.18)',zIndex:48}} onClick={function() { setDetailOpen(false); }} aria-hidden="true"/>
       <aside role="dialog" aria-modal="true" aria-label="Task detail" style={{position:'fixed',right:0,top:0,bottom:0,width:'min(440px,100vw)',background:'#fff',borderLeft:'1px solid #E5E7EB',boxShadow:'-8px 0 40px rgba(11,31,58,.16)',zIndex:49,display:'flex',flexDirection:'column',overflow:'hidden'}}>
 
-        {/* Header */}
+        {/* ── Header ── */}
         {(() => {
-          var meta = selectedTask.meta;
-          var row  = selectedTask.row;
-          var title        = (meta && meta.title)    || row[0] || 'Task';
+          var meta         = selectedTask.meta;
+          var row          = selectedTask.row;
+          var title        = (meta && meta.title)                    || row[0] || 'Task';
           var clientOrDept = (meta && meta.sourceClientOrDepartment) || row[1] || '';
-          var sourceRec    = (meta && meta.sourceRecordName) || row[2] || '';
+          var sourceRec    = (meta && meta.sourceRecordName)         || row[2] || '';
           var priority     = (meta && meta.priority) || row[6] || '';
+          var dueDate      = (meta && meta.dueDate)  || row[7] || '';
+          var owner        = (meta && meta.owner)    || row[5] || '';
           var status       = (meta && meta.status)   || row[8] || '';
-          var ctxParts     = [clientOrDept, sourceRec ? 'Linked to ' + sourceRec : ''].filter(Boolean);
-          return <div style={{padding:'12px 16px 10px',borderBottom:'1px solid #EEF2F7',display:'grid',gap:7,flexShrink:0}}>
+          // Context line: "Banisi · Linked to Trend Micro Vision One"
+          var ctxParts = [clientOrDept, sourceRec ? 'Linked to ' + sourceRec : ''].filter(Boolean);
+          return <div style={{padding:'12px 16px 10px',borderBottom:'1px solid #EEF2F7',display:'grid',gap:6,flexShrink:0}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:10}}>
               <div style={{minWidth:0,flex:1}}>
                 <p style={{margin:'0 0 3px',color:'#0D9488',textTransform:'uppercase',fontSize:9.5,letterSpacing:'.14em',fontWeight:900,lineHeight:1}}>TASK</p>
@@ -2618,85 +2620,119 @@ function TasksScreen({ workspaceMode = 'MSP / Integrator' }){
               </div>
               <button style={tCloseBtn} onClick={function() { setDetailOpen(false); }} aria-label="Close">x</button>
             </div>
-            {ctxParts.length > 0 && <div style={{color:'#64748B',fontSize:12,lineHeight:1.35,wordBreak:'break-word'}}>{ctxParts.join(' · ')}</div>}
-            {(status || priority) && <div style={{display:'flex',flexWrap:'wrap',gap:6,alignItems:'center'}}>
+            {ctxParts.length > 0 && (
+              <div style={{color:'#64748B',fontSize:12,lineHeight:1.35,wordBreak:'break-word'}}>{ctxParts.join(' · ')}</div>
+            )}
+            <div style={{display:'flex',flexWrap:'wrap',gap:6,alignItems:'center',color:'#64748B',fontSize:11.5,lineHeight:1.2}}>
               {status   && <Badge tone={status}>{status}</Badge>}
               {priority && <span style={{fontSize:11,fontWeight:700,color:tPriorityColor(priority),textTransform:'uppercase',letterSpacing:'.05em'}}>{priority}</span>}
-            </div>}
+              {dueDate  && <span>Due {dueDate}</span>}
+              {owner    && <span>· {owner}</span>}
+            </div>
           </div>;
         })()}
 
-        {/* Tab bar */}
+        {/* ── Tab bar ── */}
         <div style={{display:'flex',borderBottom:'1px solid #EEF2F7',flexShrink:0,overflowX:'auto',padding:'0 12px'}}>
-          {['Overview','Relationships'].map(function(tab) {
+          {['Overview','Relationships','Documents','Activity'].map(function(tab) {
             var isA = activeTab === tab;
-            return <button key={tab} onClick={function() { setActiveTab(tab); }} style={{padding:'7px 8px 6px',fontSize:11,fontWeight:isA?800:650,color:isA?'#0D9488':'#64748B',background:'transparent',border:'none',borderBottom:isA?'2px solid #0D9488':'2px solid transparent',cursor:'pointer',flexShrink:0,fontFamily:'inherit',whiteSpace:'nowrap',marginBottom:-1,lineHeight:1,letterSpacing:0}}>
+            return <button key={tab} onClick={function() { setActiveTab(tab); }} style={{padding:'7px 8px 6px',fontSize:11,fontWeight:isA?800:600,color:isA?'#0D9488':'#64748B',background:'transparent',border:'none',borderBottom:isA?'2px solid #0D9488':'2px solid transparent',cursor:'pointer',flexShrink:0,fontFamily:'inherit',whiteSpace:'nowrap',marginBottom:-1,lineHeight:1,letterSpacing:0}}>
               {tab}
             </button>;
           })}
         </div>
 
-        {/* Tab body */}
+        {/* ── Tab body ── */}
         <div style={{flex:1,overflowY:'auto',padding:'16px 20px',display:'grid',gap:12,alignContent:'start'}}>
-          {activeTab === 'Overview'
-            ? (() => {
-                var meta = selectedTask.meta;
-                var row  = selectedTask.row;
-                var title        = (meta && meta.title)                    || row[0] || '-';
-                var clientOrDept = (meta && meta.sourceClientOrDepartment) || row[1] || '-';
-                var sourceRec    = (meta && meta.sourceRecordName)         || row[2] || '-';
-                var sourceModule = (meta && meta.sourceModule)             || row[3] || '-';
-                var impact       = row[4] || '-';
-                var owner        = (meta && meta.owner)    || row[5] || '-';
-                var priority     = (meta && meta.priority) || row[6] || '-';
-                var dueDate      = (meta && meta.dueDate)  || row[7] || '-';
-                var status       = (meta && meta.status)   || row[8] || '-';
-                var taskType     = (meta && meta.taskType) || '-';
-                var notes        = (meta && meta.notes)    || '';
-                return <section style={{background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'}}>
-                  <div style={{padding:'12px 14px',borderBottom:'1px solid #EEF2F7',background:'#FAFCFF'}}>
-                    <h3 style={{margin:0,fontSize:14,color:'#0B1F3A',letterSpacing:'-.01em'}}>Task details</h3>
-                  </div>
-                  <div style={{padding:'8px 14px 12px'}}>
-                    {tField('Title', title)}
-                    {tField('Task type', taskType !== '-' ? taskType : impact)}
-                    {tField('Owner', owner)}
-                    {tField('Due date', dueDate)}
-                    {tField('Priority', priority)}
-                    {tField('Status', status)}
-                    {tField('Linked record', sourceRec)}
-                    {tField('Source module', sourceModule)}
-                    {tField(isInternalIT ? 'Department' : 'Client', clientOrDept)}
-                    {notes && tField('Notes', notes)}
-                  </div>
-                </section>;
-              })()
-            : (() => {
-                var meta = selectedTask.meta;
-                var row  = selectedTask.row;
-                var sourceRec    = (meta && meta.sourceRecordName)         || row[2] || null;
-                var sourceModule = (meta && meta.sourceModule)             || row[3] || null;
-                var clientOrDept = (meta && meta.sourceClientOrDepartment) || row[1] || null;
-                return <section style={{background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'}}>
-                  <div style={{padding:'12px 14px',borderBottom:'1px solid #EEF2F7',background:'#FAFCFF'}}>
-                    <h3 style={{margin:'0 0 2px',fontSize:14,color:'#0B1F3A',letterSpacing:'-.01em'}}>Linked record</h3>
-                    <p style={{margin:0,color:'#64748B',fontSize:12,lineHeight:1.45}}>The record this task was created from.</p>
-                  </div>
-                  <div style={{padding:'14px'}}>
-                    {sourceRec
-                      ? <div style={{border:'1px solid #EEF2F7',borderRadius:10,padding:'11px 13px',background:'#FAFCFF'}}>
-                          <strong style={{display:'block',fontSize:13,color:'#132033',marginBottom:4}}>{sourceRec}</strong>
-                          <div style={{display:'flex',flexWrap:'wrap',gap:8,fontSize:12,color:'#64748B'}}>
-                            {sourceModule && <span style={{textTransform:'capitalize'}}>{sourceModule}</span>}
-                            {clientOrDept && <span>· {clientOrDept}</span>}
-                          </div>
-                        </div>
-                      : <span style={{fontSize:12,color:'#64748B'}}>No linked record information available for this task.</span>
-                    }
-                  </div>
-                </section>;
-              })()
-          }
+
+          {activeTab === 'Overview' && (() => {
+            var meta         = selectedTask.meta;
+            var row          = selectedTask.row;
+            var taskType     = (meta && meta.taskType)                 || row[4] || '-';
+            var status       = (meta && meta.status)                   || row[8] || '-';
+            var priority     = (meta && meta.priority)                 || row[6] || '-';
+            var dueDate      = (meta && meta.dueDate)                  || row[7] || '-';
+            var owner        = (meta && meta.owner)                    || row[5] || '-';
+            var sourceRec    = (meta && meta.sourceRecordName)         || row[2] || '-';
+            var sourceModule = (meta && meta.sourceModule)             || '-';
+            var clientOrDept = (meta && meta.sourceClientOrDepartment) || row[1] || '-';
+            var notes        = (meta && meta.notes)                    || '';
+            var clientLabel  = isInternalIT ? 'Department' : 'Client';
+            return <section style={{background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'}}>
+              <div style={{padding:'12px 14px',borderBottom:'1px solid #EEF2F7',background:'#FAFCFF'}}>
+                <h3 style={{margin:0,fontSize:14,color:'#0B1F3A',letterSpacing:'-.01em'}}>Task details</h3>
+              </div>
+              <div style={{padding:'4px 14px 12px'}}>
+                {tField('Task type', taskType)}
+                {tField('Status', status)}
+                {tField('Priority', priority)}
+                {tField('Due date', dueDate)}
+                {tField('Owner', owner)}
+                {tField('Linked record', sourceRec)}
+                {sourceModule !== '-' && tField('Source module', sourceModule)}
+                {clientOrDept !== '-' && tField(clientLabel, clientOrDept)}
+                {notes && tField('Notes', notes)}
+              </div>
+            </section>;
+          })()}
+
+          {activeTab === 'Relationships' && (() => {
+            var meta         = selectedTask.meta;
+            var row          = selectedTask.row;
+            // For session tasks use meta; for mock tasks fall back to row columns
+            var sourceRec    = (meta && meta.sourceRecordName)         || row[2] || null;
+            var sourceModule = (meta && meta.sourceModule)             || null;
+            var clientOrDept = (meta && meta.sourceClientOrDepartment) || row[1] || null;
+            // Capitalise the module name for display (licenses → Licenses)
+            var moduleLabel  = sourceModule
+              ? (sourceModule.charAt(0).toUpperCase() + sourceModule.slice(1))
+              : null;
+            return <section style={{background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'}}>
+              <div style={{padding:'12px 14px',borderBottom:'1px solid #EEF2F7',background:'#FAFCFF'}}>
+                <h3 style={{margin:'0 0 2px',fontSize:14,color:'#0B1F3A',letterSpacing:'-.01em'}}>Linked record</h3>
+                <p style={{margin:0,color:'#64748B',fontSize:12,lineHeight:1.45}}>The record this task was created from.</p>
+              </div>
+              <div style={{padding:'14px'}}>
+                {sourceRec
+                  ? <div style={{border:'1px solid #EEF2F7',borderRadius:10,padding:'12px 14px',background:'#FAFCFF',display:'grid',gap:6}}>
+                      <strong style={{fontSize:13,color:'#132033',lineHeight:1.3,wordBreak:'break-word'}}>{sourceRec}</strong>
+                      <div style={{display:'flex',flexWrap:'wrap',gap:6,alignItems:'center'}}>
+                        {moduleLabel && <Badge tone={moduleLabel}>{moduleLabel}</Badge>}
+                        {clientOrDept && <span style={{fontSize:12,color:'#64748B'}}>{clientOrDept}</span>}
+                      </div>
+                    </div>
+                  : <div style={{padding:'4px 0'}}>
+                      <span style={{fontSize:12,color:'#64748B'}}>No linked record information available for this task.</span>
+                    </div>
+                }
+              </div>
+            </section>;
+          })()}
+
+          {activeTab === 'Documents' && (
+            <section style={{background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'}}>
+              <div style={{padding:'12px 14px',borderBottom:'1px solid #EEF2F7',background:'#FAFCFF'}}>
+                <h3 style={{margin:0,fontSize:14,color:'#0B1F3A',letterSpacing:'-.01em'}}>Documents</h3>
+              </div>
+              <div style={{padding:'14px',display:'grid',gap:8}}>
+                <strong style={{display:'block',color:'#132033',fontSize:13}}>No documents attached.</strong>
+                <span style={{color:'#64748B',fontSize:12,lineHeight:1.45}}>Document attachments for tasks are a future feature.</span>
+              </div>
+            </section>
+          )}
+
+          {activeTab === 'Activity' && (
+            <section style={{background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'}}>
+              <div style={{padding:'12px 14px',borderBottom:'1px solid #EEF2F7',background:'#FAFCFF'}}>
+                <h3 style={{margin:0,fontSize:14,color:'#0B1F3A',letterSpacing:'-.01em'}}>Activity</h3>
+              </div>
+              <div style={{padding:'14px',display:'grid',gap:8}}>
+                <strong style={{display:'block',color:'#132033',fontSize:13}}>No activity recorded yet.</strong>
+                <span style={{color:'#64748B',fontSize:12,lineHeight:1.45}}>Future changes will appear here automatically, including owner assignments, status updates and edit history.</span>
+              </div>
+            </section>
+          )}
+
         </div>
       </aside>
     </>}

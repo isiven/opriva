@@ -716,6 +716,7 @@ The following items are architecturally approved and should be implemented only 
 - Package / Bundle / Renewal Bundle concept defined and documented
 - Support Coverage creation/linking from License and Hardware drawer setup
 - Controlled custom fields per module — after core workspace-specific forms stabilize
+- Guided column-mapping step in Data Import (source column → Opriva canonical field, with AI suggestions and user approval)
 
 ### Phase 2 Roadmap (deferred, do not implement yet)
 
@@ -730,6 +731,150 @@ The following items are architecturally approved and should be implemented only 
 - Multi-asset support coverage management (one contract covering multiple assets)
 - Support coverage renewal workflows
 - Support coverage compliance and SLA tracking
+- Automated PDF parsing and PO/OC matching for Trend Micro entitlement imports
+- AI-powered column detection and canonical field mapping in Data Import
+
+## 19. Guided Import Mapping Model
+
+This section documents the approved philosophy and product decision for all Opriva data import flows. It applies to Excel, CSV, and PDF sources. Do not implement this section immediately — it defines the approved direction for Phase 2 import UX and the AI-assisted mapping layer.
+
+---
+
+### 19.1 Core Decision: Opriva Imports Into Its Own Model
+
+Opriva must not blindly replicate the structure of uploaded source files. Source files (Excel registers, CSV exports, PDF entitlements) may contain:
+
+- Columns that are unnecessary in Opriva's model
+- Columns that duplicate other fields
+- Columns with non-canonical names, formats, or values
+- Columns that belong in metadata or notes, not core fields
+- Fields that represent calculated or derived values in Opriva
+
+**Opriva imports data into its own product model — not into a reproduction of the source spreadsheet.**
+
+Every import flow must transform source data into Opriva's canonical records: Clients, Renewal Packages, Licenses, Hardware, Contracts, Documents, Support Coverage, Tasks.
+
+---
+
+### 19.2 Guided Column-Mapping Step
+
+Every import flow must include a guided column-mapping step where the user can:
+
+- See which source columns were detected
+- Choose which columns to import (and which to skip)
+- Map each source column to an Opriva canonical field
+- Set default values for missing required fields
+- Create custom fields only when no canonical field exists
+- Preview draft records before committing
+- Approve the final mapping before records are created
+
+This step is not optional. Every import — regardless of file type — must pass through the mapping review before records are written.
+
+---
+
+### 19.3 AI-Assisted Mapping
+
+The Opriva AI should assist the mapping step by:
+
+- Detecting the likely meaning of each source column from its name, sample values, and context
+- Suggesting the best matching Opriva canonical field for each source column
+- Identifying the join key between related files (e.g., `OC Partner` = `PO Number`)
+- Flagging duplicate or redundant columns
+- Flagging columns that represent calculated values in Opriva (should be skipped or noted)
+- Detecting missing required fields and suggesting defaults
+- Recommending what record type each row should become (Client, License, Package, Contract, Document, Support Coverage, Task)
+- Warning when source data does not cleanly match Opriva's model
+- Suggesting transformations (e.g., date format normalization, currency stripping)
+
+**AI suggestions are advisory only.** The user must review and approve all mappings. Nothing is imported automatically without user confirmation.
+
+---
+
+### 19.4 Columns That Should Be Skipped by Default
+
+These source column types should be suggested as "skip" by default during mapping, unless the user explicitly chooses to map them:
+
+| Column pattern | Reason to skip |
+|---|---|
+| Calculated values (e.g., margin, status, days remaining) | Opriva calculates these — importing them would override the correct derived value |
+| Workspace identity fields (e.g., Reventa / Reseller = Nextcom) | These represent the workspace operator, not a data field |
+| Internal system IDs with no Opriva equivalent | May be stored as metadata in Notes if relevant |
+| Duplicate fields (same data in two columns) | Only one canonical field should be populated |
+| Empty or always-null columns | No data to import |
+
+---
+
+### 19.5 Custom Field Creation Rule
+
+Custom fields should be created only when:
+
+- A source column carries real business value that does not fit any Opriva canonical field
+- The user explicitly requests it during the mapping step
+- The field type is appropriate (text, number, date, dropdown, currency, checkbox, URL, long text)
+
+Custom fields must never be used to import:
+- Calculated values
+- Derived status fields
+- Fields that belong to the document model, not the record model
+- Fields that belong in the Activity or notes layer
+
+---
+
+### 19.6 Trend Micro Import Mapping (Specific Application)
+
+The Trend Micro data set confirms these mapping decisions:
+
+| Source column | Opriva field | Decision |
+|---|---|---|
+| `# Registro` | Package Reference | Import as reference metadata |
+| `# OC` | Nextcom Order Number | Import as reference metadata |
+| `OC Partner` | TM PO Number | Import — **join key to PDF** |
+| `Cliente` | Client | Import → canonical field |
+| `# Legal de Fac.` | Distributor Invoice Number | Import as reference metadata (blank in current data) |
+| `Reventa` | Reseller | **Skip** — this is the workspace identity (Nextcom) |
+| `Distribuidor` | Distributor | Import → canonical field |
+| `Licencias` | Quantity / Seats | Import → canonical field (base count) |
+| `Vencimiento Licencia` | Expiration / Renewal Date | Import → canonical field |
+| `Fecha factura` | Invoice Date | Import as metadata / notes |
+| `Monto Total` | Annual Value / Sale Price | Import → canonical field |
+
+PDF columns shared across all pages (Customer Name, Reseller, TM Program Number, TM Reference Number, PO Number, Order Type, Start Date, End Date) are attached at the package level.
+
+PDF per-page columns (Product Name, SKU, Volume) populate individual License records.
+
+---
+
+### 19.7 Record Type Inference
+
+When the AI reviews source data during import, it should recommend the best Opriva record type for each row or document:
+
+| Source pattern | Recommended Opriva record |
+|---|---|
+| Commercial deal row with client, distributor, expiry, value | Renewal Package / License record |
+| Vendor-issued entitlement PDF | License Entitlement document |
+| One page of a multi-page entitlement PDF | License line item |
+| Hardware device with serial, model, warranty | Hardware record |
+| Commercial agreement with notice period | Contract |
+| Quote, PO, invoice | Document (of the appropriate type) |
+| Coverage with its own end date and provider | Support Coverage |
+| Follow-up action tied to a record | Task |
+
+---
+
+### 19.8 User Controls Final Approval
+
+The user always retains final control over:
+
+- Which columns are imported or skipped
+- How each column is mapped
+- Whether a custom field is created
+- What default values are applied
+- Which records are created vs. discarded after preview
+- Whether the import proceeds
+
+AI mapping suggestions are displayed as recommendations with a confidence indicator. Users can accept, adjust, or reject each suggestion individually before confirming the import.
+
+---
 
 ## 18. Trend Micro Import Model
 
@@ -903,4 +1048,5 @@ Phase 2 should include:
 - 2026-05-21: Attach Document form simplified to MVP minimum per MEMORY.md §15.8. Visible fields reduced to Document Name (req), Document Type (req), Uploaded By (req), Notes (optional). Removed from visible form: File Name / Reference, Requirement, Access, Version, Effective Date, Expiration Date. Internal defaults set on save: status='Attached', requirement='Optional', access='Internal'. OPTIONAL section divider removed. Document object shape and RECORD_STORE.documents write unchanged.
 - 2026-05-21: MEMORY.md updated. §15.18 "Support Coverage / Support Contracts" added under Section 15. Decision: Support Coverage must be modeled as a renewable contract/coverage layer — not free text inside License or Hardware. Defines Support Coverage record fields, what it may cover, how it is added (drawer setup / Relationships tab / Complete Setup flow), and relationship model to covered assets via Contracts module. MVP roadmap updated: Support Coverage creation/linking from License and Hardware drawer setup. Phase 2 roadmap updated: multi-asset support coverage management, support coverage renewal workflows, support coverage compliance and SLA tracking. No application code modified.
 - 2026-05-22: IMPORT_MAPPING_TREND_MICRO.md created. Defines how Nextcom's Trend Micro renewal data (Datos.xlsx + TM LICENSE PDF) maps to Opriva records. Covers Excel-to-package mapping, PDF-to-license-line-item mapping, License Entitlement document model, package structure, support coverage logic (manufacturer vs. Nextcom SLA), MVP manual import steps, and Phase 2 automation roadmap. No application code modified.
+- 2026-05-22: MEMORY.md §19 "Guided Import Mapping Model" added. Core decision: Opriva imports into its own product model, not a replica of the source file. Every import must include a guided column-mapping step with AI-assisted field suggestions, user approval, skip recommendations for calculated/identity columns, custom field creation rule, and record type inference. §18 Trend Micro specific application updated with skip recommendation for Reventa column. MVP Roadmap updated: guided column-mapping step added. Phase 2 Roadmap updated: automated PDF parsing, AI column detection. MEMORY.md, USER_GUIDE.md, AI_KNOWLEDGE_BASE.md updated. No application code modified.
 - 2026-05-22: MEMORY.md §18 "Trend Micro Import Model" added. Documents approved import model: Excel row = Renewal Package, PDF page = License line item, PDF file = License Entitlement document, OC Partner/PO Number join key, manufacturer support as derived coverage, Nextcom SLA as separate Support Coverage contract, MVP manual approach, Phase 2 automation targets. MEMORY.md, USER_GUIDE.md, and AI_KNOWLEDGE_BASE.md updated. No application code modified.

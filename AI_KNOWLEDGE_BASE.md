@@ -255,6 +255,37 @@ A: All records you create during a session (licenses, hardware, contracts, suppo
 
 ---
 
+**Q: Does Opriva import all columns from an Excel or CSV file automatically?**
+
+A: No. Opriva does not blindly import every column from a source file. Source files often contain columns that are calculated values, internal system identifiers, workspace identity fields, or data that doesn't belong in any Opriva core field.
+
+When you import a file, Opriva shows a **guided column-mapping step** where you:
+- See all detected source columns and sample values
+- Review AI-suggested mappings to Opriva canonical fields
+- Accept, adjust, or skip each column individually
+- Set defaults for missing required fields
+- Optionally create a custom field for useful data that doesn't fit a standard field
+- Preview draft records before anything is saved
+- Confirm the final mapping before records are created
+
+Nothing is imported until you approve the mapping. The AI makes suggestions — you have full control.
+
+---
+
+**Q: What columns does Opriva suggest skipping during import?**
+
+A: Opriva's AI will recommend skipping columns that should not become Opriva fields:
+
+- **Calculated values** — fields like Status, Margin, or Days to Expiration that Opriva derives automatically. Importing them would override the correct calculated value.
+- **Workspace identity fields** — columns that describe the workspace operator (e.g., a Reseller column that always contains your own company name). This is not a record field — it is who you are.
+- **Internal system IDs** with no Opriva equivalent — these can be stored in Notes if needed.
+- **Empty or always-null columns** — nothing to import.
+- **Duplicate fields** — if two columns carry the same data, only one should be mapped.
+
+You can still map any of these to a custom field if you have a reason to retain the data. The AI suggestion is a recommendation, not a lock.
+
+---
+
 **Q: How should Trend Micro renewal data be imported into Opriva?**
 
 A: Trend Micro renewal data typically arrives in two files:
@@ -423,10 +454,29 @@ The AI must never state or imply the following unless these features have been e
 | "Document policies will enforce which documents are required" | The document policy engine is not implemented. |
 | "Your saved view will be available next time you log in" | Session data resets on page refresh. No persistence yet. |
 | "This record will be available after you log back in" | All created records are session-local only. |
+| "Opriva will import all your Excel columns" or "All columns will be mapped automatically" | Opriva uses a guided mapping step — the user reviews and approves all mappings. Nothing is imported without user confirmation. |
+| "The AI will automatically create records from your file" | AI suggestions require user approval. Records are not created until the user confirms the import mapping. |
 
 ---
 
-## 10. Trend Micro Import Rules
+## 10. Import Rules
+
+### General import philosophy
+
+When a user asks about importing data from Excel, CSV, or any external file, always explain:
+
+1. **Opriva imports into its own model** — not a replica of the source file. Source columns are mapped to Opriva canonical fields during a guided mapping step.
+2. **A column-mapping review is always required** — the user sees AI-suggested mappings, approves or adjusts them, and confirms before records are created.
+3. **AI suggestions are advisory** — the AI detects column meaning and suggests field mappings, but the user has final control over every decision.
+4. **Some columns should be skipped** — calculated values, workspace identity fields, and internal IDs that have no Opriva equivalent should not be imported as fields.
+5. **Custom fields are for real data gaps** — only create custom fields when source data carries genuine business value that doesn't fit any standard Opriva field.
+6. **Records are previewed before import** — users can review draft records before committing them to the workspace.
+
+Do not say Opriva imports all columns automatically. Do not say the AI creates records without user approval.
+
+---
+
+### Trend Micro import rules
 
 When a user asks about importing Trend Micro renewal data, follow these rules:
 

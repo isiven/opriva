@@ -17,8 +17,9 @@
    - [Trend Micro Renewal Import Example](#trend-micro-renewal-import-example)
 9. [Support Coverage](#9-support-coverage)
 10. [Configure Columns and Advanced Filters](#10-configure-columns-and-advanced-filters)
-11. [Current MVP Limitations](#11-current-mvp-limitations)
-12. [Glossary](#12-glossary)
+11. [Data Import — Guided Column Mapping](#11-data-import--guided-column-mapping)
+12. [Current MVP Limitations](#12-current-mvp-limitations)
+13. [Glossary](#13-glossary)
 
 ---
 
@@ -99,7 +100,7 @@ The sidebar provides access to all major modules. Navigation items adapt to your
 | **Documents** | Global document vault for all evidence — quotes, invoices, contracts, license entitlements, warranties and compliance documents. |
 | **Tasks** | Execution layer. Tracks assigned follow-up actions tied to renewals, approvals, quotes and escalations. |
 | **Reports** | Executive distribution layer. Packages KPIs, risks, renewal exposure and task status for leadership and finance. |
-| **Data Import** | Import records in bulk using workspace-aware templates. |
+| **Data Import** | Import records in bulk using workspace-aware templates. Includes a guided column-mapping step where you approve how source columns map to Opriva fields before any records are created. |
 | **Settings** | Configure workspace mode, company information, operating model and preferences. |
 
 ---
@@ -513,7 +514,80 @@ Active filters are shown with a count badge on the filter button. Click **Clear 
 
 ---
 
-## 11. Current MVP Limitations
+## 11. Data Import — Guided Column Mapping
+
+### How Opriva handles imported files
+
+When you import data into Opriva from an Excel file, CSV, or similar source, Opriva does not automatically create records from every column in your file. Source files often contain columns that are not needed in Opriva — internal system IDs, calculated values, workspace identity fields, or data that belongs in notes rather than a core field.
+
+Instead, Opriva guides you through a **column-mapping step** before any records are created.
+
+### The mapping step
+
+After uploading a file, Opriva shows a mapping screen where you can:
+
+1. **See all detected source columns** and sample values from your file
+2. **Review AI-suggested mappings** — Opriva's AI suggests the best Opriva field for each column based on the column name, format, and content
+3. **Accept, adjust, or skip** each column individually
+4. **Set default values** for required Opriva fields that are missing from your source
+5. **Create a custom field** if a source column carries useful data that doesn't fit any standard Opriva field
+6. **Preview draft records** before anything is saved
+7. **Approve the final mapping** to confirm the import
+
+Nothing is imported until you confirm. AI suggestions are recommendations — you have full control over every mapping decision.
+
+### What Opriva's AI suggests during mapping
+
+The AI will:
+
+- Detect the likely meaning of each column from its name and sample data
+- Suggest the closest Opriva canonical field (Client, Expiration Date, Annual Value, Distributor, etc.)
+- Identify the join key when you're importing related files (e.g., recognising that `OC Partner` in your Excel matches `PO Number` in a PDF)
+- Flag columns it recommends **skipping** — for example, columns that represent calculated values Opriva derives automatically, or identity fields that describe the workspace itself rather than a specific record
+- Warn when a source column doesn't clearly match any Opriva field
+- Recommend what record type each row should become (License, Contract, Document, Support Coverage, Task)
+
+### Columns Opriva will suggest skipping
+
+Some columns in source files should not become Opriva fields because Opriva calculates or derives them. Common examples:
+
+| Source column type | Why Opriva skips it |
+|---|---|
+| Status or expiration state | Opriva calculates Status from Expiration Date + Alert Policy |
+| Margin or profit fields | Opriva calculates Margin from Sale Price − Vendor Cost |
+| Reseller / workspace identity (e.g. "Reventa" = Nextcom) | This is the workspace operator, not a record field |
+| Always-empty columns | Nothing to import |
+| Internal system IDs with no Opriva equivalent | May be stored in Notes if needed |
+
+You can still map any skipped column to a custom field if you want to retain the data.
+
+### Custom fields
+
+If a source column contains real business data that doesn't match any standard Opriva field, you can create a **custom field** during the mapping step. Custom fields are stored on the record and are visible in the record drawer. They do not affect calculated fields, alert logic, or expiration status.
+
+> In the current MVP, custom field creation is available but saved column preferences and custom field definitions are session-local only. Persistent custom field management is a Phase 2 feature.
+
+### Trend Micro import example
+
+When importing Nextcom's Trend Micro renewal register (`Datos.xlsx`):
+
+| Source column | AI suggestion | Action |
+|---|---|---|
+| `# Registro` | Package Reference | Map → reference metadata |
+| `OC Partner` | TM PO Number | Map → join key to PDF |
+| `Cliente` | Client | Map → canonical field |
+| `Distribuidor` | Distributor | Map → canonical field |
+| `Licencias` | Quantity / Seats | Map → canonical field |
+| `Vencimiento Licencia` | Expiration / Renewal Date | Map → canonical field |
+| `Monto Total` | Annual Value | Map → canonical field |
+| `Reventa` | *(skip suggested)* | Skip — this is Nextcom (the workspace) |
+| `Fecha factura` | Invoice Date | Map → Notes / metadata |
+
+When the entitlement PDF is uploaded alongside the Excel, Opriva will suggest `OC Partner = PO Number` as the join key to link each PDF to its matching Excel row before creating License records from the PDF pages.
+
+---
+
+## 12. Current MVP Limitations
 
 The current Opriva release is a functional prototype. The following limitations apply:
 
@@ -532,7 +606,7 @@ The current Opriva release is a functional prototype. The following limitations 
 
 ---
 
-## 12. Glossary
+## 13. Glossary
 
 | Term | Definition |
 |---|---|

@@ -8,6 +8,8 @@
 
 **Scope:** This document covers field mapping, data structure decisions, support modeling, and import recommendations for MVP and Phase 2. It does not define application code or implementation logic.
 
+> **File storage:** Real customer files should be stored under `private-samples/` and excluded from Git. Anonymized demo files may be stored under `sample-data/`.
+
 ---
 
 ## 1. Excel Row → Renewal Package / Deal

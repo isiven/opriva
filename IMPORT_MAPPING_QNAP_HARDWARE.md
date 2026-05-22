@@ -6,6 +6,8 @@
 **Source file analyzed:** `Ventas por Clase Qnap 2025-2026.xlsx`
 **Detailed universal import philosophy:** `MEMORY.md §19`, `IMPORT_MAPPING_TREND_MICRO.md`
 
+> **File storage:** Real customer files should be stored under `private-samples/` and excluded from Git. Anonymized demo files may be stored under `sample-data/`.
+
 ---
 
 ## 1. Source File Overview

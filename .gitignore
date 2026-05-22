@@ -2,3 +2,18 @@ node_modules/
 dist/
 .env
 .DS_Store
+
+# ── Real client import files ─────────────────────────────────────────────────
+# Never commit real customer data. Store locally under private-samples/ only.
+private-samples/
+
+# Spreadsheet and PDF files — real client exports are always excluded.
+# Anonymized demo files in sample-data/ should be committed as .csv or .json,
+# not as raw .xlsx/.xls/.pdf to avoid accidentally including real client exports.
+*.xlsx
+*.xls
+*.pdf
+
+# sample-data/ is intentionally tracked (anonymized files only).
+# To force-add an anonymized file that matches an excluded pattern above, use:
+#   git add --force sample-data/your-file.csv

@@ -1180,6 +1180,19 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
       RECORD_STORE.documents = existingDocuments;
       return existingDocuments;
     }
+    if (moduleKey === 'contracts') {
+      // Rebuild mock rows, then append any session-created support coverage records
+      // (identified by the 'sc-' id prefix set in handleSupportSave).
+      // This ensures support coverage rows survive module navigation without
+      // overwriting the workspace-correct mock rows on each mount.
+      var mockContractRecords = toRecords(safeRows, moduleKey);
+      var sessionCoverage = Array.isArray(RECORD_STORE.contracts)
+        ? RECORD_STORE.contracts.filter(function(r) { return r.id && r.id.indexOf('sc-') === 0; })
+        : [];
+      var mergedContracts = mockContractRecords.concat(sessionCoverage);
+      RECORD_STORE.contracts = mergedContracts;
+      return mergedContracts;
+    }
     var records = toRecords(safeRows, moduleKey);
     RECORD_STORE[moduleKey] = records;
     return records;

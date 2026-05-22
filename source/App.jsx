@@ -1526,14 +1526,15 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
       task.title,
       clientOrDept || '-',
       task.sourceRecordName || '-',
-      task.taskType,
-      task.notes || '-',
+      task.sourceModule,
+      task.taskType || '-',
       task.owner,
       task.priority,
       task.dueDate,
       task.status,
       'Open task',
     ];
+    task.sourceClientOrDepartment = clientOrDept || '';
     RECORD_STORE.tasks.push({ id: task.id, row: taskRow, meta: task });
     setSessionTasks(function(prev) { return prev.concat([task]); });
     setTaskOpen(false);
@@ -2520,29 +2521,186 @@ function TasksScreen({ workspaceMode = 'MSP / Integrator' }){
     : workspaceMode === 'MSP / Integrator'
     ? 'Filter tasks by owner, client, record or status…'
     : 'Filter tasks by owner, company, record or status…';
-  const sessionTaskRows = React.useMemo(function() {
-    var stored = Array.isArray(RECORD_STORE.tasks)
+
+  // Sync full records (with meta) from RECORD_STORE.tasks every 500ms
+  const [sessionRecords, setSessionRecords] = React.useState(function() {
+    return Array.isArray(RECORD_STORE.tasks)
       ? RECORD_STORE.tasks.filter(function(r) { return r.id && r.id.indexOf('task-') === 0; })
       : [];
-    return stored.map(function(r) { return r.row; });
-  }, []);
-  const [sessionTasksLocal, setSessionTasksLocal] = React.useState(sessionTaskRows);
+  });
   React.useEffect(function() {
     function syncTasks() {
       var stored = Array.isArray(RECORD_STORE.tasks)
         ? RECORD_STORE.tasks.filter(function(r) { return r.id && r.id.indexOf('task-') === 0; })
         : [];
-      setSessionTasksLocal(stored.map(function(r) { return r.row; }));
+      setSessionRecords(stored);
     }
     var interval = setInterval(syncTasks, 500);
     return function() { clearInterval(interval); };
   }, []);
+
+  // Build unified display list: mock rows wrapped as lightweight records, then
+  // session records carrying full meta. Index === onRowOpen callback index.
   var mockTaskRows = isInternalIT ? tasksInternalIT : tasksMsp;
-  var taskRows = mockTaskRows.concat(sessionTasksLocal);
+  var allRecords = mockTaskRows.map(function(row, i) {
+    return { id: 'mock-task-' + i, row: row, meta: null };
+  }).concat(sessionRecords);
+  var taskRows = allRecords.map(function(r) { return r.row; });
+
+  // Drawer state
+  const [selectedTask, setSelectedTask] = React.useState(null);
+  const [detailOpen, setDetailOpen] = React.useState(false);
+  const [activeTab, setActiveTab] = React.useState('Overview');
+
+  function openTask(idx) {
+    var rec = allRecords[idx];
+    if (!rec) return;
+    setSelectedTask(rec);
+    setActiveTab('Overview');
+    setDetailOpen(true);
+  }
+
+  // Style constants — local copies matching OperationalList values
+  var tCloseBtnBase = { border: '1px solid #E5E7EB', background: '#F8FAFC', color: '#64748B', fontSize: 16, width: 32, height: 32, borderRadius: 8, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 };
+  var tCloseBtn = Object.assign({}, tCloseBtnBase, { width: 26, height: 26, borderRadius: 7, fontSize: 12, background: '#fff', borderColor: '#EEF2F7', color: '#94A3B8', boxShadow: 'none' });
+
+  function tPriorityColor(p) {
+    if (p === 'Critical') return '#DC2626';
+    if (p === 'High')     return '#D97706';
+    if (p === 'Medium')   return '#2563EB';
+    return '#64748B';
+  }
+
+  // Renders a label/value row in the task details card
+  function tField(label, value) {
+    if (!value || value === '-') return null;
+    return <div key={label} style={{display:'grid',gridTemplateColumns:'130px 1fr',gap:8,alignItems:'start',padding:'7px 0',borderBottom:'1px solid #F1F5F9'}}>
+      <span style={{fontSize:12,color:'#64748B',fontWeight:600,lineHeight:1.4}}>{label}</span>
+      <span style={{fontSize:13,color:'#132033',lineHeight:1.4,wordBreak:'break-word'}}>{value}</span>
+    </div>;
+  }
+
   const boardMsp = [['To do','Request signed Trend Micro quote','Banisi','High','$11,500 margin · Proposal pending'],['In progress','Assign SSL certificate owner','Grupo Regency','Critical','Owner gap · Renewal at risk'],['Blocked','Legal approval for support contract','Banisi','Medium','$3,800 margin · Legal blocker']];
   const boardInternalIT = [['To do','Request Fortinet renewal quote','Infrastructure','Medium','Service continuity risk'],['In progress','Review endpoint security consolidation','IT Security','High','CIO approval blocked'],['Blocked','Submit CIO approval for Microsoft 365','Finance','High','$142,000 exposure']];
   const board = isInternalIT ? boardInternalIT : boardMsp;
-  return <main className="content"><ScreenHeader active="Tasks" subtitle={taskSubtitle}><button>Saved view</button><button className="primary">New task</button></ScreenHeader><section className="panel"><div className="tabs"><button className="active">List view</button><button>Board view</button><button>My tasks</button><button>Overdue</button></div><div className="toolbar"><input placeholder={taskPlaceholder}/><button>Bulk update</button><button>Group by owner</button><button>Configure columns</button><button>Advanced filters</button><button>AI summary</button></div><Table columns={taskColumns} rows={taskRows}/></section><section className="panel"><div className="panelTitle"><h2>Kanban board snapshot</h2><span>Board view for execution without losing list precision</span></div><div className="kanban">{['To do','In progress','Blocked'].map(status=><div className="kanbanCol" key={status}><h3>{status}</h3>{board.filter(card=>card[0]===status).map(card=><article className="taskCard" key={card[1]}><strong>{card[1]}</strong><span>{card[2]} · {card[4]}</span><Badge tone={card[3]}>{card[3]}</Badge></article>)}</div>)}</div></section></main>;
+
+  return <>
+    <main className="content">
+      <ScreenHeader active="Tasks" subtitle={taskSubtitle}><button>Saved view</button><button className="primary">New task</button></ScreenHeader>
+      <section className="panel">
+        <div className="tabs"><button className="active">List view</button><button>Board view</button><button>My tasks</button><button>Overdue</button></div>
+        <div className="toolbar"><input placeholder={taskPlaceholder}/><button>Bulk update</button><button>Group by owner</button><button>Configure columns</button><button>Advanced filters</button><button>AI summary</button></div>
+        <Table columns={taskColumns} rows={taskRows} onRowOpen={openTask}/>
+      </section>
+      <section className="panel"><div className="panelTitle"><h2>Kanban board snapshot</h2><span>Board view for execution without losing list precision</span></div><div className="kanban">{['To do','In progress','Blocked'].map(status=><div className="kanbanCol" key={status}><h3>{status}</h3>{board.filter(card=>card[0]===status).map(card=><article className="taskCard" key={card[1]}><strong>{card[1]}</strong><span>{card[2]} · {card[4]}</span><Badge tone={card[3]}>{card[3]}</Badge></article>)}</div>)}</div></section>
+    </main>
+
+    {detailOpen && selectedTask && <>
+      <style>{`.agentWrap,.floatingAgentWrap{display:none!important}`}</style>
+      <div style={{position:'fixed',inset:0,background:'rgba(11,31,58,.18)',zIndex:48}} onClick={function() { setDetailOpen(false); }} aria-hidden="true"/>
+      <aside role="dialog" aria-modal="true" aria-label="Task detail" style={{position:'fixed',right:0,top:0,bottom:0,width:'min(440px,100vw)',background:'#fff',borderLeft:'1px solid #E5E7EB',boxShadow:'-8px 0 40px rgba(11,31,58,.16)',zIndex:49,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+
+        {/* Header */}
+        {(() => {
+          var meta = selectedTask.meta;
+          var row  = selectedTask.row;
+          var title        = (meta && meta.title)    || row[0] || 'Task';
+          var clientOrDept = (meta && meta.sourceClientOrDepartment) || row[1] || '';
+          var sourceRec    = (meta && meta.sourceRecordName) || row[2] || '';
+          var priority     = (meta && meta.priority) || row[6] || '';
+          var status       = (meta && meta.status)   || row[8] || '';
+          var ctxParts     = [clientOrDept, sourceRec ? 'Linked to ' + sourceRec : ''].filter(Boolean);
+          return <div style={{padding:'12px 16px 10px',borderBottom:'1px solid #EEF2F7',display:'grid',gap:7,flexShrink:0}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:10}}>
+              <div style={{minWidth:0,flex:1}}>
+                <p style={{margin:'0 0 3px',color:'#0D9488',textTransform:'uppercase',fontSize:9.5,letterSpacing:'.14em',fontWeight:900,lineHeight:1}}>TASK</p>
+                <h2 style={{margin:0,color:'#0B1F3A',fontSize:16.5,letterSpacing:'-.015em',lineHeight:1.18,wordBreak:'break-word',fontWeight:800}}>{title}</h2>
+              </div>
+              <button style={tCloseBtn} onClick={function() { setDetailOpen(false); }} aria-label="Close">x</button>
+            </div>
+            {ctxParts.length > 0 && <div style={{color:'#64748B',fontSize:12,lineHeight:1.35,wordBreak:'break-word'}}>{ctxParts.join(' · ')}</div>}
+            {(status || priority) && <div style={{display:'flex',flexWrap:'wrap',gap:6,alignItems:'center'}}>
+              {status   && <Badge tone={status}>{status}</Badge>}
+              {priority && <span style={{fontSize:11,fontWeight:700,color:tPriorityColor(priority),textTransform:'uppercase',letterSpacing:'.05em'}}>{priority}</span>}
+            </div>}
+          </div>;
+        })()}
+
+        {/* Tab bar */}
+        <div style={{display:'flex',borderBottom:'1px solid #EEF2F7',flexShrink:0,overflowX:'auto',padding:'0 12px'}}>
+          {['Overview','Relationships'].map(function(tab) {
+            var isA = activeTab === tab;
+            return <button key={tab} onClick={function() { setActiveTab(tab); }} style={{padding:'7px 8px 6px',fontSize:11,fontWeight:isA?800:650,color:isA?'#0D9488':'#64748B',background:'transparent',border:'none',borderBottom:isA?'2px solid #0D9488':'2px solid transparent',cursor:'pointer',flexShrink:0,fontFamily:'inherit',whiteSpace:'nowrap',marginBottom:-1,lineHeight:1,letterSpacing:0}}>
+              {tab}
+            </button>;
+          })}
+        </div>
+
+        {/* Tab body */}
+        <div style={{flex:1,overflowY:'auto',padding:'16px 20px',display:'grid',gap:12,alignContent:'start'}}>
+          {activeTab === 'Overview'
+            ? (() => {
+                var meta = selectedTask.meta;
+                var row  = selectedTask.row;
+                var title        = (meta && meta.title)                    || row[0] || '-';
+                var clientOrDept = (meta && meta.sourceClientOrDepartment) || row[1] || '-';
+                var sourceRec    = (meta && meta.sourceRecordName)         || row[2] || '-';
+                var sourceModule = (meta && meta.sourceModule)             || row[3] || '-';
+                var impact       = row[4] || '-';
+                var owner        = (meta && meta.owner)    || row[5] || '-';
+                var priority     = (meta && meta.priority) || row[6] || '-';
+                var dueDate      = (meta && meta.dueDate)  || row[7] || '-';
+                var status       = (meta && meta.status)   || row[8] || '-';
+                var taskType     = (meta && meta.taskType) || '-';
+                var notes        = (meta && meta.notes)    || '';
+                return <section style={{background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'}}>
+                  <div style={{padding:'12px 14px',borderBottom:'1px solid #EEF2F7',background:'#FAFCFF'}}>
+                    <h3 style={{margin:0,fontSize:14,color:'#0B1F3A',letterSpacing:'-.01em'}}>Task details</h3>
+                  </div>
+                  <div style={{padding:'8px 14px 12px'}}>
+                    {tField('Title', title)}
+                    {tField('Task type', taskType !== '-' ? taskType : impact)}
+                    {tField('Owner', owner)}
+                    {tField('Due date', dueDate)}
+                    {tField('Priority', priority)}
+                    {tField('Status', status)}
+                    {tField('Linked record', sourceRec)}
+                    {tField('Source module', sourceModule)}
+                    {tField(isInternalIT ? 'Department' : 'Client', clientOrDept)}
+                    {notes && tField('Notes', notes)}
+                  </div>
+                </section>;
+              })()
+            : (() => {
+                var meta = selectedTask.meta;
+                var row  = selectedTask.row;
+                var sourceRec    = (meta && meta.sourceRecordName)         || row[2] || null;
+                var sourceModule = (meta && meta.sourceModule)             || row[3] || null;
+                var clientOrDept = (meta && meta.sourceClientOrDepartment) || row[1] || null;
+                return <section style={{background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'}}>
+                  <div style={{padding:'12px 14px',borderBottom:'1px solid #EEF2F7',background:'#FAFCFF'}}>
+                    <h3 style={{margin:'0 0 2px',fontSize:14,color:'#0B1F3A',letterSpacing:'-.01em'}}>Linked record</h3>
+                    <p style={{margin:0,color:'#64748B',fontSize:12,lineHeight:1.45}}>The record this task was created from.</p>
+                  </div>
+                  <div style={{padding:'14px'}}>
+                    {sourceRec
+                      ? <div style={{border:'1px solid #EEF2F7',borderRadius:10,padding:'11px 13px',background:'#FAFCFF'}}>
+                          <strong style={{display:'block',fontSize:13,color:'#132033',marginBottom:4}}>{sourceRec}</strong>
+                          <div style={{display:'flex',flexWrap:'wrap',gap:8,fontSize:12,color:'#64748B'}}>
+                            {sourceModule && <span style={{textTransform:'capitalize'}}>{sourceModule}</span>}
+                            {clientOrDept && <span>· {clientOrDept}</span>}
+                          </div>
+                        </div>
+                      : <span style={{fontSize:12,color:'#64748B'}}>No linked record information available for this task.</span>
+                    }
+                  </div>
+                </section>;
+              })()
+          }
+        </div>
+      </aside>
+    </>}
+  </>;
 }
 
 function ReportsScreen({ workspaceMode = 'MSP / Integrator' }){

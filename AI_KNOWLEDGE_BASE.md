@@ -286,6 +286,31 @@ You can still map any of these to a custom field if you have a reason to retain 
 
 ---
 
+**Q: How does Opriva handle importing hardware or equipment sales files?**
+
+A: Hardware sales exports often have a different structure from license or contract data. Opriva handles the common patterns automatically:
+
+- **Grouped customers** — if the file is grouped by customer (with customer names appearing as section header rows), Opriva detects this and assigns the correct client to all rows in each group without requiring manual re-entry.
+- **Main asset vs. components** — a hardware sale typically includes a primary unit (e.g., a QNAP NAS) plus related items (drives, rails, expansion cards). Opriva identifies the main hardware row and groups component rows under it, then asks you: create linked hardware records per component, or add as notes on the parent?
+- **Multi-value serials** — serial number fields often contain multiple values separated by line breaks or spaces. Opriva splits them, validates the count against quantity, and flags mismatches for your review.
+- **Embedded warranty text** — if a product description contains warranty terms (e.g., "Garantía de hardware QNAP 3 años"), Opriva detects this and suggests creating a Support Coverage record with the calculated end date. You approve before anything is created.
+- **Report artifacts** — header rows (title, company, date range) and footer rows (export timestamps) are detected and excluded automatically.
+
+The import step asks only for your decisions on genuinely uncertain items. Obvious mappings are pre-filled.
+
+---
+
+**Q: Can I import component items (drives, rails, cables) alongside the main hardware unit?**
+
+A: Yes. When you import a hardware sales file that includes both a main unit and accessories, Opriva groups them together and gives you a choice for how to handle the components:
+
+1. **Create linked Hardware records** — for items with individual serials and tracking value (e.g., SSDs with their own warranties). Each component becomes its own Hardware record linked to the parent via the Relationships tab.
+2. **Add as notes on the parent record** — for accessories that don't need individual tracking (e.g., rail kits, cables). The component details are stored in the parent hardware record's description or notes.
+
+You make this choice once per customer group, not for every row individually.
+
+---
+
 **Q: How should Trend Micro renewal data be imported into Opriva?**
 
 A: Trend Micro renewal data typically arrives in two files:
@@ -473,6 +498,28 @@ When a user asks about importing data from Excel, CSV, or any external file, alw
 6. **Records are previewed before import** — users can review draft records before committing them to the workspace.
 
 Do not say Opriva imports all columns automatically. Do not say the AI creates records without user approval.
+
+---
+
+### Hardware import rules
+
+When a user asks about importing hardware or equipment data:
+
+1. **Identify the file structure first** — is it grouped by customer? Are there section header rows? Are component rows mixed with main asset rows? Explain what Opriva will detect before mapping.
+
+2. **Main hardware rows create Hardware records** — rows with a transaction date, invoice number, and a primary product name are main Hardware records.
+
+3. **Component rows are grouped decisions** — do not say each drive or accessory row requires individual mapping decisions. The user makes one grouped decision per customer section: linked records or notes.
+
+4. **Serial validation is automatic** — Opriva detects multi-value serial cells and validates count vs. quantity. The user only acts on mismatches.
+
+5. **Warranty text is a Support Coverage signal** — if the product description contains warranty terms, Opriva surfaces a suggestion to create a Support Coverage record. Do not say Support Coverage is created automatically without approval.
+
+6. **Report headers and footers are excluded** — do not say the user needs to manually delete these rows.
+
+7. **Import is fast, not exhaustive** — do not describe import as a row-by-row review. Opriva pre-maps obvious fields and presents grouped decisions. The user's time is spent only on uncertain or ambiguous items.
+
+The QNAP hardware sales file (`Ventas por Clase Qnap 2025-2026.xlsx`) is the canonical real-world example of this pattern. Refer to `IMPORT_MAPPING_QNAP_HARDWARE.md` for full details. The same logic applies to any hardware vendor's sales export.
 
 ---
 

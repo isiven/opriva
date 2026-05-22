@@ -567,6 +567,28 @@ If a source column contains real business data that doesn't match any standard O
 
 > In the current MVP, custom field creation is available but saved column preferences and custom field definitions are session-local only. Persistent custom field management is a Phase 2 feature.
 
+### Hardware and equipment imports
+
+When importing hardware sales data — such as a QNAP sales report, a device register, or an equipment sales spreadsheet — Opriva handles the added complexity of grouped customers and multi-item sales automatically.
+
+**What Opriva detects:**
+- Customer section headers (rows where only the customer name appears — no transaction data)
+- Main hardware unit rows vs. component rows (drives, rails, cables, expansion cards)
+- Multi-value serial fields (multiple serials in one cell separated by line breaks or spaces)
+- Warranty text embedded in product descriptions
+- Invoice references that group components to a parent asset
+
+**What Opriva asks you:**
+- For component rows: "Create as linked hardware records, or add as notes on the parent asset?"
+- For multi-value serials: validates serial count against quantity and flags mismatches
+- For detected warranty text: "Warranty terms found — create a Support Coverage record?"
+
+**Why import is fast:**
+- Obvious columns (Client, Serial Number, Quantity, Invoice Reference, Owner) are pre-mapped
+- You only review uncertain or mixed-content columns
+- Component grouping is a single decision per customer group, not per row
+- Reusable templates mean repeat imports of the same file format are near-instant
+
 ### Trend Micro import example
 
 When importing Nextcom's Trend Micro renewal register (`Datos.xlsx`):

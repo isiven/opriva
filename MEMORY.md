@@ -844,7 +844,29 @@ PDF per-page columns (Product Name, SKU, Volume) populate individual License rec
 
 ---
 
-### 19.7 Record Type Inference
+### 19.7 Hardware and Component Import Model
+
+When importing hardware or equipment sales data (e.g., QNAP NAS sales exports, device registers, sales reports), the import assistant must:
+
+1. **Detect grouped customers** — sales exports are often grouped by customer name appearing as a section header row with all other columns blank. The customer value must be inherited by all following rows until the next customer header.
+
+2. **Distinguish main asset rows from component rows** — a single sale typically includes a primary hardware unit plus related components (drives, rails, expansion cards, cables). Main asset rows have transaction dates, invoice numbers, and product details. Component rows carry only product and serial data, inheriting context from the parent row.
+
+3. **Classify component rows by item type** — the `Clase de artículo` (or equivalent) field drives whether a row becomes a Hardware record, a linked component record, or a note on the parent asset.
+
+4. **Group components under the parent asset** — components sold on the same invoice as the main hardware unit should be presented to the user as a grouped decision: create linked Hardware records per component, or add as notes on the parent.
+
+5. **Detect and validate multi-value serial fields** — the Serial/serial number column may contain multiple serials in one cell (newline or space separated). Count detected serials and compare to Quantity. Flag mismatches for user review.
+
+6. **Extract warranty signals from description fields** — warranty text embedded in product descriptions (e.g., "Garantía de hardware QNAP 3 años") should be detected, surfaced to the user, and used to suggest Support Coverage records with calculated end dates.
+
+7. **Exclude report artifacts** — header rows (title, company name, date range) and footer rows (e.g., QuickBooks export timestamps) must be detected and excluded automatically.
+
+These patterns apply to any hardware or equipment sales export regardless of vendor — QNAP, Dell, HPE, Cisco, Seagate, or any other. The QNAP sales report is the canonical real-world example. See `IMPORT_MAPPING_QNAP_HARDWARE.md` for full field mapping and examples.
+
+---
+
+### 19.9 Record Type Inference
 
 When the AI reviews source data during import, it should recommend the best Opriva record type for each row or document:
 
@@ -861,7 +883,7 @@ When the AI reviews source data during import, it should recommend the best Opri
 
 ---
 
-### 19.8 User Controls Final Approval
+### 19.10 User Controls Final Approval
 
 The user always retains final control over:
 
@@ -1048,5 +1070,7 @@ Phase 2 should include:
 - 2026-05-21: Attach Document form simplified to MVP minimum per MEMORY.md §15.8. Visible fields reduced to Document Name (req), Document Type (req), Uploaded By (req), Notes (optional). Removed from visible form: File Name / Reference, Requirement, Access, Version, Effective Date, Expiration Date. Internal defaults set on save: status='Attached', requirement='Optional', access='Internal'. OPTIONAL section divider removed. Document object shape and RECORD_STORE.documents write unchanged.
 - 2026-05-21: MEMORY.md updated. §15.18 "Support Coverage / Support Contracts" added under Section 15. Decision: Support Coverage must be modeled as a renewable contract/coverage layer — not free text inside License or Hardware. Defines Support Coverage record fields, what it may cover, how it is added (drawer setup / Relationships tab / Complete Setup flow), and relationship model to covered assets via Contracts module. MVP roadmap updated: Support Coverage creation/linking from License and Hardware drawer setup. Phase 2 roadmap updated: multi-asset support coverage management, support coverage renewal workflows, support coverage compliance and SLA tracking. No application code modified.
 - 2026-05-22: IMPORT_MAPPING_TREND_MICRO.md created. Defines how Nextcom's Trend Micro renewal data (Datos.xlsx + TM LICENSE PDF) maps to Opriva records. Covers Excel-to-package mapping, PDF-to-license-line-item mapping, License Entitlement document model, package structure, support coverage logic (manufacturer vs. Nextcom SLA), MVP manual import steps, and Phase 2 automation roadmap. No application code modified.
+- 2026-05-22: IMPORT_MAPPING_QNAP_HARDWARE.md created. Documents QNAP hardware sales export mapping: grouped customer structure, main hardware rows vs. component rows, Brand:Model parsing, multi-value serial validation, warranty extraction from description field, component grouping logic, fast mapping UX, MVP import procedure, Phase 2 automation targets, 4 example normalized records. No application code modified.
+- 2026-05-22: MEMORY.md §19 updated. §19.7 "Hardware and Component Import Model" added as universal pattern for grouped hardware/equipment sales files. §19.7 Record Type Inference renumbered §19.9, §19.8 User Controls renumbered §19.10. USER_GUIDE.md and AI_KNOWLEDGE_BASE.md updated with hardware import guidance. No application code modified.
 - 2026-05-22: MEMORY.md §19 "Guided Import Mapping Model" added. Core decision: Opriva imports into its own product model, not a replica of the source file. Every import must include a guided column-mapping step with AI-assisted field suggestions, user approval, skip recommendations for calculated/identity columns, custom field creation rule, and record type inference. §18 Trend Micro specific application updated with skip recommendation for Reventa column. MVP Roadmap updated: guided column-mapping step added. Phase 2 Roadmap updated: automated PDF parsing, AI column detection. MEMORY.md, USER_GUIDE.md, AI_KNOWLEDGE_BASE.md updated. No application code modified.
 - 2026-05-22: MEMORY.md §18 "Trend Micro Import Model" added. Documents approved import model: Excel row = Renewal Package, PDF page = License line item, PDF file = License Entitlement document, OC Partner/PO Number join key, manufacturer support as derived coverage, Nextcom SLA as separate Support Coverage contract, MVP manual approach, Phase 2 automation targets. MEMORY.md, USER_GUIDE.md, and AI_KNOWLEDGE_BASE.md updated. No application code modified.

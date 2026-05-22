@@ -698,21 +698,18 @@ const NEW_RECORD_FIELDS = {
     { key: 'notes',         label: 'Notes',                  multi: true },
   ],
   Hardware: [
-    { key: 'name',           label: 'Asset Name',        required: true },
-    { key: 'type',           label: 'Type',              type: 'select', options: ['Server','Firewall','Switch','Laptop','Desktop','UPS','Storage','Printer','Other'] },
-    { key: 'brand',          label: 'Brand',             type: 'select', source: 'vendors' },
+    { key: 'name',           label: 'Asset Name',          required: true },
+    { key: 'type',           label: 'Type',                type: 'select', options: ['Server','Firewall','Switch','Laptop','Desktop','UPS','Storage','Printer','Other'] },
+    { key: 'brand',          label: 'Brand',               type: 'select', source: 'vendors' },
     { key: 'model',          label: 'Model' },
-    { key: 'serial',         label: 'Serial Number' },
+    { key: 'serial',         label: 'Serial Number / Asset ID' },
     { key: 'client',         label: 'Client / Department', type: 'select', source: 'clientDepartment' },
-    { key: 'provider',       label: 'Provider',          type: 'select', source: 'providers' },
-    { key: 'owner',          label: 'Owner',             type: 'select', source: 'users' },
-    { key: 'warrantyEnd',    label: 'Warranty End',      type: 'date' },
-    { key: 'support',        label: 'Support Coverage' },
-    { key: 'approvalStatus', label: 'Approval Status',   type: 'select', options: ['Approved','Pending','Blocked','Not required'] },
-    { key: 'status',         label: 'Status',            type: 'select', options: ['Active','Expiring','Expired','Warranty gap','Missing support'] },
-    { key: 'riskLevel',      label: 'Risk Level',        type: 'select', options: ['Low','Medium','High','Critical'] },
-    { key: 'relatedContract',label: 'Related Contract',  type: 'select', source: 'relatedContracts' },
-    { key: 'notes',          label: 'Notes',             multi: true },
+    { key: 'provider',       label: 'Provider',            type: 'select', source: 'providers' },
+    { key: 'owner',          label: 'Owner',               type: 'select', source: 'users' },
+    { key: 'warrantyEnd',    label: 'Warranty End',        type: 'date' },
+    { key: 'approvalStatus', label: 'Approval Status',     type: 'select', options: ['Approved','Pending','Blocked','Not required'] },
+    { key: 'alertPolicy',    label: 'Alert Policy',        type: 'select', options: LICENSE_ALERT_POLICY_OPTIONS },
+    { key: 'notes',          label: 'Notes',               multi: true },
   ],
   Contracts: [
     { key: 'name',           label: 'Contract Name',          required: true },
@@ -746,6 +743,45 @@ const LICENSE_TERM_OPTIONS = ['1 year','2 years','3 years','5 years','Custom'];
 const LICENSE_RENEWAL_STAGE_OPTIONS = ['Not started','In review','Quote requested','Proposal sent','Waiting for client','Approved','Renewed','Cancelled'];
 
 function getFormFields(module, workspaceMode) {
+  if (module === 'Hardware') {
+    if (workspaceMode === 'Internal IT') {
+      return [
+        { key: 'name',                label: 'Asset Name',                required: true },
+        { key: 'type',                label: 'Type',                      required: true, type: 'select', options: ['Server','Firewall','Switch','Laptop','Desktop','UPS','Storage','Printer','Other'] },
+        { key: 'client',              label: 'Department',                required: true, type: 'select', source: 'clientDepartment' },
+        { key: 'brand',               label: 'Brand',                     required: true, type: 'select', source: 'vendors' },
+        { key: 'serial',              label: 'Serial Number / Asset ID',  required: true },
+        { key: 'warrantyEnd',         label: 'Warranty End',              required: true, type: 'date' },
+        { key: 'owner',               label: 'Owner / Custodian',         required: true, type: 'select', source: 'users' },
+        { key: 'model',               label: 'Model' },
+        { key: 'provider',            label: 'Provider',                  type: 'select', source: 'providers' },
+        { key: 'location',            label: 'Location' },
+        { key: 'costCenter',          label: 'Cost Center' },
+        { key: 'purchaseDate',        label: 'Purchase Date',             type: 'date' },
+        { key: 'assetValue',          label: 'Asset Value / Annual Cost', type: 'number' },
+        { key: 'approvalStatus',      label: 'Approval Status',           type: 'select', options: ['Approved','Pending','Blocked','Not required'] },
+        { key: 'businessCriticality', label: 'Business Criticality',      type: 'select', options: ['Low','Medium','High','Critical'] },
+        { key: 'alertPolicy',         label: 'Alert Policy',              type: 'select', options: LICENSE_ALERT_POLICY_OPTIONS },
+        { key: 'notes',               label: 'Notes',                     multi: true },
+      ];
+    }
+    return [
+      { key: 'name',        label: 'Asset Name',              required: true },
+      { key: 'type',        label: 'Type',                    required: true, type: 'select', options: ['Server','Firewall','Switch','Laptop','Desktop','UPS','Storage','Printer','Other'] },
+      { key: 'client',      label: 'Client',                  required: true, type: 'select', source: 'clientDepartment' },
+      { key: 'brand',       label: 'Brand',                   required: true, type: 'select', source: 'vendors' },
+      { key: 'serial',      label: 'Serial Number / Asset ID', required: true },
+      { key: 'warrantyEnd', label: 'Warranty End',            required: true, type: 'date' },
+      { key: 'owner',       label: 'Owner',                   required: true, type: 'select', source: 'users' },
+      { key: 'model',       label: 'Model' },
+      { key: 'provider',    label: 'Provider / Distributor',  type: 'select', source: 'providers' },
+      { key: 'location',    label: 'Location' },
+      { key: 'purchaseDate', label: 'Purchase Date',          type: 'date' },
+      { key: 'assetValue',  label: 'Asset Value',             type: 'number' },
+      { key: 'alertPolicy', label: 'Alert Policy',            type: 'select', options: LICENSE_ALERT_POLICY_OPTIONS },
+      { key: 'notes',       label: 'Notes',                   multi: true },
+    ];
+  }
   if (module !== 'Licenses') return NEW_RECORD_FIELDS[module] || NEW_RECORD_FIELDS.Licenses;
   if (workspaceMode === 'Internal IT') {
     return [
@@ -832,6 +868,10 @@ function buildNewRow(form, safeColumns) {
     'Linked record':          v.relatedRecord,
     'Warranty end':           v.warrantyEnd,
     'Support':                v.support,
+    'Location':               v.location,
+    'Purchase Date':          v.purchaseDate,
+    'Asset Value':            fmtValue(v.assetValue),
+    'Asset Value / Annual Cost': fmtValue(v.assetValue),
     'Quantity':               v.seats,
     'Users / Seats':          v.seats,
     'Renewal':                v.renewalDate,

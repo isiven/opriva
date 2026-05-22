@@ -987,6 +987,15 @@ const SUPPORT_COVERAGE_NAME_OPTIONS = [
   'Managed Support','SLA Coverage','Other / Custom',
 ];
 
+const TASK_PRIORITY_OPTIONS = ['Low','Medium','High','Critical'];
+const TASK_STATUS_OPTIONS   = ['Open','In progress','Waiting','Done'];
+
+function getTaskTypeOptions(workspaceMode) {
+  return workspaceMode === 'Internal IT'
+    ? ['Approval follow-up','Budget review','Request provider quote','Upload evidence','Review renewal','Validate coverage','Other']
+    : ['Client follow-up','Request vendor quote','Send proposal','Review renewal','Upload evidence','Confirm purchase order','Other'];
+}
+
 function getSupportCoverageFields(workspaceMode) {
   var valueLabel = workspaceMode === 'Internal IT' ? 'Annual Cost' : 'Annual Value';
   return [
@@ -1222,6 +1231,10 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
   const [supportOpen, setSupportOpen] = React.useState(false);
   const [supportForm, setSupportForm] = React.useState({});
   const [supportErrors, setSupportErrors] = React.useState({});
+  const [sessionTasks, setSessionTasks] = React.useState([]);
+  const [taskOpen, setTaskOpen] = React.useState(false);
+  const [taskForm, setTaskForm] = React.useState({});
+  const [taskErrors, setTaskErrors] = React.useState({});
 
   const columnsKey = safeColumns.join('|');
   React.useEffect(() => { setVisibleSet(new Set(safeColumns)); }, [columnsKey]);
@@ -1230,6 +1243,7 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
     setLocalRows(records);
     setSessionDocs([]);
     setSessionSupportCoverage([]);
+    setSessionTasks([]);
     setFilters({});
     setSearch('');
   }, [rows]);
@@ -1463,6 +1477,65 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
     setSupportOpen(false);
     setSupportForm({});
     setSupportErrors({});
+  }
+
+  function openCreateTask() {
+    setTaskForm({ status: 'Open', priority: 'Medium' });
+    setTaskErrors({});
+    setTaskOpen(true);
+  }
+
+  function handleTaskSave() {
+    var errs = {};
+    if (!(taskForm.title || '').trim())    errs.title    = 'Required';
+    if (!(taskForm.taskType || '').trim()) errs.taskType = 'Required';
+    if (!(taskForm.owner || '').trim())    errs.owner    = 'Required';
+    if (!(taskForm.dueDate || '').trim())  errs.dueDate  = 'Required';
+    if (!(taskForm.priority || '').trim()) errs.priority = 'Required';
+    if (!(taskForm.status || '').trim())   errs.status   = 'Required';
+    if (Object.keys(errs).length) { setTaskErrors(errs); return; }
+    var today = new Date().toISOString().slice(0, 10);
+    var task = {
+      id: 'task-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
+      moduleKey: 'tasks',
+      source: 'userCreated',
+      title: taskForm.title.trim(),
+      taskType: taskForm.taskType,
+      owner: taskForm.owner,
+      dueDate: taskForm.dueDate,
+      priority: taskForm.priority,
+      status: taskForm.status,
+      notes: taskForm.notes || '',
+      sourceModule: selectedRecord.moduleKey,
+      sourceRecordId: selectedRecord.id,
+      sourceRecordName: selectedRecord.row[0] || '',
+      workspaceMode: workspaceMode,
+      createdAt: today,
+    };
+    var isIT = workspaceMode === 'Internal IT';
+    var clientOrDept = isIT
+      ? getDetailField(selectedRecord, 'Department', 'Business Unit', 'Cost Center', 'Client / Department')
+      : getDetailField(selectedRecord, 'Client', 'Company', 'Customer', 'Client / Department');
+    // Map to task table columns:
+    // MSP:  ['Task','Client','Record','Source','Impact','Owner','Priority','Due','Status','Action']
+    // IT:   ['Task','Department','Record','Source','Impact','Owner','Priority','Due','Status','Action']
+    var taskRow = [
+      task.title,
+      clientOrDept || '-',
+      task.sourceRecordName || '-',
+      task.taskType,
+      task.notes || '-',
+      task.owner,
+      task.priority,
+      task.dueDate,
+      task.status,
+      'Open task',
+    ];
+    RECORD_STORE.tasks.push({ id: task.id, row: taskRow, meta: task });
+    setSessionTasks(function(prev) { return prev.concat([task]); });
+    setTaskOpen(false);
+    setTaskForm({});
+    setTaskErrors({});
   }
 
   function handleFormField(key, value) {
@@ -1753,6 +1826,78 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
         </div>
       </div>
     </div>}
+
+    {taskOpen && selectedRecord && (() => {
+      var typeOpts = getTaskTypeOptions(workspaceMode);
+      var renderTF = function(key, label, required, children) {
+        return <div key={key}>
+          <label style={{display:'block',marginBottom:5,fontSize:13,fontWeight:700,color:'#334155'}}>
+            {label}{required && <span style={{color:'#DC2626',marginLeft:3}}>*</span>}
+          </label>
+          {children}
+          {taskErrors[key] && <span style={errStyle}>{taskErrors[key]}</span>}
+        </div>;
+      };
+      return <div style={modalWrap} onClick={function() { setTaskOpen(false); }} role="dialog" aria-modal="true" aria-label="Create task">
+        <div style={modalBox(520)} onClick={function(e) { e.stopPropagation(); }}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
+            <div>
+              <p style={eyebrow}>{selectedRecord.moduleKey} · {selectedRecord.row[0]}</p>
+              <h2 style={modalH2}>Create task</h2>
+              <p style={{margin:'4px 0 0',fontSize:12,color:'#64748B',lineHeight:1.4}}>Create a follow-up task tied to this record. It will appear in the Tasks module and in this drawer.</p>
+            </div>
+            <button style={closeBtn} onClick={function() { setTaskOpen(false); }} aria-label="Close">x</button>
+          </div>
+          <div style={{display:'grid',gap:12}}>
+            {renderTF('title','Task title',true,
+              <input type="text" value={taskForm.title||''} onChange={function(e) { setTaskForm(function(p) { return Object.assign({},p,{title:e.target.value}); }); }} style={fieldStyle} placeholder="e.g. Request renewal quote from vendor"/>
+            )}
+            {renderTF('taskType','Task type',true,
+              <select value={taskForm.taskType||''} onChange={function(e) { setTaskForm(function(p) { return Object.assign({},p,{taskType:e.target.value}); }); }} style={{...fieldStyle,cursor:'pointer',color:taskForm.taskType?'#132033':'#94A3B8'}}>
+                <option value="">Select type...</option>
+                {typeOpts.map(function(o) { return <option key={o} value={o}>{o}</option>; })}
+              </select>
+            )}
+            {renderTF('owner','Owner',true,
+              <select value={taskForm.owner||''} onChange={function(e) { setTaskForm(function(p) { return Object.assign({},p,{owner:e.target.value}); }); }} style={{...fieldStyle,cursor:'pointer',color:taskForm.owner?'#132033':'#94A3B8'}}>
+                <option value="">Select owner...</option>
+                {resolveFieldOptions('users', workspaceMode).map(function(o) { return <option key={o} value={o}>{o}</option>; })}
+              </select>
+            )}
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:8,margin:'4px 0 -4px'}}>
+            <span style={{fontSize:11,fontWeight:800,color:'#94A3B8',letterSpacing:'.1em',textTransform:'uppercase',flexShrink:0}}>Optional</span>
+            <div style={{flex:1,height:1,background:'#EEF2F7'}}/>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+            {renderTF('dueDate','Due date',true,
+              <input type="date" value={taskForm.dueDate||''} onChange={function(e) { setTaskForm(function(p) { return Object.assign({},p,{dueDate:e.target.value}); }); }} style={fieldStyle}/>
+            )}
+            {renderTF('priority','Priority',true,
+              <select value={taskForm.priority||''} onChange={function(e) { setTaskForm(function(p) { return Object.assign({},p,{priority:e.target.value}); }); }} style={{...fieldStyle,cursor:'pointer',color:taskForm.priority?'#132033':'#94A3B8'}}>
+                <option value="">Select...</option>
+                {TASK_PRIORITY_OPTIONS.map(function(o) { return <option key={o} value={o}>{o}</option>; })}
+              </select>
+            )}
+            {renderTF('status','Status',true,
+              <select value={taskForm.status||''} onChange={function(e) { setTaskForm(function(p) { return Object.assign({},p,{status:e.target.value}); }); }} style={{...fieldStyle,cursor:'pointer',color:taskForm.status?'#132033':'#94A3B8'}}>
+                <option value="">Select...</option>
+                {TASK_STATUS_OPTIONS.map(function(o) { return <option key={o} value={o}>{o}</option>; })}
+              </select>
+            )}
+          </div>
+          <div style={{display:'grid',gap:12}}>
+            {renderTF('notes','Notes',false,
+              <textarea value={taskForm.notes||''} onChange={function(e) { setTaskForm(function(p) { return Object.assign({},p,{notes:e.target.value}); }); }} rows={3} style={{...fieldStyle,resize:'vertical'}} placeholder="Context, links or impact notes…"/>
+            )}
+          </div>
+          <div style={{...modalFoot,justifyContent:'flex-end'}}>
+            <button onClick={function() { setTaskOpen(false); }}>Cancel</button>
+            <button className="primary" onClick={handleTaskSave}>Save task</button>
+          </div>
+        </div>
+      </div>;
+    })()}
 
     {supportOpen && selectedRecord && (() => {
       var covFields = getSupportCoverageFields(workspaceMode);
@@ -2160,23 +2305,57 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
               </div>;
             })()
           : activeDetailTab === 'Tasks'
-          ? <div style={{flex:1,overflowY:'auto',padding:'16px 20px',display:'grid',gap:12,alignContent:'start'}}>
-              <section style={{background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'}}>
-                <div style={{padding:'12px 14px',borderBottom:'1px solid #EEF2F7',background:'#FAFCFF'}}>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
-                    <div style={{minWidth:0}}>
-                      <h3 style={{margin:'0 0 4px',fontSize:14,color:'#0B1F3A',letterSpacing:'-.01em'}}>Tasks</h3>
-                      <p style={{margin:0,color:'#64748B',fontSize:12,lineHeight:1.45}}>Track follow-ups, approvals and renewal actions related to this record.</p>
+          ? (() => {
+              var recordTasks = sessionTasks.filter(function(t) { return t.sourceRecordId === selectedRecord.id; });
+              var priorityColor = function(p) {
+                if (p === 'Critical') return '#DC2626';
+                if (p === 'High') return '#D97706';
+                if (p === 'Medium') return '#2563EB';
+                return '#64748B';
+              };
+              var statusColor = function(s) {
+                if (s === 'Done') return '#0D9488';
+                if (s === 'In progress') return '#2563EB';
+                if (s === 'Waiting') return '#D97706';
+                return '#64748B';
+              };
+              return <div style={{flex:1,overflowY:'auto',padding:'16px 20px',display:'grid',gap:12,alignContent:'start'}}>
+                <section style={{background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'}}>
+                  <div style={{padding:'12px 14px',borderBottom:'1px solid #EEF2F7',background:'#FAFCFF'}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
+                      <div style={{minWidth:0}}>
+                        <h3 style={{margin:'0 0 4px',fontSize:14,color:'#0B1F3A',letterSpacing:'-.01em'}}>Tasks <span style={{fontSize:12,color:'#64748B',fontWeight:400}}>({recordTasks.length})</span></h3>
+                        <p style={{margin:0,color:'#64748B',fontSize:12,lineHeight:1.45}}>Track follow-ups, approvals and renewal actions related to this record.</p>
+                      </div>
+                      <button style={{...detailActionBtn,borderColor:'#0D9488',color:'#0D9488',flexShrink:0}} onClick={openCreateTask}>Create task</button>
                     </div>
-                    <button style={{...detailActionBtn,borderColor:'#0D9488',color:'#0D9488',flexShrink:0}} title="Create task - coming next">Create task</button>
                   </div>
-                </div>
-                <div style={{padding:'14px',display:'grid',gap:8}}>
-                  <strong style={{display:'block',color:'#132033',fontSize:13}}>No tasks linked to this record yet.</strong>
-                  <span style={{color:'#64748B',fontSize:12,lineHeight:1.45}}>Create tasks for renewal follow-up, owner assignments, quote requests and approval submissions tied to this record.</span>
-                </div>
-              </section>
-            </div>
+                  <div style={{padding:'14px',display:'grid',gap:8}}>
+                    {recordTasks.length === 0
+                      ? <>
+                          <strong style={{display:'block',color:'#132033',fontSize:13}}>No tasks linked to this record yet.</strong>
+                          <span style={{color:'#64748B',fontSize:12,lineHeight:1.45}}>Create tasks for renewal follow-up, owner assignments, quote requests and approval submissions tied to this record.</span>
+                        </>
+                      : recordTasks.map(function(t) {
+                          return <div key={t.id} style={{border:'1px solid #EEF2F7',borderRadius:10,padding:'11px 13px',background:'#FAFCFF'}}>
+                            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8,marginBottom:4}}>
+                              <strong style={{fontSize:13,color:'#132033',lineHeight:1.3,wordBreak:'break-word'}}>{t.title}</strong>
+                              <span style={{fontSize:11,fontWeight:700,color:priorityColor(t.priority),flexShrink:0,textTransform:'uppercase',letterSpacing:'.05em'}}>{t.priority}</span>
+                            </div>
+                            <div style={{display:'flex',flexWrap:'wrap',gap:8,fontSize:11,color:'#64748B',marginBottom:t.notes?6:0}}>
+                              <span style={{color:statusColor(t.status),fontWeight:600}}>{t.status}</span>
+                              {t.taskType && <span>· {t.taskType}</span>}
+                              {t.owner && <span>· {t.owner}</span>}
+                              {t.dueDate && <span>· Due {t.dueDate}</span>}
+                            </div>
+                            {t.notes && <p style={{margin:0,fontSize:12,color:'#64748B',lineHeight:1.4}}>{t.notes}</p>}
+                          </div>;
+                        })
+                    }
+                  </div>
+                </section>
+              </div>;
+            })()
           : <div style={{flex:1,overflowY:'auto',padding:'16px 20px',display:'grid',gap:12,alignContent:'start'}}>
               <section style={{background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'}}>
                 <div style={{padding:'12px 14px',borderBottom:'1px solid #EEF2F7',background:'#FAFCFF'}}>
@@ -2338,7 +2517,25 @@ function TasksScreen({ workspaceMode = 'MSP / Integrator' }){
     : workspaceMode === 'MSP / Integrator'
     ? 'Filter tasks by owner, client, record or status…'
     : 'Filter tasks by owner, company, record or status…';
-  const taskRows = isInternalIT ? tasksInternalIT : tasksMsp;
+  const sessionTaskRows = React.useMemo(function() {
+    var stored = Array.isArray(RECORD_STORE.tasks)
+      ? RECORD_STORE.tasks.filter(function(r) { return r.id && r.id.indexOf('task-') === 0; })
+      : [];
+    return stored.map(function(r) { return r.row; });
+  }, []);
+  const [sessionTasksLocal, setSessionTasksLocal] = React.useState(sessionTaskRows);
+  React.useEffect(function() {
+    function syncTasks() {
+      var stored = Array.isArray(RECORD_STORE.tasks)
+        ? RECORD_STORE.tasks.filter(function(r) { return r.id && r.id.indexOf('task-') === 0; })
+        : [];
+      setSessionTasksLocal(stored.map(function(r) { return r.row; }));
+    }
+    var interval = setInterval(syncTasks, 500);
+    return function() { clearInterval(interval); };
+  }, []);
+  var mockTaskRows = isInternalIT ? tasksInternalIT : tasksMsp;
+  var taskRows = mockTaskRows.concat(sessionTasksLocal);
   const boardMsp = [['To do','Request signed Trend Micro quote','Banisi','High','$11,500 margin · Proposal pending'],['In progress','Assign SSL certificate owner','Grupo Regency','Critical','Owner gap · Renewal at risk'],['Blocked','Legal approval for support contract','Banisi','Medium','$3,800 margin · Legal blocker']];
   const boardInternalIT = [['To do','Request Fortinet renewal quote','Infrastructure','Medium','Service continuity risk'],['In progress','Review endpoint security consolidation','IT Security','High','CIO approval blocked'],['Blocked','Submit CIO approval for Microsoft 365','Finance','High','$142,000 exposure']];
   const board = isInternalIT ? boardInternalIT : boardMsp;

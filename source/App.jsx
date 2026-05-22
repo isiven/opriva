@@ -1389,24 +1389,29 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
     if (Object.keys(errs).length) { setSupportErrors(errs); return; }
     var today = new Date().toISOString().slice(0, 10);
     var resolvedName = isCustomName ? supportForm.customName.trim() : supportForm.name;
+    // Derive context fields from the covered record's row for richer metadata.
     var cov = {
-      id:                'sc-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
-      moduleKey:         'contracts',
-      contractType:      'Support Coverage',
-      name:              resolvedName,
-      coverageType:      supportForm.coverageType,
-      provider:          supportForm.provider,
-      owner:             supportForm.owner,
-      startDate:         supportForm.startDate || '',
-      endDate:           supportForm.endDate,
-      alertPolicy:       supportForm.alertPolicy,
-      value:             supportForm.value || '',
-      notes:             supportForm.notes || '',
-      coveredModule:     selectedRecord.moduleKey,
-      coveredRecordId:   selectedRecord.id,
-      coveredRecordName: selectedRecord.row[0] || '',
-      createdAt:         today,
-      source:            'supportCoverage',
+      id:                        'sc-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
+      moduleKey:                 'contracts',
+      contractType:              'Support Coverage',
+      name:                      resolvedName,
+      coverageType:              supportForm.coverageType,
+      provider:                  supportForm.provider,
+      owner:                     supportForm.owner,
+      startDate:                 supportForm.startDate || '',
+      endDate:                   supportForm.endDate,
+      alertPolicy:               supportForm.alertPolicy,
+      value:                     supportForm.value || '',
+      notes:                     supportForm.notes || '',
+      coveredModule:             selectedRecord.moduleKey,
+      coveredRecordId:           selectedRecord.id,
+      coveredRecordName:         selectedRecord.row[0] || '',
+      coveredClientOrDepartment: getDetailField(selectedRecord, 'Client', 'Department', 'Client / Department') || '',
+      coveredBrand:              getDetailField(selectedRecord, 'Brand', 'Vendor', 'Provider / Vendor') || '',
+      coveredQuantity:           getDetailField(selectedRecord, 'Quantity / Seats', 'Quantity', 'Seats', 'Users / Seats') || '',
+      workspaceMode:             workspaceMode,
+      createdAt:                 today,
+      source:                    'supportCoverage',
     };
     // Build the Contracts row with an explicit value map so every column
     // receives the intended value — avoids buildNewRow fallbacks that
@@ -1984,16 +1989,30 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
               return <div style={{flex:1,overflowY:'auto',padding:'16px 20px',display:'grid',gap:12,alignContent:'start'}}>
                 {covMeta
                   ? <section style={{background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'}}>
-                      <div style={{padding:'10px 12px 8px',fontSize:11,fontWeight:900,color:'#64748B',textTransform:'uppercase',letterSpacing:'.08em',background:'#FAFCFF',borderBottom:'1px solid #EEF2F7'}}>Covered record</div>
-                      <div style={{padding:'12px 14px',display:'grid',gap:6}}>
+                      <div style={{padding:'10px 12px 8px',fontSize:11,fontWeight:900,color:'#64748B',textTransform:'uppercase',letterSpacing:'.08em',background:'#FAFCFF',borderBottom:'1px solid #EEF2F7'}}>Coverage details</div>
+                      <div style={{padding:'12px 14px',display:'grid',gap:10}}>
+                        {/* Covered record block */}
                         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8}}>
                           <strong style={{fontSize:13,color:'#0B1F3A',fontWeight:700,lineHeight:1.3}}>{covMeta.coveredRecordName || '-'}</strong>
                           <span style={{fontSize:11,fontWeight:700,color:'#0F766E',background:'#F0FDF9',border:'1px solid #CCFBEF',borderRadius:6,padding:'2px 7px',flexShrink:0,whiteSpace:'nowrap',textTransform:'capitalize'}}>{covMeta.coveredModule}</span>
                         </div>
+                        {/* Covered record context */}
+                        {(covMeta.coveredClientOrDepartment || covMeta.coveredBrand || covMeta.coveredQuantity) && (
+                          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'4px 12px',fontSize:12,color:'#475569',paddingBottom:8,borderBottom:'1px solid #F1F5F9'}}>
+                            {covMeta.coveredClientOrDepartment && <span><span style={{color:'#94A3B8',fontWeight:700}}>{covMeta.workspaceMode === 'Internal IT' ? 'Department: ' : 'Client: '}</span>{covMeta.coveredClientOrDepartment}</span>}
+                            {covMeta.coveredBrand && <span><span style={{color:'#94A3B8',fontWeight:700}}>Brand: </span>{covMeta.coveredBrand}</span>}
+                            {covMeta.coveredQuantity && <span><span style={{color:'#94A3B8',fontWeight:700}}>Quantity: </span>{covMeta.coveredQuantity}</span>}
+                          </div>
+                        )}
+                        {/* Coverage specifics */}
                         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'4px 12px',fontSize:12,color:'#475569'}}>
                           {covMeta.coverageType && <span><span style={{color:'#94A3B8',fontWeight:700}}>Coverage type: </span>{covMeta.coverageType}</span>}
                           {covMeta.provider && <span><span style={{color:'#94A3B8',fontWeight:700}}>Provider: </span>{covMeta.provider}</span>}
+                          {covMeta.startDate && <span><span style={{color:'#94A3B8',fontWeight:700}}>Start: </span>{covMeta.startDate}</span>}
                           {covMeta.endDate && <span><span style={{color:'#94A3B8',fontWeight:700}}>Ends: </span>{covMeta.endDate}</span>}
+                          {covMeta.owner && <span><span style={{color:'#94A3B8',fontWeight:700}}>Coverage owner: </span>{covMeta.owner}</span>}
+                          {covMeta.alertPolicy && <span><span style={{color:'#94A3B8',fontWeight:700}}>Alert policy: </span>{covMeta.alertPolicy}</span>}
+                          {covMeta.value && <span style={{gridColumn:'1 / -1'}}><span style={{color:'#94A3B8',fontWeight:700}}>{covMeta.workspaceMode === 'Internal IT' ? 'Annual cost: ' : 'Annual value: '}</span>{'$' + Number(covMeta.value).toLocaleString()}</span>}
                         </div>
                       </div>
                     </section>
@@ -2035,6 +2054,7 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
                               </div>
                               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'4px 12px',fontSize:12,color:'#475569'}}>
                                 {cov.provider && <span><span style={{color:'#94A3B8',fontWeight:700}}>Provider: </span>{cov.provider}</span>}
+                                {cov.startDate && <span><span style={{color:'#94A3B8',fontWeight:700}}>Start: </span>{cov.startDate}</span>}
                                 {cov.endDate && <span><span style={{color:'#94A3B8',fontWeight:700}}>Ends: </span>{cov.endDate}</span>}
                                 {cov.owner && <span><span style={{color:'#94A3B8',fontWeight:700}}>Coverage Owner: </span>{cov.owner}</span>}
                                 {cov.alertPolicy && <span><span style={{color:'#94A3B8',fontWeight:700}}>Alerts: </span>{cov.alertPolicy}</span>}
@@ -2218,8 +2238,8 @@ function ContractsScreen({ workspaceMode = 'MSP / Integrator' }){
     ? 'Track client contract obligations, notice periods, legal evidence and renewal actions across your portfolio.'
     : 'Track contracts, obligations, notice periods, documents and renewal actions across the workspace.';
   const contractsTabs = isInternalIT
-    ? ['All','CIO approval needed','Notice period','Auto-renewal','Missing evidence']
-    : ['All','High risk','Notice period','Auto-renewal','Missing document'];
+    ? ['All','CIO approval needed','Notice period','Auto-renewal','Missing evidence','Support coverage']
+    : ['All','High risk','Notice period','Auto-renewal','Missing document','Support coverage'];
   const contractsColumns = isInternalIT
     ? ['Contract','Type','Department','Provider','Owner','Document','Renewal','Notice','Approval status','Next action','Risk']
     : ['Contract','Type','Client','Provider / Distributor','Owner','Document','Renewal','Notice','Legal status','Next action','Risk'];

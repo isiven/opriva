@@ -14,6 +14,10 @@ private-samples/
 *.xls
 *.pdf
 
+# Official anonymized Opriva templates are allowed.
+!templates/OPRIVA_IMPORT_TEMPLATE.xlsx
+!public/templates/OPRIVA_IMPORT_TEMPLATE.xlsx
+
 # sample-data/ is intentionally tracked (anonymized files only).
 # To force-add an anonymized file that matches an excluded pattern above, use:
 #   git add --force sample-data/your-file.csv

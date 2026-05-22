@@ -656,6 +656,7 @@ const RECORD_STORE = {
   contracts: [],
   documents: [],
   tasks:     [],
+  activity:  [],
 };
 
 function createRecordId(moduleKey) {
@@ -715,6 +716,25 @@ function ensureModuleRecordsLoaded(moduleKey, workspaceMode) {
   if (Array.isArray(RECORD_STORE[moduleKey]) && RECORD_STORE[moduleKey].length > 0) return;
   var rows = getModuleMockRows(moduleKey, workspaceMode);
   if (rows.length > 0) RECORD_STORE[moduleKey] = toRecords(rows, moduleKey);
+}
+
+// ---------------------------------------------------------------------------
+// Activity log — local/session only. No backend, no persistence.
+// ---------------------------------------------------------------------------
+// Pushes one structured event to RECORD_STORE.activity.
+// All handlers that represent auditable user actions should call this.
+// The Activity tab in each record drawer reads RECORD_STORE.activity and
+// filters by sourceRecordId or relatedRecordId at render time.
+// ---------------------------------------------------------------------------
+function addActivityEvent(event) {
+  if (!Array.isArray(RECORD_STORE.activity)) RECORD_STORE.activity = [];
+  var ev = Object.assign({}, event, {
+    id:        'act-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
+    actor:     event.actor || 'Current user',
+    createdAt: event.createdAt || new Date().toISOString(),
+  });
+  RECORD_STORE.activity.push(ev);
+  return ev;
 }
 
 const DOC_TYPE_OPTIONS = [
@@ -1351,6 +1371,15 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
       RECORD_STORE[moduleKey] = next;
       return next;
     });
+    addActivityEvent({
+      eventType:        'record_created',
+      title:            'Record created',
+      description:      (newRecord.row[0] || 'Record') + ' was created.',
+      sourceModule:     moduleKey,
+      sourceRecordId:   newRecord.id,
+      sourceRecordName: newRecord.row[0] || '',
+      workspaceMode:    workspaceMode,
+    });
     const projectedRow = activeColumns.map(function(col) {
       const ci = safeColumns.indexOf(col);
       return ci >= 0 && newRecord.row[ci] !== undefined ? newRecord.row[ci] : '-';
@@ -1382,6 +1411,15 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
       return ci >= 0 && newRow[ci] !== undefined ? newRow[ci] : '-';
     });
     setSelectedRecord(prev => ({...prev, row: newActiveRow}));
+    addActivityEvent({
+      eventType:        'record_edited',
+      title:            'Record edited',
+      description:      (newRow[0] || selectedRecord.row[0] || 'Record') + ' was updated.',
+      sourceModule:     moduleKey,
+      sourceRecordId:   selectedRecord.id,
+      sourceRecordName: newRow[0] || selectedRecord.row[0] || '',
+      workspaceMode:    workspaceMode,
+    });
     setEditMode(false);
   }
 
@@ -1430,6 +1468,18 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
       notes:            attachDocForm.notes || '',
     };
     RECORD_STORE.documents.push(doc);
+    addActivityEvent({
+      eventType:        'document_attached',
+      title:            'Document attached',
+      description:      (doc.name || 'Document') + ' was attached to ' + (doc.linkedRecordName || 'this record') + '.',
+      sourceModule:     doc.linkedModule,
+      sourceRecordId:   doc.linkedRecordId,
+      sourceRecordName: doc.linkedRecordName,
+      relatedModule:    'documents',
+      relatedRecordId:  doc.id,
+      relatedRecordName: doc.name,
+      workspaceMode:    workspaceMode,
+    });
     setSessionDocs(function(prev) { return prev.concat(doc); });
     setAttachDocOpen(false);
   }
@@ -1522,6 +1572,18 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
     // Store full coverage object as meta so the Contracts drawer can display
     // the bidirectional "Coverage details" relationship.
     RECORD_STORE.contracts.push({ id: cov.id, row: covRow, meta: cov });
+    addActivityEvent({
+      eventType:        'support_coverage_added',
+      title:            'Support coverage added',
+      description:      resolvedName + ' was linked to ' + (cov.coveredRecordName || 'this record') + '.',
+      sourceModule:     cov.coveredModule,
+      sourceRecordId:   cov.coveredRecordId,
+      sourceRecordName: cov.coveredRecordName,
+      relatedModule:    'contracts',
+      relatedRecordId:  cov.id,
+      relatedRecordName: resolvedName,
+      workspaceMode:    workspaceMode,
+    });
     setSessionSupportCoverage(function(prev) { return prev.concat([cov]); });
     setSupportOpen(false);
     setSupportForm({});
@@ -1594,6 +1656,18 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
       columns:     selectedRecord.columns,
     };
     RECORD_STORE.tasks.push({ id: task.id, row: taskRow, meta: task });
+    addActivityEvent({
+      eventType:        'task_created',
+      title:            'Task created',
+      description:      task.title + ' was created and assigned to ' + task.owner + '.',
+      sourceModule:     task.sourceModule,
+      sourceRecordId:   task.sourceRecordId,
+      sourceRecordName: task.sourceRecordName,
+      relatedModule:    'tasks',
+      relatedRecordId:  task.id,
+      relatedRecordName: task.title,
+      workspaceMode:    workspaceMode,
+    });
     setSessionTasks(function(prev) { return prev.concat([task]); });
     setTaskOpen(false);
     setTaskForm({});
@@ -2443,16 +2517,61 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
               </div>;
             })()
           : <div style={{flex:1,overflowY:'auto',padding:'16px 20px',display:'grid',gap:12,alignContent:'start'}}>
-              <section style={{background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'}}>
-                <div style={{padding:'12px 14px',borderBottom:'1px solid #EEF2F7',background:'#FAFCFF'}}>
-                  <h3 style={{margin:'0 0 4px',fontSize:14,color:'#0B1F3A',letterSpacing:'-.01em'}}>Activity</h3>
-                  <p style={{margin:0,color:'#64748B',fontSize:12,lineHeight:1.45}}>Changes, document uploads, owner assignments and workflow events will appear here.</p>
-                </div>
-                <div style={{padding:'14px',display:'grid',gap:8}}>
-                  <strong style={{display:'block',color:'#132033',fontSize:13}}>No activity recorded yet.</strong>
-                  <span style={{color:'#64748B',fontSize:12,lineHeight:1.45}}>Future changes will appear here automatically, including document uploads, owner assignments, task creation, status updates and edit history.</span>
-                </div>
-              </section>
+              {(() => {
+                var actEvents = Array.isArray(RECORD_STORE.activity)
+                  ? RECORD_STORE.activity.filter(function(ev) {
+                      return ev.sourceRecordId === selectedRecord.id
+                          || ev.relatedRecordId === selectedRecord.id;
+                    }).slice().reverse()
+                  : [];
+                var evBadge = function(et) {
+                  if (et === 'record_created')         return {bg:'#F0FDF4',border:'#BBF7D0',color:'#15803D'};
+                  if (et === 'record_edited')           return {bg:'#EFF6FF',border:'#BFDBFE',color:'#1D4ED8'};
+                  if (et === 'document_attached')       return {bg:'#EEF2FF',border:'#C7D2FE',color:'#4338CA'};
+                  if (et === 'support_coverage_added')  return {bg:'#F0FDFA',border:'#99F6E4',color:'#0F766E'};
+                  if (et === 'task_created')            return {bg:'#FFF7ED',border:'#FED7AA',color:'#C2410C'};
+                  return {bg:'#F8FAFC',border:'#E2E8F0',color:'#64748B'};
+                };
+                var fmtTime = function(iso) {
+                  if (!iso) return '';
+                  try {
+                    var d = new Date(iso);
+                    return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
+                      + ' ' + d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});
+                  } catch(e) { return iso.slice(0,10); }
+                };
+                return <section style={{background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'}}>
+                  <div style={{padding:'12px 14px',borderBottom:'1px solid #EEF2F7',background:'#FAFCFF',display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
+                    <div>
+                      <h3 style={{margin:'0 0 2px',fontSize:14,color:'#0B1F3A',letterSpacing:'-.01em'}}>Activity</h3>
+                      <p style={{margin:0,color:'#64748B',fontSize:12,lineHeight:1.4}}>Audit trail for this record.</p>
+                    </div>
+                    {actEvents.length > 0 && <span style={{fontSize:11,fontWeight:800,background:'#EFF6FF',color:'#1D4ED8',border:'1px solid #BFDBFE',borderRadius:999,padding:'2px 8px',flexShrink:0}}>{actEvents.length}</span>}
+                  </div>
+                  {actEvents.length === 0
+                    ? <div style={{padding:'14px',display:'grid',gap:6}}>
+                        <strong style={{display:'block',color:'#132033',fontSize:13}}>No activity yet.</strong>
+                        <span style={{color:'#64748B',fontSize:12,lineHeight:1.45}}>Changes, document uploads, owner assignments and workflow events will appear here.</span>
+                      </div>
+                    : <div style={{padding:'4px 14px 10px',display:'grid',gap:0}}>
+                        {actEvents.map(function(ev, i) {
+                          var bc = evBadge(ev.eventType);
+                          return <div key={ev.id} style={{padding:'10px 0',borderBottom:i < actEvents.length-1 ? '1px solid #F1F5F9' : 'none',display:'grid',gap:4}}>
+                            <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:8,flexWrap:'wrap'}}>
+                              <strong style={{fontSize:13,color:'#0B1F3A',lineHeight:1.3,flex:1}}>{ev.title}</strong>
+                              <span style={{fontSize:10,fontWeight:800,background:bc.bg,border:'1px solid '+bc.border,color:bc.color,borderRadius:999,padding:'2px 7px',letterSpacing:'.02em',whiteSpace:'nowrap',flexShrink:0}}>{ev.eventType.replace(/_/g,' ')}</span>
+                            </div>
+                            {ev.description && <p style={{margin:0,fontSize:12.5,color:'#334155',lineHeight:1.45}}>{ev.description}</p>}
+                            <div style={{display:'flex',gap:6,flexWrap:'wrap',fontSize:11,color:'#94A3B8',alignItems:'center'}}>
+                              <span>{ev.actor || 'Current user'}</span>
+                              {ev.createdAt && <><span>·</span><span>{fmtTime(ev.createdAt)}</span></>}
+                            </div>
+                          </div>;
+                        })}
+                      </div>
+                  }
+                </section>;
+              })()}
             </div>
         }
 
@@ -2687,6 +2806,18 @@ function TasksScreen({ workspaceMode = 'MSP / Integrator' }){
       'Open task',
     ];
     RECORD_STORE.tasks.push({ id: task.id, row: taskRow, meta: task });
+    addActivityEvent({
+      eventType:        'task_created',
+      title:            'Task created',
+      description:      task.title + ' was created and linked to ' + task.sourceRecordName + '.',
+      sourceModule:     task.sourceModule,
+      sourceRecordId:   task.sourceRecordId,
+      sourceRecordName: task.sourceRecordName,
+      relatedModule:    'tasks',
+      relatedRecordId:  task.id,
+      relatedRecordName: task.title,
+      workspaceMode:    workspaceMode,
+    });
     setNewTaskOpen(false);
     setNewTaskForm({});
     setNewTaskErrors({});
@@ -2955,15 +3086,64 @@ function TasksScreen({ workspaceMode = 'MSP / Integrator' }){
           )}
 
           {activeTab === 'Activity' && (
-            <section style={{background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'}}>
-              <div style={{padding:'12px 14px',borderBottom:'1px solid #EEF2F7',background:'#FAFCFF'}}>
-                <h3 style={{margin:0,fontSize:14,color:'#0B1F3A',letterSpacing:'-.01em'}}>Activity</h3>
-              </div>
-              <div style={{padding:'14px',display:'grid',gap:8}}>
-                <strong style={{display:'block',color:'#132033',fontSize:13}}>No activity recorded yet.</strong>
-                <span style={{color:'#64748B',fontSize:12,lineHeight:1.45}}>Future changes will appear here automatically, including owner assignments, status updates and edit history.</span>
-              </div>
-            </section>
+            <div style={{display:'grid',gap:12,alignContent:'start'}}>
+              {(() => {
+                var taskId = selectedTask.id;
+                var actEvents = Array.isArray(RECORD_STORE.activity)
+                  ? RECORD_STORE.activity.filter(function(ev) {
+                      return ev.relatedRecordId === taskId
+                          || ev.sourceRecordId === taskId;
+                    }).slice().reverse()
+                  : [];
+                var evBadge = function(et) {
+                  if (et === 'record_created')        return {bg:'#F0FDF4',border:'#BBF7D0',color:'#15803D'};
+                  if (et === 'record_edited')          return {bg:'#EFF6FF',border:'#BFDBFE',color:'#1D4ED8'};
+                  if (et === 'document_attached')      return {bg:'#EEF2FF',border:'#C7D2FE',color:'#4338CA'};
+                  if (et === 'support_coverage_added') return {bg:'#F0FDFA',border:'#99F6E4',color:'#0F766E'};
+                  if (et === 'task_created')           return {bg:'#FFF7ED',border:'#FED7AA',color:'#C2410C'};
+                  return {bg:'#F8FAFC',border:'#E2E8F0',color:'#64748B'};
+                };
+                var fmtTime = function(iso) {
+                  if (!iso) return '';
+                  try {
+                    var d = new Date(iso);
+                    return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
+                      + ' ' + d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});
+                  } catch(e) { return iso.slice(0,10); }
+                };
+                return <section style={{background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'}}>
+                  <div style={{padding:'12px 14px',borderBottom:'1px solid #EEF2F7',background:'#FAFCFF',display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
+                    <div>
+                      <h3 style={{margin:'0 0 2px',fontSize:14,color:'#0B1F3A',letterSpacing:'-.01em'}}>Activity</h3>
+                      <p style={{margin:0,color:'#64748B',fontSize:12,lineHeight:1.4}}>Audit trail for this task.</p>
+                    </div>
+                    {actEvents.length > 0 && <span style={{fontSize:11,fontWeight:800,background:'#EFF6FF',color:'#1D4ED8',border:'1px solid #BFDBFE',borderRadius:999,padding:'2px 8px',flexShrink:0}}>{actEvents.length}</span>}
+                  </div>
+                  {actEvents.length === 0
+                    ? <div style={{padding:'14px',display:'grid',gap:6}}>
+                        <strong style={{display:'block',color:'#132033',fontSize:13}}>No activity yet.</strong>
+                        <span style={{color:'#64748B',fontSize:12,lineHeight:1.45}}>Owner assignments, status updates and workflow events will appear here.</span>
+                      </div>
+                    : <div style={{padding:'4px 14px 10px',display:'grid',gap:0}}>
+                        {actEvents.map(function(ev, i) {
+                          var bc = evBadge(ev.eventType);
+                          return <div key={ev.id} style={{padding:'10px 0',borderBottom:i < actEvents.length-1 ? '1px solid #F1F5F9' : 'none',display:'grid',gap:4}}>
+                            <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:8,flexWrap:'wrap'}}>
+                              <strong style={{fontSize:13,color:'#0B1F3A',lineHeight:1.3,flex:1}}>{ev.title}</strong>
+                              <span style={{fontSize:10,fontWeight:800,background:bc.bg,border:'1px solid '+bc.border,color:bc.color,borderRadius:999,padding:'2px 7px',letterSpacing:'.02em',whiteSpace:'nowrap',flexShrink:0}}>{ev.eventType.replace(/_/g,' ')}</span>
+                            </div>
+                            {ev.description && <p style={{margin:0,fontSize:12.5,color:'#334155',lineHeight:1.45}}>{ev.description}</p>}
+                            <div style={{display:'flex',gap:6,flexWrap:'wrap',fontSize:11,color:'#94A3B8',alignItems:'center'}}>
+                              <span>{ev.actor || 'Current user'}</span>
+                              {ev.createdAt && <><span>·</span><span>{fmtTime(ev.createdAt)}</span></>}
+                            </div>
+                          </div>;
+                        })}
+                      </div>
+                  }
+                </section>;
+              })()}
+            </div>
           )}
 
         </div>

@@ -981,16 +981,21 @@ const SUPPORT_COVERAGE_TYPE_OPTIONS = [
 const SUPPORT_ALERT_POLICY_OPTIONS = [
   'Workspace default','90 / 60 / 30 days','60 / 30 / 7 days','30 / 7 / 1 days','Custom',
 ];
+const SUPPORT_COVERAGE_NAME_OPTIONS = [
+  'Nextcom Gold Support','Nextcom Silver Support','Nextcom Bronze Support',
+  'Vendor Support','Manufacturer Warranty','Extended Warranty',
+  'Managed Support','SLA Coverage','Other / Custom',
+];
 
 function getSupportCoverageFields(workspaceMode) {
   var valueLabel = workspaceMode === 'Internal IT' ? 'Annual Cost' : 'Annual Value';
   return [
-    { key: 'name',         label: 'Support / Coverage Name',   required: true },
-    { key: 'coverageType', label: 'Coverage Type',             required: true, type: 'select', options: SUPPORT_COVERAGE_TYPE_OPTIONS },
-    { key: 'provider',     label: 'Provider',                  required: true, type: 'select', source: 'providers' },
-    { key: 'endDate',      label: 'Coverage End Date',         required: true, type: 'date' },
-    { key: 'owner',        label: 'Owner',                     required: true, type: 'select', source: 'users' },
-    { key: 'alertPolicy',  label: 'Alert Policy',              required: true, type: 'select', options: SUPPORT_ALERT_POLICY_OPTIONS },
+    { key: 'name',         label: 'Support / Coverage Name',   required: true,  type: 'select', options: SUPPORT_COVERAGE_NAME_OPTIONS },
+    { key: 'coverageType', label: 'Coverage Type',             required: true,  type: 'select', options: SUPPORT_COVERAGE_TYPE_OPTIONS },
+    { key: 'provider',     label: 'Provider',                  required: true,  type: 'select', source: 'providers' },
+    { key: 'endDate',      label: 'Coverage End Date',         required: true,  type: 'date' },
+    { key: 'owner',        label: 'Coverage Owner',            required: true,  type: 'select', source: 'users' },
+    { key: 'alertPolicy',  label: 'Alert Policy',              required: true,  type: 'select', options: SUPPORT_ALERT_POLICY_OPTIONS },
     { key: 'startDate',    label: 'Coverage Start Date',       type: 'date' },
     { key: 'value',        label: valueLabel,                  type: 'number' },
     { key: 'notes',        label: 'Notes',                     multi: true },
@@ -1374,18 +1379,21 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
 
   function handleSupportSave() {
     var covFields = getSupportCoverageFields(workspaceMode);
+    var isCustomName = supportForm.name === 'Other / Custom';
     var errs = {};
     covFields.forEach(function(f) {
       if (!f.required) return;
       if (!(supportForm[f.key] || '').trim()) errs[f.key] = 'Required';
     });
+    if (isCustomName && !(supportForm.customName || '').trim()) errs.customName = 'Required';
     if (Object.keys(errs).length) { setSupportErrors(errs); return; }
     var today = new Date().toISOString().slice(0, 10);
+    var resolvedName = isCustomName ? supportForm.customName.trim() : supportForm.name;
     var cov = {
       id:                'sc-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
       moduleKey:         'contracts',
       contractType:      'Support Coverage',
-      name:              supportForm.name,
+      name:              resolvedName,
       coverageType:      supportForm.coverageType,
       provider:          supportForm.provider,
       owner:             supportForm.owner,
@@ -1714,8 +1722,8 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
       var optF  = covFields.filter(function(f) { return !f.required && !f.multi; });
       var noteF = covFields.filter(function(f) { return f.multi; });
       var helperText = workspaceMode === 'Internal IT'
-        ? 'Create a renewable support, warranty, maintenance or SLA coverage record linked to this item.'
-        : 'Create a renewable support, warranty, maintenance or SLA coverage record linked to this item.';
+        ? 'Track internal support, manufacturer warranty, maintenance or SLA coverage linked to this asset.'
+        : 'Create a renewable customer support, vendor support, warranty or SLA coverage record linked to this item.';
       var renderSF = function(f) {
         return <div key={f.key}>
           <label style={{display:'block',marginBottom:5,fontSize:13,fontWeight:700,color:'#334155'}}>
@@ -1747,7 +1755,20 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
             </div>
             <button style={closeBtn} onClick={function() { setSupportOpen(false); }} aria-label="Close">x</button>
           </div>
-          {reqF.length > 0 && <div style={{display:'grid',gap:12}}>{reqF.map(renderSF)}</div>}
+          {reqF.length > 0 && <div style={{display:'grid',gap:12}}>
+            {reqF.map(function(f) {
+              return <React.Fragment key={f.key}>
+                {renderSF(f)}
+                {f.key === 'name' && supportForm.name === 'Other / Custom' && <div>
+                  <label style={{display:'block',marginBottom:5,fontSize:13,fontWeight:700,color:'#334155'}}>
+                    Custom Coverage Name<span style={{color:'#DC2626',marginLeft:3}}>*</span>
+                  </label>
+                  <input type="text" value={supportForm.customName||''} onChange={function(e) { setSupportForm(function(p) { return Object.assign({},p,{customName:e.target.value}); }); }} style={fieldStyle} placeholder="Enter custom coverage name"/>
+                  {supportErrors.customName && <span style={errStyle}>{supportErrors.customName}</span>}
+                </div>}
+              </React.Fragment>;
+            })}
+          </div>}
           {optF.length > 0 && <>
             <div style={{display:'flex',alignItems:'center',gap:8,margin:'4px 0 -4px'}}>
               <span style={{fontSize:11,fontWeight:800,color:'#94A3B8',letterSpacing:'.1em',textTransform:'uppercase',flexShrink:0}}>Optional</span>
@@ -1992,8 +2013,9 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
                               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'4px 12px',fontSize:12,color:'#475569'}}>
                                 {cov.provider && <span><span style={{color:'#94A3B8',fontWeight:700}}>Provider: </span>{cov.provider}</span>}
                                 {cov.endDate && <span><span style={{color:'#94A3B8',fontWeight:700}}>Ends: </span>{cov.endDate}</span>}
-                                {cov.owner && <span><span style={{color:'#94A3B8',fontWeight:700}}>Owner: </span>{cov.owner}</span>}
+                                {cov.owner && <span><span style={{color:'#94A3B8',fontWeight:700}}>Coverage Owner: </span>{cov.owner}</span>}
                                 {cov.alertPolicy && <span><span style={{color:'#94A3B8',fontWeight:700}}>Alerts: </span>{cov.alertPolicy}</span>}
+                                {cov.value && <span style={{gridColumn:'1 / -1'}}><span style={{color:'#94A3B8',fontWeight:700}}>{workspaceMode === 'Internal IT' ? 'Annual Cost: ' : 'Annual Value: '}</span>{'$' + Number(cov.value).toLocaleString()}</span>}
                               </div>
                             </div>;
                           })

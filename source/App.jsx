@@ -1390,6 +1390,11 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
     var today = new Date().toISOString().slice(0, 10);
     var resolvedName = isCustomName ? supportForm.customName.trim() : supportForm.name;
     // Derive context fields from the covered record's row for richer metadata.
+    // Use workspace-aware column name lists so the correct value is found
+    // regardless of whether the covered module uses 'Client' or 'Department'.
+    var coveredClientOrDepartment = workspaceMode === 'Internal IT'
+      ? getDetailField(selectedRecord, 'Department', 'Business Unit', 'Cost Center', 'Client / Department')
+      : getDetailField(selectedRecord, 'Client', 'Company', 'Customer', 'Client / Department');
     var cov = {
       id:                        'sc-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
       moduleKey:                 'contracts',
@@ -1406,31 +1411,53 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
       coveredModule:             selectedRecord.moduleKey,
       coveredRecordId:           selectedRecord.id,
       coveredRecordName:         selectedRecord.row[0] || '',
-      coveredClientOrDepartment: getDetailField(selectedRecord, 'Client', 'Department', 'Client / Department') || '',
+      coveredClientOrDepartment: coveredClientOrDepartment || '',
       coveredBrand:              getDetailField(selectedRecord, 'Brand', 'Vendor', 'Provider / Vendor') || '',
       coveredQuantity:           getDetailField(selectedRecord, 'Quantity / Seats', 'Quantity', 'Seats', 'Users / Seats') || '',
       workspaceMode:             workspaceMode,
       createdAt:                 today,
       source:                    'supportCoverage',
     };
-    // Build the Contracts row with an explicit value map so every column
-    // receives the intended value — avoids buildNewRow fallbacks that
-    // incorrectly populate Document with the coverage name.
+    // Derive a human-readable notice period from the alert policy.
+    var noticeFromAlertPolicy = function(ap) {
+      if (ap === '90 / 60 / 30 days') return '90 days';
+      if (ap === '60 / 30 / 7 days')  return '60 days';
+      if (ap === '30 / 7 / 1 days')   return '30 days';
+      if (ap === 'Workspace default')  return 'Workspace default';
+      if (ap === 'Custom')             return 'Custom';
+      return '-';
+    };
+    // Build the Contracts row with an explicit column→value map so every cell
+    // is intentional and the coverage name never bleeds into Document.
     var contractsCols = workspaceMode === 'Internal IT'
       ? ['Contract','Type','Department','Provider','Owner','Document','Renewal','Notice','Approval status','Next action','Risk']
       : ['Contract','Type','Client','Provider / Distributor','Owner','Document','Renewal','Notice','Legal status','Next action','Risk'];
     var colValueMap = workspaceMode === 'Internal IT'
-      ? { 'Contract': cov.name, 'Type': 'Support Coverage', 'Department': '-',
-          'Provider': cov.provider, 'Owner': cov.owner, 'Document': '-',
-          'Renewal': cov.endDate, 'Notice': '-', 'Approval status': '-',
-          'Next action': '-', 'Risk': '-' }
-      : { 'Contract': cov.name, 'Type': 'Support Coverage', 'Client': '-',
-          'Provider / Distributor': cov.provider, 'Owner': cov.owner, 'Document': '-',
-          'Renewal': cov.endDate, 'Notice': '-', 'Legal status': '-',
-          'Next action': '-', 'Risk': '-' };
+      ? { 'Contract':         cov.name,
+          'Type':             'Support Coverage',
+          'Department':       cov.coveredClientOrDepartment || '-',
+          'Provider':         cov.provider,
+          'Owner':            cov.owner,
+          'Document':         '-',
+          'Renewal':          cov.endDate,
+          'Notice':           noticeFromAlertPolicy(cov.alertPolicy),
+          'Approval status':  'Pending',
+          'Next action':      'Review coverage',
+          'Risk':             '-' }
+      : { 'Contract':               cov.name,
+          'Type':                   'Support Coverage',
+          'Client':                 cov.coveredClientOrDepartment || '-',
+          'Provider / Distributor': cov.provider,
+          'Owner':                  cov.owner,
+          'Document':               '-',
+          'Renewal':                cov.endDate,
+          'Notice':                 noticeFromAlertPolicy(cov.alertPolicy),
+          'Legal status':           'Active',
+          'Next action':            'Review coverage',
+          'Risk':                   '-' };
     var covRow = contractsCols.map(function(col) { return colValueMap[col] !== undefined ? colValueMap[col] : '-'; });
     // Store full coverage object as meta so the Contracts drawer can display
-    // the bidirectional "Covered record" relationship.
+    // the bidirectional "Coverage details" relationship.
     RECORD_STORE.contracts.push({ id: cov.id, row: covRow, meta: cov });
     setSessionSupportCoverage(function(prev) { return prev.concat([cov]); });
     setSupportOpen(false);
@@ -1832,6 +1859,11 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
             getDetailField(selectedRecord, 'Brand', 'Vendor', 'Provider / Vendor', 'Provider', 'Distributor', 'Provider / Distributor'),
             getDetailField(selectedRecord, 'Quantity / Seats', 'Quantity', 'Seats', 'Users / Seats')
           ].filter(Boolean);
+          // For support coverage contracts, append "Covers <record>" so the
+          // header makes the covered asset immediately visible.
+          if (selectedRecord.meta && selectedRecord.meta.source === 'supportCoverage' && selectedRecord.meta.coveredRecordName) {
+            contextParts.push('Covers ' + selectedRecord.meta.coveredRecordName);
+          }
           const status = getDetailField(selectedRecord, 'Status', 'System Status', 'Legal status', 'Approval Status', 'Document Status');
           const renewal = getDetailField(selectedRecord, 'Renewal', 'Expiration', 'Expiration / Renewal Date', 'Warranty End', 'Warranty end', 'End Date', 'Renewal Date');
           const owner  = getDetailField(selectedRecord, 'Owner', 'Renewal Owner', 'IT Owner / Budget Owner', 'Uploaded by');

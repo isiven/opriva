@@ -673,6 +673,9 @@ const DOC_TYPE_OPTIONS = [
   'License Entitlement','Signed Contract','Warranty Document',
   'Support Evidence','Compliance Evidence','Legal Document','Other',
 ];
+const LICENSE_ALERT_POLICY_OPTIONS = ['Workspace default','90 / 60 / 30 days','60 / 30 / 7 days','30 / 7 / 1 days','Custom'];
+const LICENSE_TERM_OPTIONS = ['1 year','2 years','3 years','5 years','Custom'];
+const LICENSE_RENEWAL_STAGE_OPTIONS = ['Not started','In review','Quote requested','Proposal sent','Waiting for client','Approved','Renewed','Cancelled'];
 
 const NEW_RECORD_FIELDS = {
   Licenses: [
@@ -735,9 +738,6 @@ const NEW_RECORD_FIELDS = {
   ],
 };
 
-const LICENSE_ALERT_POLICY_OPTIONS = ['Workspace default','90 / 60 / 30 days','60 / 30 / 7 days','30 / 7 / 1 days','Custom'];
-const LICENSE_TERM_OPTIONS = ['1 year','2 years','3 years','5 years','Custom'];
-const LICENSE_RENEWAL_STAGE_OPTIONS = ['Not started','In review','Quote requested','Proposal sent','Waiting for client','Approved','Renewed','Cancelled'];
 
 function getFormFields(module, workspaceMode) {
   if (module === 'Hardware') {

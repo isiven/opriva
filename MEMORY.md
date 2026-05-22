@@ -731,6 +731,148 @@ The following items are architecturally approved and should be implemented only 
 - Support coverage renewal workflows
 - Support coverage compliance and SLA tracking
 
+## 18. Trend Micro Import Model
+
+This section documents the approved data model for importing Trend Micro renewal data into Opriva. It is derived from real Nextcom commercial records (`Datos.xlsx`) and a Trend Micro Entitlement Certificate PDF (`TM LICENSE -MI0008223.pdf`). Detailed field mapping lives in `IMPORT_MAPPING_TREND_MICRO.md`.
+
+---
+
+### 18.1 Excel Row → Renewal Package / Deal
+
+Each row in the Nextcom commercial renewal register (`Datos.xlsx`) represents one commercial deal — a single order for one end client covering one renewal or purchase cycle. In Opriva, each Excel row maps to a **Renewal Package / Deal**.
+
+Key Excel columns and their Opriva equivalents:
+
+| Excel Column | Opriva Field |
+|---|---|
+| `# Registro` | Package reference / internal record ID |
+| `# OC` | Nextcom order number |
+| `OC Partner` | **Trend Micro PO Number** (primary join key to PDF) |
+| `Cliente` | Client |
+| `# Legal de Fac.` | Distributor invoice number (reference field) |
+| `Reventa` | Reseller (workspace identity — not a separate field) |
+| `Distribuidor` | Distributor |
+| `Licencias` | Quantity / Seats (base platform license count) |
+| `Vencimiento Licencia` | Expiration / Renewal Date |
+| `Fecha factura` | Invoice Date (metadata / notes field) |
+| `Monto Total` | Annual Value / Sale Price |
+
+---
+
+### 18.2 PDF File → License Entitlement Document
+
+A Trend Micro Entitlement Certificate PDF represents vendor-issued proof of purchased software rights for all products in one order. In Opriva it is stored as a single **License Entitlement** document and linked to the parent Renewal Package and to each License record created from the PDF pages.
+
+One License Entitlement document may cover multiple License records. This is correct behavior — the document is the source of truth for the entire order.
+
+---
+
+### 18.3 PDF Page → License Line Item
+
+Each page of a Trend Micro Entitlement Certificate PDF covers one product SKU. All pages in a PDF share the same Customer, Reseller, TM Program Number, TM Reference Number, PO Number, Order Type, Start Date, and End Date. Only the product name, SKU, and volume differ per page.
+
+In Opriva, each PDF page maps to one **License record** linked to the parent Renewal Package.
+
+Key PDF fields and their Opriva equivalents:
+
+| PDF Field | Opriva Field |
+|---|---|
+| Product Name (page header) | License / Product |
+| `Customer Name` | Client |
+| `Customer No.` | Client Reference (metadata) |
+| `SKU` | SKU / Part Number (reference field) |
+| `TM Program Number` | TM Program Reference (metadata) |
+| `TM Reference Number` | TM Order Reference (metadata) |
+| `PO Number` | Trend Micro PO Number (**join key to Excel `OC Partner`**) |
+| `Order Type` | Order Type (metadata) |
+| `Volume` | Quantity / Seats |
+| `Start Date` | License Start Date (metadata) |
+| `End Date` | Expiration / Renewal Date |
+
+---
+
+### 18.4 Join Key
+
+The reliable join key between the Excel commercial record and the PDF entitlement certificate is:
+
+**`OC Partner` (Excel) = `PO Number` (PDF)**
+
+Example: Banisi row in Excel (`OC Partner = TRM-STD-966300`) matches all 6 pages of the Banisi entitlement PDF (`PO Number = TRM-STD-966300`).
+
+For MSP-cycle rows (e.g., `OC Partner = MSP 2026-04`), no external entitlement PDF exists. These represent Nextcom's own managed service seat pool.
+
+---
+
+### 18.5 Package Contents
+
+A Renewal Package in Opriva may contain:
+
+- Multiple License line items (one per product SKU)
+- One or more License Entitlement documents
+- Vendor Quote
+- Client Proposal
+- Purchase Order
+- Invoice
+- Support Coverage records
+- Tasks
+- Activity
+
+---
+
+### 18.6 Trend Micro Support Logic
+
+#### Manufacturer support included with active maintenance
+
+Trend Micro business products with active maintenance include access to Trend Micro customer support. This is stated on every Entitlement Certificate page and is not a separate contract.
+
+In Opriva, this should be represented as an **included / derived Support Coverage** record tied to the license validity:
+- Provider: Trend Micro
+- Coverage End Date: same as the license Expiration / Renewal Date
+- Coverage Type: Manufacturer Support
+- Note: Included with active maintenance — not a separately purchased service
+
+This coverage expires when the license expires. Its status is driven automatically by Opriva's expiration logic.
+
+#### Nextcom-managed support and SLA
+
+If Nextcom provides its own managed support service, SLA, Gold/Silver/Bronze support tier, or other service coverage for a client, this must be modeled as a **separate Support Coverage contract** in Opriva with its own:
+- Renewal date (independent from the Trend Micro license expiry)
+- Provider: Nextcom Systems Inc.
+- Coverage owner: the Nextcom account manager
+- Annual value: Nextcom's service charge
+- Alert policy: independent renewal timeline
+
+This record appears in the Contracts module as a Support Coverage contract and in the originating record's Relationships tab.
+
+---
+
+### 18.7 MVP Import Approach
+
+For MVP, import remains manual or mapping-based:
+
+1. Create a Renewal Package / License record from the Excel row.
+2. Create individual License records for each PDF page / SKU.
+3. Attach the PDF as a License Entitlement document linked to the package and each line item.
+4. Add Trend Micro manufacturer support as derived Support Coverage on each license.
+5. Add Nextcom SLA / managed support as a separate Support Coverage contract if applicable.
+6. Create follow-up tasks (quote request, renewal confirmation, document upload).
+
+---
+
+### 18.8 Phase 2 Import Automation
+
+Phase 2 should include:
+
+- Automatic PDF parsing (extract all fields from each Entitlement Certificate page)
+- Match PO Number (PDF) to OC Partner (Excel) to link entitlements to packages automatically
+- Auto-create License line items from matched PDF pages
+- Detect missing entitlements (License records with no attached License Entitlement document)
+- Detect volume mismatches between Excel `Licencias` and PDF volumes
+- Detect upcoming renewals and apply alert policies at import time
+- Suggest a default task set per package based on Order Type and days to expiration
+
+---
+
 ## 17. Recent History
 
 - Repository cloned and inspected on branch `audit/opriva-healthcheck`.
@@ -760,3 +902,5 @@ The following items are architecturally approved and should be implemented only 
 - 2026-05-21: Master BRIEF updated. Section 15 "Core Record + Related Tabs + Workspace Policies Model" added to MEMORY.md documenting 17 approved product architecture decisions covering: core record creation model, fields that must not be manually entered, License record logic (MSP vs Internal IT), expiration status logic, renewal workflow logic, record creation flow, document management model, Attach Document MVP form, document type taxonomy, requirement logic, access logic, version logic, document date/validity logic, document policy engine direction, package/renewal bundle model, custom fields roadmap, and implementation guidance. MVP and Phase 2 roadmap sections added to Next Steps. No application code modified.
 - 2026-05-21: Attach Document form simplified to MVP minimum per MEMORY.md §15.8. Visible fields reduced to Document Name (req), Document Type (req), Uploaded By (req), Notes (optional). Removed from visible form: File Name / Reference, Requirement, Access, Version, Effective Date, Expiration Date. Internal defaults set on save: status='Attached', requirement='Optional', access='Internal'. OPTIONAL section divider removed. Document object shape and RECORD_STORE.documents write unchanged.
 - 2026-05-21: MEMORY.md updated. §15.18 "Support Coverage / Support Contracts" added under Section 15. Decision: Support Coverage must be modeled as a renewable contract/coverage layer — not free text inside License or Hardware. Defines Support Coverage record fields, what it may cover, how it is added (drawer setup / Relationships tab / Complete Setup flow), and relationship model to covered assets via Contracts module. MVP roadmap updated: Support Coverage creation/linking from License and Hardware drawer setup. Phase 2 roadmap updated: multi-asset support coverage management, support coverage renewal workflows, support coverage compliance and SLA tracking. No application code modified.
+- 2026-05-22: IMPORT_MAPPING_TREND_MICRO.md created. Defines how Nextcom's Trend Micro renewal data (Datos.xlsx + TM LICENSE PDF) maps to Opriva records. Covers Excel-to-package mapping, PDF-to-license-line-item mapping, License Entitlement document model, package structure, support coverage logic (manufacturer vs. Nextcom SLA), MVP manual import steps, and Phase 2 automation roadmap. No application code modified.
+- 2026-05-22: MEMORY.md §18 "Trend Micro Import Model" added. Documents approved import model: Excel row = Renewal Package, PDF page = License line item, PDF file = License Entitlement document, OC Partner/PO Number join key, manufacturer support as derived coverage, Nextcom SLA as separate Support Coverage contract, MVP manual approach, Phase 2 automation targets. MEMORY.md, USER_GUIDE.md, and AI_KNOWLEDGE_BASE.md updated. No application code modified.

@@ -14,6 +14,7 @@
 6. [Hardware](#6-hardware)
 7. [Contracts](#7-contracts)
 8. [Documents](#8-documents)
+   - [Trend Micro Renewal Import Example](#trend-micro-renewal-import-example)
 9. [Support Coverage](#9-support-coverage)
 10. [Configure Columns and Advanced Filters](#10-configure-columns-and-advanced-filters)
 11. [Current MVP Limitations](#11-current-mvp-limitations)
@@ -333,6 +334,87 @@ The document appears in both the record's Documents tab and the global Documents
 ### File Uploads in MVP
 
 In the current MVP, selecting a file stores the filename and metadata locally in your browser session. The file itself is not permanently stored on a server. File metadata (name, size, type, upload date) is displayed in the document card.
+
+---
+
+### Trend Micro Renewal Import Example
+
+This example explains how a real Trend Micro renewal from Nextcom maps into Opriva. The same logic applies to any vendor renewal that combines a commercial order record with a vendor-issued entitlement document.
+
+#### The two source files
+
+**The Excel file (commercial renewal register)**
+
+The Nextcom renewal register (`Datos.xlsx`) contains one row per client deal. Each row represents the commercial details of a renewal or purchase — client name, distributor, total license count, expiration date, invoice date, and total amount. This row is the **renewal package or deal record** in Opriva.
+
+**The Trend Micro Entitlement Certificate PDF**
+
+The PDF contains one page per product SKU purchased in the order. All pages share the same customer, reseller, order reference, and dates — only the product name and volume differ per page. This PDF is the **License Entitlement document** in Opriva.
+
+#### How Opriva links them
+
+The reliable link between the Excel row and the PDF is the **PO Number**:
+
+- In the Excel: the `OC Partner` column contains the Trend Micro PO reference (e.g. `TRM-STD-966300`).
+- In the PDF: the `PO Number` field on every page contains the same value.
+
+When importing, match `OC Partner` (Excel) to `PO Number` (PDF) to confirm they belong to the same deal.
+
+#### How records are structured in Opriva
+
+| Source | Opriva record |
+|---|---|
+| Excel row | License record (or Renewal Package) representing the deal |
+| PDF file | License Entitlement document attached to the package and all line items |
+| Each PDF page / product SKU | Individual License record for that product |
+
+**Example — Banisi order TRM-STD-966300:**
+
+The Excel row shows: Client = Banisi, Distributor = LOL Panama, 2,135 licenses, expires 2026-05-29, total $12,857.51.
+
+The PDF contains 6 product pages (Trend Vision One Credits, Email & Collaboration Security, Cyber Risk Exposure Management, Endpoint Security Core, Endpoint Security Pro, CREM Core). Each page becomes a separate License record in Opriva. The PDF is attached as a single License Entitlement document linked to all 6 license records.
+
+#### One entitlement document, multiple licenses
+
+A single Trend Micro Entitlement Certificate PDF is vendor-issued proof of the entire order. It covers all products purchased in that deal. In Opriva you attach the PDF once as a **License Entitlement** document. It should be linked to the parent package record and to each individual license line item it covers.
+
+This means one License Entitlement document will appear in the Documents tab of multiple License records simultaneously. This is correct — the document is the evidence for the whole order.
+
+#### Manufacturer support included with active maintenance
+
+Trend Micro business products with active maintenance include access to Trend Micro customer support. This is confirmed on every Entitlement Certificate page.
+
+In Opriva, model this as **included Support Coverage** linked to the License record:
+- Provider: Trend Micro
+- Coverage Type: Manufacturer Support
+- Coverage End Date: same as the license expiration date
+- Note: Included with active Trend Micro maintenance
+
+This coverage does not require a separate purchase — it is derived from the license being active.
+
+#### Nextcom managed support or SLA — separate Support Coverage
+
+If Nextcom provides its own managed support service, SLA, or a Gold/Silver/Bronze support tier for a client, this is a **separate and independent service** from Trend Micro's included manufacturer support. It must be modeled as a separate Support Coverage contract in Opriva:
+
+- Provider: Nextcom Systems Inc.
+- Coverage End Date: per Nextcom's service agreement (may differ from the Trend Micro license expiry)
+- Coverage Owner: the Nextcom account manager responsible for the service
+- Annual Value: Nextcom's service charge for this coverage
+
+This record appears in the Contracts module as a Support Coverage contract and in the license's Relationships tab alongside the Trend Micro manufacturer support record.
+
+#### Manual import steps (MVP)
+
+For MVP, import is done manually:
+
+1. Create a License record for the deal (using the Excel row data).
+2. Create individual License records for each product SKU from the PDF.
+3. Attach the PDF as a **License Entitlement** document to the deal record and each license line item.
+4. Add **Trend Micro Manufacturer Support** as Support Coverage on each license (end date = license expiry).
+5. Add **Nextcom SLA / Managed Support** as a separate Support Coverage contract if applicable.
+6. Create tasks for renewal follow-up (quote request, PO confirmation, document upload).
+
+> **MVP limitation:** Grouping all line items into a formal Renewal Package with automated linking is a Phase 2 feature. For now, use the License record itself as the package anchor and link line items and documents to it manually.
 
 ---
 

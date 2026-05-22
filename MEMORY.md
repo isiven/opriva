@@ -733,6 +733,115 @@ The following items are architecturally approved and should be implemented only 
 - Support coverage compliance and SLA tracking
 - Automated PDF parsing and PO/OC matching for Trend Micro entitlement imports
 - AI-powered column detection and canonical field mapping in Data Import
+- Official Opriva Template generation: tailored workbook download per workspace mode and enabled modules, with data validation dropdowns and pre-filled defaults
+- Template recognition on upload: detect Official Opriva Template and bypass AI mapping step, proceeding directly to import preview
+
+## 20. Official Opriva Import Template
+
+This section documents the approved structure and product decisions for the Official Opriva Import Template. The template is an optional structured workbook customers can use to prepare clean data in Opriva's canonical format before uploading. Full specification lives in `OPRIVA_IMPORT_TEMPLATE_SPEC.md`.
+
+---
+
+### 20.1 Two Import Paths
+
+Opriva supports two coexisting data import paths:
+
+| Path | Input | Description |
+|---|---|---|
+| **Path A — AI-Assisted Guided Mapping** | Any Excel, CSV, or PDF | AI suggests column mappings; user reviews and approves before records are created |
+| **Path B — Official Opriva Template** | Official Opriva Template (.xlsx) | Data already in canonical format; Opriva validates, previews, and imports directly |
+
+Both paths produce the same canonical records. Path B skips the AI mapping step. Neither path creates records without user confirmation of an import preview.
+
+---
+
+### 20.2 Template Workbook Structure
+
+The Official Template is a multi-sheet Excel workbook with these sheets in order:
+
+1. Instructions
+2. Clients / Departments
+3. Renewal Packages
+4. Licenses
+5. Hardware
+6. Contracts / Support Coverage
+7. Documents
+8. Tasks
+9. Custom Fields
+
+Empty sheets are skipped at import. The first row of each data sheet is a frozen header row. No merged cells. No formulas.
+
+---
+
+### 20.3 Reference System
+
+Records are linked across sheets using plain-text reference identifiers defined by the user:
+
+- **Package Reference** — links Licenses, Hardware, Contracts, Documents to a parent Renewal Package
+- **License Reference / Hardware Reference / Contract Reference** — module-level record identifiers used as link targets
+- **Linked Record Reference** — used by Documents and Tasks to point to any record in any module
+- **Covered Record Reference** — used by Support Coverage contracts to identify the covered License or Hardware asset
+
+References must be unique within their sheet and consistent across sheets (case-sensitive match).
+
+---
+
+### 20.4 Fields Excluded from the Template
+
+These fields are calculated or derived by Opriva and must never appear as fillable columns in any import template or import flow:
+
+- System Status (from Expiration Date + Alert Policy)
+- Days to Expiration (from Expiration Date vs. today)
+- Risk (from expiration, coverage, ownership analysis)
+- Margin $ and Margin % (from Sale Price − Vendor Cost)
+- Renewal Stage (from workflow events)
+- Missing Evidence (from document policy engine)
+- Validity Status (from document policy + dates)
+- Alert Status (from Alert Policy threshold)
+
+---
+
+### 20.5 Validation Rules Summary
+
+| Rule type | Description |
+|---|---|
+| Required fields | Each module has required fields; rows missing them are flagged in preview |
+| Reference integrity | Package Reference, Covered Record Reference, Linked Record Reference must resolve to existing rows |
+| Client / Department match | Must match a Name in the Clients / Departments sheet |
+| Date format | Must be `YYYY-MM-DD`; invalid dates are flagged |
+| Controlled vocabulary | Document Type, Contract Type, Coverage Type, Alert Policy, Priority, Status accept only defined values |
+| Unique references | Two rows in the same sheet cannot share a Reference value |
+
+---
+
+### 20.6 Import Preview Requirement
+
+Every import — both Path A and Path B — must produce a preview step before records are committed. Preview must show: valid rows to be created, flagged rows with errors, and module-level creation summary. No records are written until the user confirms.
+
+---
+
+### 20.7 Future Template Generation (Phase 2)
+
+When implemented, template download should:
+- Produce a workspace-tailored workbook filtered by mode (MSP or Internal IT) and enabled modules
+- Include custom field columns for the workspace's defined custom fields
+- Use Excel data validation dropdowns for controlled vocabulary columns
+- Pre-fill workspace alert policy defaults
+- Include an Instructions sheet personalized with workspace name, mode, and terminology
+- Be available from Data Import → "Download Opriva Template" and from Settings → Company → Import Templates
+- Include a template version marker so Opriva can recognize uploads as Official Template files and bypass the AI mapping step
+
+---
+
+### 20.8 Workspace Mode Behavior
+
+| Mode | Template behavior |
+|---|---|
+| MSP / Integrator | Clients sheet. Distributor, Annual Value, Vendor Cost in Licenses. No Internal IT-only fields. |
+| Internal IT | Departments sheet. Cost Center, Approval Status, Business Criticality in Licenses. No MSP-only margin fields. |
+| Hybrid | All columns with mode annotations. |
+
+---
 
 ## 19. Guided Import Mapping Model
 
@@ -1074,3 +1183,4 @@ Phase 2 should include:
 - 2026-05-22: MEMORY.md §19 updated. §19.7 "Hardware and Component Import Model" added as universal pattern for grouped hardware/equipment sales files. §19.7 Record Type Inference renumbered §19.9, §19.8 User Controls renumbered §19.10. USER_GUIDE.md and AI_KNOWLEDGE_BASE.md updated with hardware import guidance. No application code modified.
 - 2026-05-22: MEMORY.md §19 "Guided Import Mapping Model" added. Core decision: Opriva imports into its own product model, not a replica of the source file. Every import must include a guided column-mapping step with AI-assisted field suggestions, user approval, skip recommendations for calculated/identity columns, custom field creation rule, and record type inference. §18 Trend Micro specific application updated with skip recommendation for Reventa column. MVP Roadmap updated: guided column-mapping step added. Phase 2 Roadmap updated: automated PDF parsing, AI column detection. MEMORY.md, USER_GUIDE.md, AI_KNOWLEDGE_BASE.md updated. No application code modified.
 - 2026-05-22: MEMORY.md §18 "Trend Micro Import Model" added. Documents approved import model: Excel row = Renewal Package, PDF page = License line item, PDF file = License Entitlement document, OC Partner/PO Number join key, manufacturer support as derived coverage, Nextcom SLA as separate Support Coverage contract, MVP manual approach, Phase 2 automation targets. MEMORY.md, USER_GUIDE.md, and AI_KNOWLEDGE_BASE.md updated. No application code modified.
+- 2026-05-22: OPRIVA_IMPORT_TEMPLATE_SPEC.md created. Defines the Official Opriva Import Template as Path B alongside AI-assisted Path A. Documents 9-sheet workbook structure (Instructions, Clients/Departments, Renewal Packages, Licenses, Hardware, Contracts/Support Coverage, Documents, Tasks, Custom Fields), reference system (Package Reference, Linked Record Reference, Covered Record Reference), all column definitions with required/optional status, controlled vocabulary, validation rules, import preview requirement, and Phase 2 template generation roadmap. MEMORY.md §20 added. USER_GUIDE.md §11 and §12 updated. AI_KNOWLEDGE_BASE.md updated. No application code modified.

@@ -17,7 +17,11 @@
    - [Trend Micro Renewal Import Example](#trend-micro-renewal-import-example)
 9. [Support Coverage](#9-support-coverage)
 10. [Configure Columns and Advanced Filters](#10-configure-columns-and-advanced-filters)
-11. [Data Import — Guided Column Mapping](#11-data-import--guided-column-mapping)
+11. [Data Import](#11-data-import)
+    - [Path A — AI-Assisted Guided Mapping](#path-a--ai-assisted-guided-mapping)
+    - [Path B — Official Opriva Template](#path-b--official-opriva-template)
+    - [Hardware and equipment imports](#hardware-and-equipment-imports)
+    - [Trend Micro import example](#trend-micro-import-example)
 12. [Current MVP Limitations](#12-current-mvp-limitations)
 13. [Glossary](#13-glossary)
 
@@ -514,42 +518,28 @@ Active filters are shown with a count badge on the filter button. Click **Clear 
 
 ---
 
-## 11. Data Import — Guided Column Mapping
+## 11. Data Import
 
-### How Opriva handles imported files
+Opriva supports two ways to import data. Both paths produce the same result: canonical Opriva records. Neither path imports anything without your final confirmation.
 
-When you import data into Opriva from an Excel file, CSV, or similar source, Opriva does not automatically create records from every column in your file. Source files often contain columns that are not needed in Opriva — internal system IDs, calculated values, workspace identity fields, or data that belongs in notes rather than a core field.
+---
 
-Instead, Opriva guides you through a **column-mapping step** before any records are created.
+### Path A — AI-Assisted Guided Mapping
 
-### The mapping step
+Use this path when you have an existing file — a vendor export, an internal spreadsheet, a supplier report — that was not built to Opriva's structure. Opriva's AI analyzes your file and suggests how to map each source column to an Opriva field.
 
-After uploading a file, Opriva shows a mapping screen where you can:
+**How it works:**
 
-1. **See all detected source columns** and sample values from your file
-2. **Review AI-suggested mappings** — Opriva's AI suggests the best Opriva field for each column based on the column name, format, and content
-3. **Accept, adjust, or skip** each column individually
-4. **Set default values** for required Opriva fields that are missing from your source
-5. **Create a custom field** if a source column carries useful data that doesn't fit any standard Opriva field
-6. **Preview draft records** before anything is saved
-7. **Approve the final mapping** to confirm the import
+1. Upload your Excel, CSV, or PDF file from **Data Import** in the sidebar.
+2. Opriva detects all source columns and shows you sample values.
+3. The AI suggests the best Opriva field for each column.
+4. You **review, adjust, or skip** each column individually.
+5. Set default values for any required Opriva fields that are missing from your source.
+6. Optionally create a **custom field** for useful data that doesn't match any standard Opriva field.
+7. Preview draft records before anything is saved.
+8. Confirm the mapping — records are created only after your approval.
 
-Nothing is imported until you confirm. AI suggestions are recommendations — you have full control over every mapping decision.
-
-### What Opriva's AI suggests during mapping
-
-The AI will:
-
-- Detect the likely meaning of each column from its name and sample data
-- Suggest the closest Opriva canonical field (Client, Expiration Date, Annual Value, Distributor, etc.)
-- Identify the join key when you're importing related files (e.g., recognising that `OC Partner` in your Excel matches `PO Number` in a PDF)
-- Flag columns it recommends **skipping** — for example, columns that represent calculated values Opriva derives automatically, or identity fields that describe the workspace itself rather than a specific record
-- Warn when a source column doesn't clearly match any Opriva field
-- Recommend what record type each row should become (License, Contract, Document, Support Coverage, Task)
-
-### Columns Opriva will suggest skipping
-
-Some columns in source files should not become Opriva fields because Opriva calculates or derives them. Common examples:
+**What the AI suggests skipping:**
 
 | Source column type | Why Opriva skips it |
 |---|---|
@@ -559,13 +549,58 @@ Some columns in source files should not become Opriva fields because Opriva calc
 | Always-empty columns | Nothing to import |
 | Internal system IDs with no Opriva equivalent | May be stored in Notes if needed |
 
-You can still map any skipped column to a custom field if you want to retain the data.
+You can still map any skipped column to a custom field if you want to retain the data. AI suggestions are recommendations — you have full control.
 
-### Custom fields
+---
 
-If a source column contains real business data that doesn't match any standard Opriva field, you can create a **custom field** during the mapping step. Custom fields are stored on the record and are visible in the record drawer. They do not affect calculated fields, alert logic, or expiration status.
+### Path B — Official Opriva Template
 
-> In the current MVP, custom field creation is available but saved column preferences and custom field definitions are session-local only. Persistent custom field management is a Phase 2 feature.
+Use this path when you want to prepare your data directly in Opriva's format before uploading. Download the Official Opriva Template, fill in the sheets that apply to your situation, and upload the completed workbook. Opriva recognizes the template format automatically and goes directly to the import preview — no AI mapping step required.
+
+**When to use the Official Template:**
+
+- Starting a new workspace from scratch with no existing vendor files
+- Migrating data from a spreadsheet that you can reorganize
+- Preparing a clean data set for onboarding a new client or department
+- Wanting the fastest possible import with no mapping decisions
+
+**Template structure:**
+
+The template is a multi-sheet Excel workbook. Fill only the sheets that apply — leave the rest blank.
+
+| Sheet | What to fill |
+|---|---|
+| **Instructions** | Read-only guidance sheet — do not enter data here |
+| **Clients / Departments** | One row per client (MSP) or department (Internal IT) |
+| **Renewal Packages** | Optional — group licenses, hardware and documents under one deal |
+| **Licenses** | One row per software license or subscription |
+| **Hardware** | One row per physical asset |
+| **Contracts / Support Coverage** | One row per contract or support coverage agreement |
+| **Documents** | Document metadata — files are uploaded separately after import |
+| **Tasks** | Follow-up actions linked to records |
+| **Custom Fields** | Additional field values that don't fit standard columns |
+
+**How references work:**
+
+References are short codes you define to link records across sheets. For example, if a Renewal Package has `Package Reference = PKG-001`, any License row with `Package Reference = PKG-001` will be linked to that package during import. You choose the reference values — they just need to be consistent.
+
+**What dates look like:**
+
+All dates in the template must be in `YYYY-MM-DD` format. Example: `2026-05-31`.
+
+**Do not fill these columns — Opriva calculates them:**
+
+| Field | Calculated from |
+|---|---|
+| System Status | Expiration Date + Alert Policy |
+| Days to Expiration | Expiration Date vs. today |
+| Margin (MSP only) | Sale Price − Vendor Cost |
+| Risk | Expiration, coverage, and ownership analysis |
+| Renewal Stage | Workflow events |
+
+> **Availability:** Template download and automatic template recognition are Phase 2 features. In the current MVP, use Path A (AI-Assisted Guided Mapping) for all imports. The template structure is documented in `OPRIVA_IMPORT_TEMPLATE_SPEC.md`.
+
+---
 
 ### Hardware and equipment imports
 
@@ -589,9 +624,11 @@ When importing hardware sales data — such as a QNAP sales report, a device reg
 - Component grouping is a single decision per customer group, not per row
 - Reusable templates mean repeat imports of the same file format are near-instant
 
+---
+
 ### Trend Micro import example
 
-When importing Nextcom's Trend Micro renewal register (`Datos.xlsx`):
+When importing Nextcom's Trend Micro renewal register (`Datos.xlsx`) using Path A:
 
 | Source column | AI suggestion | Action |
 |---|---|---|
@@ -625,6 +662,7 @@ The current Opriva release is a functional prototype. The following limitations 
 | **No document policy engine** | Requirement, Access and Validity rules are not enforced. Documents are attached without policy validation. |
 | **No renewal workflow automation** | Renewal stages are not driven by workflow events yet. |
 | **No package / bundle linking** | Grouping multiple records into a Renewal Package is Phase 2. |
+| **No Official Template download** | The Official Opriva Import Template (Path B) is not yet available for download. Template structure is documented in `OPRIVA_IMPORT_TEMPLATE_SPEC.md`. Template generation and automatic template recognition are Phase 2 features. |
 
 ---
 
@@ -646,3 +684,8 @@ The current Opriva release is a functional prototype. The following limitations 
 | **Cost Center** | An internal budget code or department allocation used by Internal IT to track spending by business area. |
 | **Renewal Package / Bundle** | A grouping of multiple licenses, contracts, hardware assets and documents under a single renewal or commercial deal. Phase 2 feature. |
 | **Local session data** | Data stored in browser memory during the current session only. Lost on page refresh. Applies to all records created in the current MVP. |
+| **Official Opriva Template** | A structured multi-sheet Excel workbook customers can download and fill in Opriva's canonical format. Uploading the template bypasses the AI mapping step and goes directly to an import preview. Template download is a Phase 2 feature. |
+| **Package Reference** | A user-defined short code that links Licenses, Hardware, Contracts, and Documents to a parent Renewal Package across import template sheets. |
+| **Linked Record Reference** | A user-defined short code that links a Document or Task to a specific record in any module during template import. |
+| **Covered Record Reference** | A user-defined short code in the Contracts / Support Coverage sheet that identifies which License or Hardware record a support coverage agreement covers. |
+| **Import Preview** | A confirmation step shown before any records are created, displaying valid rows, flagged errors, and a summary of what will be imported. Required for both Path A and Path B imports. |

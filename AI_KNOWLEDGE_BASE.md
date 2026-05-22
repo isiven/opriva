@@ -353,6 +353,122 @@ In Opriva, you attach this single PDF once as a License Entitlement document. It
 
 ---
 
+**Q: What is the Official Opriva Import Template?**
+
+A: The Official Opriva Import Template is a structured multi-sheet Excel workbook that customers can fill in Opriva's canonical format before uploading. It is one of two import paths Opriva supports:
+
+- **Path A — AI-Assisted Guided Mapping:** Upload any Excel, CSV, or PDF file. The AI analyzes your source columns and suggests mappings. You review and approve before records are created. This is the path for existing vendor exports, internal spreadsheets, and any file that wasn't built to Opriva's structure.
+
+- **Path B — Official Opriva Template:** Download the template, fill in the sheets that apply, upload the completed workbook. Opriva recognizes the template format automatically and goes directly to an import preview — no AI mapping step required.
+
+Both paths produce the same canonical records. Neither creates records without user confirmation.
+
+> In the current MVP, template download and automatic template recognition are Phase 2 features. Use Path A for all imports for now.
+
+---
+
+**Q: What sheets are in the Official Opriva Import Template?**
+
+A: The template contains nine sheets in this order:
+
+1. Instructions — guidance, date format, rules (do not enter data here)
+2. Clients / Departments — one row per client (MSP) or department (Internal IT)
+3. Renewal Packages — optional parent groupings for related licenses, hardware, contracts, and documents
+4. Licenses — one row per software license or subscription
+5. Hardware — one row per physical asset
+6. Contracts / Support Coverage — one row per contract or support coverage agreement
+7. Documents — document metadata (files are uploaded separately after import)
+8. Tasks — follow-up actions linked to records
+9. Custom Fields — additional field values for any module
+
+Customers only need to fill the sheets that apply. Empty sheets are skipped at import.
+
+---
+
+**Q: What is a Package Reference in the import template?**
+
+A: A Package Reference is a short text code you define in the Renewal Packages sheet (e.g. `PKG-001` or `TRM-STD-966300`). You then enter the same value in the `Package Reference` column of any Licenses, Hardware, Contracts, or Documents row that belongs to that deal. Opriva uses this to link all those records to the parent package during import.
+
+References are user-defined — you choose the codes. They just need to be consistent (exact spelling and case) across sheets and unique within their sheet.
+
+---
+
+**Q: What is the difference between Package Reference and Linked Record Reference?**
+
+A: They serve different linking purposes:
+
+- **Package Reference** — links a record (License, Hardware, Contract, Document) to a parent Renewal Package or deal grouping.
+- **Linked Record Reference** — links a Document or Task to a specific record in any module (e.g., a Document linked to License `LIC-001`, or a Task linked to Hardware `HW-001`).
+
+A document row can have both: a Package Reference (it belongs to a deal) and a Linked Record Reference (it is specifically attached to one license within that deal). This is correct — a License Entitlement PDF covers the whole order but is also linked to each individual license line item.
+
+---
+
+**Q: What is the Covered Record Reference?**
+
+A: The Covered Record Reference is a column in the Contracts / Support Coverage sheet. For a Support Coverage row, this value identifies which License or Hardware record the coverage applies to. It must match the `License Reference` or `Hardware Reference` value in the corresponding sheet.
+
+Example: If a hardware asset has `Hardware Reference = HW-001` and you create a Support Coverage row for it, enter `HW-001` in the Covered Record Reference column of the Contracts / Support Coverage sheet.
+
+---
+
+**Q: What fields should I not fill in the import template?**
+
+A: Do not fill these fields — Opriva calculates them automatically. Entering them manually will not work; Opriva derives them from other values:
+
+| Field | Calculated from |
+|---|---|
+| System Status | Expiration Date + Alert Policy |
+| Days to Expiration | Expiration Date vs. today |
+| Margin $ and Margin % | Sale Price − Vendor Cost |
+| Risk | Expiration, coverage, ownership analysis |
+| Renewal Stage | Workflow events |
+| Missing Evidence | Document policy + attached documents |
+| Validity Status | Document policy + dates |
+
+If these appear in a source file being imported via Path A, Opriva's AI will flag them as "Calculated — recommend skip."
+
+---
+
+**Q: What date format does the import template use?**
+
+A: All dates in the Official Opriva Import Template must be in `YYYY-MM-DD` format (ISO 8601). Examples: `2026-05-31`, `2027-01-15`. Dates in local formats like `5/31/26` or `31-05-2026` will be flagged in the import preview and cannot be imported until corrected.
+
+---
+
+**Q: What is the import preview?**
+
+A: The import preview is a required confirmation step shown before any records are created — for both Path A and Path B imports. It shows:
+
+- Total rows detected per sheet (Path B) or total records to be created (Path A)
+- Rows or records that will be imported (valid)
+- Rows flagged with validation errors (missing required field, broken reference, invalid date, unrecognized value)
+- A module-by-module summary of what will be created
+
+No records are written until you confirm the preview. You can go back and correct errors before confirming.
+
+---
+
+**Q: Can I use the Official Opriva Template for Trend Micro or QNAP data?**
+
+A: Yes — but typically only after you have already organized your source data. Here's how each path fits:
+
+- **Vendor exports (Trend Micro Excel register, QNAP sales report)** → Use **Path A** (AI-Assisted Guided Mapping). These files were not built to Opriva's structure. The AI handles the messy column names, grouped customer rows, and embedded warranty text.
+
+- **Prepared data** → If you have already restructured your Trend Micro or QNAP data into clean rows by client and product, you can enter it directly into the template and use **Path B**.
+
+In most real-world situations, vendor exports go through Path A first. Once you understand the mapping for a vendor, you can use that knowledge to fill the template directly for future imports.
+
+---
+
+**Q: How does Opriva treat the Covered Record Reference for Trend Micro support coverage?**
+
+A: When you add Trend Micro Manufacturer Support Coverage as a Support Coverage contract, and you are importing via the Official Template, the Covered Record Reference column in the Contracts / Support Coverage sheet should match the `License Reference` of the License row it covers.
+
+Example: If the Trend Vision One license has `License Reference = LIC-001`, the corresponding support coverage row should have `Covered Record Reference = LIC-001` and `Contract Type = Support Coverage`.
+
+---
+
 **Q: How does Opriva treat Trend Micro support included with active maintenance?**
 
 A: Trend Micro business products with active maintenance include access to Trend Micro customer support — this is stated on every Entitlement Certificate. It is not a separately purchased service.
@@ -414,7 +530,7 @@ Tasks is the execution layer. Each task is linked to a source record and carries
 Reports is the executive distribution layer. It packages dashboard KPIs, attention center risks, data import completeness and task execution status into outputs for leadership, finance, account management and compliance. Reports can be generated and exported.
 
 ### Data Import
-Data Import allows bulk loading of records using workspace-aware templates. MSP templates include client, brand, product, distributor and margin columns. Internal IT templates include brand, provider, department, approval and cost center columns.
+Data Import allows bulk loading of records using two paths. **Path A (AI-Assisted Guided Mapping):** upload any Excel, CSV, or PDF file — Opriva's AI suggests column mappings, you review and approve before records are created. **Path B (Official Opriva Template):** download the structured template workbook, fill in the relevant sheets (Clients/Departments, Renewal Packages, Licenses, Hardware, Contracts/Support Coverage, Documents, Tasks, Custom Fields), and upload — Opriva recognizes the format and goes directly to an import preview. Both paths require user confirmation before any records are written. Template download and automatic template recognition are Phase 2 features — use Path A in the current MVP.
 
 ### Settings
 Settings is where the operating model is configured. The **Operating Model** section (Settings → Company → Operating Model) is the declared source of truth for workspace mode. The topbar Mode selector is a temporary prototype control — the official workspace configuration happens here.
@@ -463,6 +579,7 @@ Always disclose the following when relevant to the user's question:
 | **Bulk actions** | "Bulk action controls are visual placeholders in the current MVP. Functional bulk operations are Phase 2." |
 | **Renewal workflow stages** | "Renewal stages (Quote needed, Proposal sent, etc.) are not yet driven by workflow events. This is a Phase 2 feature." |
 | **Package / bundle linking** | "Grouping multiple records into a Renewal Package or Bundle is a Phase 2 feature." |
+| **Official Template download** | "The Official Opriva Import Template is not yet available for download. Template structure is documented and ready. Template generation and automatic template recognition are Phase 2 features. Use Path A (AI-Assisted Guided Mapping) for all imports in the current MVP." |
 
 ---
 
@@ -481,6 +598,8 @@ The AI must never state or imply the following unless these features have been e
 | "This record will be available after you log back in" | All created records are session-local only. |
 | "Opriva will import all your Excel columns" or "All columns will be mapped automatically" | Opriva uses a guided mapping step — the user reviews and approves all mappings. Nothing is imported without user confirmation. |
 | "The AI will automatically create records from your file" | AI suggestions require user approval. Records are not created until the user confirms the import mapping. |
+| "Download the Opriva Template" or "Use the Official Template to import your data" (as if available now) | Template download is a Phase 2 feature. Say: "The Official Opriva Import Template is documented and ready but not yet available for download. Use Path A (AI-Assisted Guided Mapping) for all imports right now." |
+| "The template will auto-fill Status, Margin, or Days to Expiration" | These are calculated fields. The template does not include them, and Opriva derives them from other values. |
 
 ---
 
@@ -498,6 +617,30 @@ When a user asks about importing data from Excel, CSV, or any external file, alw
 6. **Records are previewed before import** — users can review draft records before committing them to the workspace.
 
 Do not say Opriva imports all columns automatically. Do not say the AI creates records without user approval.
+
+---
+
+### Official Opriva Template rules
+
+When a user asks about the Official Opriva Import Template:
+
+1. **Explain both paths.** Always frame the template as Path B alongside Path A. Path A is for arbitrary source files. Path B is for customers who want to prepare data in Opriva's format directly.
+
+2. **Template is not yet downloadable.** In the current MVP, template download and automatic template recognition are Phase 2. Do not say the user can download a template today.
+
+3. **Explain the 9 sheets.** Instructions (read-only), Clients/Departments, Renewal Packages, Licenses, Hardware, Contracts/Support Coverage, Documents, Tasks, Custom Fields. Empty sheets are skipped.
+
+4. **Explain references.** Package Reference, License/Hardware/Contract Reference, Linked Record Reference, and Covered Record Reference are user-defined short codes that link records across sheets. They must match exactly (case-sensitive) within an import.
+
+5. **Calculated fields are excluded.** The template does not include System Status, Days to Expiration, Margin, Risk, Renewal Stage, Missing Evidence, or Validity Status. These are calculated by Opriva from other values. If a user asks why these are missing, explain that entering them manually is not possible — Opriva derives them automatically.
+
+6. **Date format is YYYY-MM-DD.** Always confirm this when users ask about dates in the template.
+
+7. **Import preview is always required.** Even for template uploads, a preview step is shown before records are committed. Validation errors (missing required fields, broken references, invalid dates, unknown values) are highlighted and must be corrected before confirming.
+
+8. **Documents sheet is metadata only.** The Documents sheet stores document names, types, and references — not actual files. Files are uploaded separately through the Documents module or record drawer after import.
+
+9. **Workspace mode affects template columns.** MSP includes Distributor, Annual Value, Vendor Cost. Internal IT includes Cost Center, Approval Status, Business Criticality. Hybrid includes all columns. In the generated template (Phase 2), mode-specific columns are tailored automatically.
 
 ---
 
@@ -584,3 +727,5 @@ Features expected to graduate from MVP to functional (Phase 2):
 - Multi-asset support coverage
 - Renewal workflow stages
 - Package / bundle linking
+- Official Opriva Template download (workspace-tailored, with dropdown validation and pre-filled defaults)
+- Automatic template recognition on upload (bypass AI mapping step for Official Template files)

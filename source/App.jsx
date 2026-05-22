@@ -1480,7 +1480,10 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
   }
 
   function openCreateTask() {
-    setTaskForm({ status: 'Open', priority: 'Medium' });
+    var prefillOwner = getDetailField(selectedRecord,
+      'Renewal Owner', 'Owner', 'Coverage Owner',
+      'IT Owner / Budget Owner', 'IT Owner', 'Budget Owner') || '';
+    setTaskForm({ status: 'Open', priority: 'Medium', owner: prefillOwner });
     setTaskErrors({});
     setTaskOpen(true);
   }
@@ -1865,10 +1868,6 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
               </select>
             )}
           </div>
-          <div style={{display:'flex',alignItems:'center',gap:8,margin:'4px 0 -4px'}}>
-            <span style={{fontSize:11,fontWeight:800,color:'#94A3B8',letterSpacing:'.1em',textTransform:'uppercase',flexShrink:0}}>Optional</span>
-            <div style={{flex:1,height:1,background:'#EEF2F7'}}/>
-          </div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
             {renderTF('dueDate','Due date',true,
               <input type="date" value={taskForm.dueDate||''} onChange={function(e) { setTaskForm(function(p) { return Object.assign({},p,{dueDate:e.target.value}); }); }} style={fieldStyle}/>
@@ -1885,6 +1884,10 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
                 {TASK_STATUS_OPTIONS.map(function(o) { return <option key={o} value={o}>{o}</option>; })}
               </select>
             )}
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:8,margin:'4px 0 -4px'}}>
+            <span style={{fontSize:11,fontWeight:800,color:'#94A3B8',letterSpacing:'.1em',textTransform:'uppercase',flexShrink:0}}>Optional</span>
+            <div style={{flex:1,height:1,background:'#EEF2F7'}}/>
           </div>
           <div style={{display:'grid',gap:12}}>
             {renderTF('notes','Notes',false,

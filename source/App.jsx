@@ -717,13 +717,10 @@ const NEW_RECORD_FIELDS = {
     { key: 'client',         label: 'Client / Department',    type: 'select', source: 'clientDepartment' },
     { key: 'provider',       label: 'Provider / Distributor', type: 'select', source: 'providers' },
     { key: 'owner',          label: 'Owner',                  type: 'select', source: 'users' },
-    { key: 'renewalDate',    label: 'Renewal Date',           type: 'date' },
+    { key: 'renewalDate',    label: 'Renewal / End Date',     type: 'date' },
     { key: 'noticePeriod',   label: 'Notice Period',          type: 'select', options: ['30 days','60 days','90 days','120 days','None'] },
-    { key: 'documentStatus', label: 'Document Status',        type: 'select', options: ['Signed','Pending','Missing','Draft'] },
     { key: 'approvalStatus', label: 'Approval Status',        type: 'select', options: ['Approved','Pending','Blocked','Not required'] },
-    { key: 'nextAction',     label: 'Next Action',            type: 'select', options: ['Review','Request approval','Request quote','Assign owner','Escalate'] },
-    { key: 'relatedLicense', label: 'Related License / Product', type: 'select', source: 'products' },
-    { key: 'riskLevel',      label: 'Risk Level',             type: 'select', options: ['Low','Medium','High','Critical'] },
+    { key: 'alertPolicy',    label: 'Alert Policy',           type: 'select', options: LICENSE_ALERT_POLICY_OPTIONS },
     { key: 'notes',          label: 'Notes',                  multi: true },
   ],
   Documents: [
@@ -780,6 +777,37 @@ function getFormFields(module, workspaceMode) {
       { key: 'assetValue',  label: 'Asset Value',             type: 'number' },
       { key: 'alertPolicy', label: 'Alert Policy',            type: 'select', options: LICENSE_ALERT_POLICY_OPTIONS },
       { key: 'notes',       label: 'Notes',                   multi: true },
+    ];
+  }
+  if (module === 'Contracts') {
+    if (workspaceMode === 'Internal IT') {
+      return [
+        { key: 'name',           label: 'Contract Name',      required: true },
+        { key: 'type',           label: 'Contract Type',      required: true, type: 'select', options: ['License','Service','Hardware','SaaS','Support','Maintenance','MSA','NDA','Other'] },
+        { key: 'client',         label: 'Department',         required: true, type: 'select', source: 'clientDepartment' },
+        { key: 'provider',       label: 'Provider',           required: true, type: 'select', source: 'providers' },
+        { key: 'owner',          label: 'Owner',              required: true, type: 'select', source: 'users' },
+        { key: 'renewalDate',    label: 'Renewal / End Date', required: true, type: 'date' },
+        { key: 'noticePeriod',   label: 'Notice Period',      type: 'select', options: ['30 days','60 days','90 days','120 days','None'] },
+        { key: 'annualCost',     label: 'Annual Cost',        type: 'number' },
+        { key: 'costCenter',     label: 'Cost Center' },
+        { key: 'approvalStatus', label: 'Approval Status',    type: 'select', options: ['Approved','Pending','Blocked','Not required'] },
+        { key: 'alertPolicy',    label: 'Alert Policy',       type: 'select', options: LICENSE_ALERT_POLICY_OPTIONS },
+        { key: 'notes',          label: 'Notes',              multi: true },
+      ];
+    }
+    return [
+      { key: 'name',         label: 'Contract Name',          required: true },
+      { key: 'type',         label: 'Contract Type',          required: true, type: 'select', options: ['License','Service','Hardware','SaaS','Support','Maintenance','MSA','NDA','Other'] },
+      { key: 'client',       label: 'Client',                 required: true, type: 'select', source: 'clientDepartment' },
+      { key: 'provider',     label: 'Provider / Distributor', required: true, type: 'select', source: 'providers' },
+      { key: 'owner',        label: 'Owner',                  required: true, type: 'select', source: 'users' },
+      { key: 'renewalDate',  label: 'Renewal / End Date',     required: true, type: 'date' },
+      { key: 'noticePeriod', label: 'Notice Period',          type: 'select', options: ['30 days','60 days','90 days','120 days','None'] },
+      { key: 'contractValue', label: 'Contract Value',        type: 'number' },
+      { key: 'cost',         label: 'Vendor Cost',            type: 'number' },
+      { key: 'alertPolicy',  label: 'Alert Policy',           type: 'select', options: LICENSE_ALERT_POLICY_OPTIONS },
+      { key: 'notes',        label: 'Notes',                  multi: true },
     ];
   }
   if (module !== 'Licenses') return NEW_RECORD_FIELDS[module] || NEW_RECORD_FIELDS.Licenses;

@@ -1195,7 +1195,7 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
     : active.includes('Document') ? 'Documents'
     : 'Licenses';
   const formFields = getFormFields(module, workspaceMode);
-  const fieldSpecs = NEW_RECORD_FIELDS[module] || NEW_RECORD_FIELDS.Licenses;
+  const fieldSpecs = formFields; // Edit Record uses same workspace-aware fields as New Record
   const filterSpecs = FILTER_SPECS[module] || [];
   const filterCount = Object.values(filters).filter(Boolean).length;
   const hasActiveFilter = filterCount > 0 || search.trim().length > 0;
@@ -1257,7 +1257,10 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
 
   function handleEditSave() {
     const errs = {};
-    fieldSpecs.forEach(f => { if (f.required && !(editForm[f.key] || '').trim()) errs[f.key] = 'Required'; });
+    fieldSpecs.forEach(f => {
+      if (!f.required || f.type === 'file') return;
+      if (!(editForm[f.key] || '').trim()) errs[f.key] = 'Required';
+    });
     if (Object.keys(errs).length) { setEditErrors(errs); return; }
     const newRow = buildNewRow(editForm, safeColumns);
     setLocalRows(function(prev) {
@@ -1683,8 +1686,8 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
         {editMode
           ? <div style={{flex:1,overflowY:'auto',padding:'16px 20px',display:'grid',gap:12,alignContent:'start'}}>
               {(() => {
-                const reqF  = fieldSpecs.filter(f => f.required);
-                const optF  = fieldSpecs.filter(f => !f.required && !f.multi);
+                const reqF  = fieldSpecs.filter(f => f.required && f.type !== 'file');
+                const optF  = fieldSpecs.filter(f => !f.required && !f.multi && f.type !== 'file');
                 const noteF = fieldSpecs.filter(f => f.multi);
                 const renderEF = (f) => <div key={f.key}>
                   <label style={{display:'block',marginBottom:5,fontSize:13,fontWeight:700,color:'#334155'}}>

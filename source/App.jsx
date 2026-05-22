@@ -1408,19 +1408,25 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
       createdAt:         today,
       source:            'supportCoverage',
     };
+    // Build the Contracts row with an explicit value map so every column
+    // receives the intended value — avoids buildNewRow fallbacks that
+    // incorrectly populate Document with the coverage name.
     var contractsCols = workspaceMode === 'Internal IT'
       ? ['Contract','Type','Department','Provider','Owner','Document','Renewal','Notice','Approval status','Next action','Risk']
       : ['Contract','Type','Client','Provider / Distributor','Owner','Document','Renewal','Notice','Legal status','Next action','Risk'];
-    var covForm = {
-      name:        cov.name,
-      type:        'Support Coverage',
-      provider:    cov.provider,
-      owner:       cov.owner,
-      renewalDate: cov.endDate,
-      alertPolicy: cov.alertPolicy,
-      notes:       cov.notes,
-    };
-    RECORD_STORE.contracts.push({ id: cov.id, row: buildNewRow(covForm, contractsCols) });
+    var colValueMap = workspaceMode === 'Internal IT'
+      ? { 'Contract': cov.name, 'Type': 'Support Coverage', 'Department': '-',
+          'Provider': cov.provider, 'Owner': cov.owner, 'Document': '-',
+          'Renewal': cov.endDate, 'Notice': '-', 'Approval status': '-',
+          'Next action': '-', 'Risk': '-' }
+      : { 'Contract': cov.name, 'Type': 'Support Coverage', 'Client': '-',
+          'Provider / Distributor': cov.provider, 'Owner': cov.owner, 'Document': '-',
+          'Renewal': cov.endDate, 'Notice': '-', 'Legal status': '-',
+          'Next action': '-', 'Risk': '-' };
+    var covRow = contractsCols.map(function(col) { return colValueMap[col] !== undefined ? colValueMap[col] : '-'; });
+    // Store full coverage object as meta so the Contracts drawer can display
+    // the bidirectional "Covered record" relationship.
+    RECORD_STORE.contracts.push({ id: cov.id, row: covRow, meta: cov });
     setSessionSupportCoverage(function(prev) { return prev.concat([cov]); });
     setSupportOpen(false);
     setSupportForm({});
@@ -1804,7 +1810,7 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
             <span style={{color:'#64748B',fontSize:13,display:'block',marginBottom:hasActiveFilter?14:0}}>Adjust or clear your filters to see all records.</span>
             {hasActiveFilter && <button onClick={clearFilters}>Clear all filters</button>}
           </div>
-        : <Table columns={activeColumns} rows={activeRows} onRowOpen={(idx) => { const r = activeRows[idx]; const record = displayRows[idx]; if (r && record) { const localIdx = localRows.indexOf(record); setSelectedRecord({id: record.id, moduleKey: moduleKey, columns: activeColumns, row: r, localRowIndex: localIdx}); setEditMode(false); setActiveDetailTab('Overview'); setDetailOpen(true); } }}/>
+        : <Table columns={activeColumns} rows={activeRows} onRowOpen={(idx) => { const r = activeRows[idx]; const record = displayRows[idx]; if (r && record) { const localIdx = localRows.indexOf(record); setSelectedRecord({id: record.id, moduleKey: moduleKey, columns: activeColumns, row: r, localRowIndex: localIdx, meta: record.meta || null}); setEditMode(false); setActiveDetailTab('Overview'); setDetailOpen(true); } }}/>
       }
     </section>
 
@@ -1974,19 +1980,36 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
               var relEmpty   = isContract ? 'No covered records linked yet.'
                              : isDocument ? 'No linked records yet.'
                              : 'No related records linked yet.';
+              var covMeta = (isContract && selectedRecord.meta && selectedRecord.meta.source === 'supportCoverage') ? selectedRecord.meta : null;
               return <div style={{flex:1,overflowY:'auto',padding:'16px 20px',display:'grid',gap:12,alignContent:'start'}}>
-                <section style={{background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'}}>
-                  <div style={{padding:'12px 14px',borderBottom:'1px solid #EEF2F7',background:'#FAFCFF'}}>
-                    <h3 style={{margin:'0 0 4px',fontSize:14,color:'#0B1F3A',letterSpacing:'-.01em'}}>Relationships</h3>
-                    <p style={{margin:0,color:'#64748B',fontSize:12,lineHeight:1.45}}>{relHelper}</p>
-                    <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:10}}>
-                      {relButtons.map(function(label) { return <button key={label} style={detailActionBtn}>{label}</button>; })}
-                    </div>
-                  </div>
-                  <div style={{padding:'14px'}}>
-                    <span style={{color:'#64748B',fontSize:12,lineHeight:1.45}}>{relEmpty}</span>
-                  </div>
-                </section>
+                {covMeta
+                  ? <section style={{background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'}}>
+                      <div style={{padding:'10px 12px 8px',fontSize:11,fontWeight:900,color:'#64748B',textTransform:'uppercase',letterSpacing:'.08em',background:'#FAFCFF',borderBottom:'1px solid #EEF2F7'}}>Covered record</div>
+                      <div style={{padding:'12px 14px',display:'grid',gap:6}}>
+                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8}}>
+                          <strong style={{fontSize:13,color:'#0B1F3A',fontWeight:700,lineHeight:1.3}}>{covMeta.coveredRecordName || '-'}</strong>
+                          <span style={{fontSize:11,fontWeight:700,color:'#0F766E',background:'#F0FDF9',border:'1px solid #CCFBEF',borderRadius:6,padding:'2px 7px',flexShrink:0,whiteSpace:'nowrap',textTransform:'capitalize'}}>{covMeta.coveredModule}</span>
+                        </div>
+                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'4px 12px',fontSize:12,color:'#475569'}}>
+                          {covMeta.coverageType && <span><span style={{color:'#94A3B8',fontWeight:700}}>Coverage type: </span>{covMeta.coverageType}</span>}
+                          {covMeta.provider && <span><span style={{color:'#94A3B8',fontWeight:700}}>Provider: </span>{covMeta.provider}</span>}
+                          {covMeta.endDate && <span><span style={{color:'#94A3B8',fontWeight:700}}>Ends: </span>{covMeta.endDate}</span>}
+                        </div>
+                      </div>
+                    </section>
+                  : <section style={{background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'}}>
+                      <div style={{padding:'12px 14px',borderBottom:'1px solid #EEF2F7',background:'#FAFCFF'}}>
+                        <h3 style={{margin:'0 0 4px',fontSize:14,color:'#0B1F3A',letterSpacing:'-.01em'}}>Relationships</h3>
+                        <p style={{margin:0,color:'#64748B',fontSize:12,lineHeight:1.45}}>{relHelper}</p>
+                        <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:10}}>
+                          {relButtons.map(function(label) { return <button key={label} style={detailActionBtn}>{label}</button>; })}
+                        </div>
+                      </div>
+                      <div style={{padding:'14px'}}>
+                        <span style={{color:'#64748B',fontSize:12,lineHeight:1.45}}>{relEmpty}</span>
+                      </div>
+                    </section>
+                }
                 {isLicHw && (() => {
                   var linkedCoverage = sessionSupportCoverage.filter(function(c) {
                     return c.coveredRecordId === selectedRecord.id && c.coveredModule === selectedRecord.moduleKey;

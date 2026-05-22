@@ -974,6 +974,29 @@ const ATTACH_DOC_FIELDS = [
   { key: 'notes',      label: 'Notes',          multi: true },
 ];
 
+const SUPPORT_COVERAGE_TYPE_OPTIONS = [
+  'Vendor Support','Manufacturer Warranty','Extended Warranty',
+  'Managed Support','SLA','Maintenance Agreement','Other',
+];
+const SUPPORT_ALERT_POLICY_OPTIONS = [
+  'Workspace default','90 / 60 / 30 days','60 / 30 / 7 days','30 / 7 / 1 days','Custom',
+];
+
+function getSupportCoverageFields(workspaceMode) {
+  var valueLabel = workspaceMode === 'Internal IT' ? 'Annual Cost' : 'Annual Value';
+  return [
+    { key: 'name',         label: 'Support / Coverage Name',   required: true },
+    { key: 'coverageType', label: 'Coverage Type',             required: true, type: 'select', options: SUPPORT_COVERAGE_TYPE_OPTIONS },
+    { key: 'provider',     label: 'Provider',                  required: true, type: 'select', source: 'providers' },
+    { key: 'endDate',      label: 'Coverage End Date',         required: true, type: 'date' },
+    { key: 'owner',        label: 'Owner',                     required: true, type: 'select', source: 'users' },
+    { key: 'alertPolicy',  label: 'Alert Policy',              required: true, type: 'select', options: SUPPORT_ALERT_POLICY_OPTIONS },
+    { key: 'startDate',    label: 'Coverage Start Date',       type: 'date' },
+    { key: 'value',        label: valueLabel,                  type: 'number' },
+    { key: 'notes',        label: 'Notes',                     multi: true },
+  ];
+}
+
 const FILTER_SPECS = {
   Licenses: [
     { key: 'vendor',    label: 'Vendor',              cols: ['Vendor', 'Brand', 'Distributor'] },
@@ -1177,6 +1200,10 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
   const [attachDocForm, setAttachDocForm] = React.useState({});
   const [attachDocErrors, setAttachDocErrors] = React.useState({});
   const [sessionDocs, setSessionDocs] = React.useState([]);
+  const [sessionSupportCoverage, setSessionSupportCoverage] = React.useState([]);
+  const [supportOpen, setSupportOpen] = React.useState(false);
+  const [supportForm, setSupportForm] = React.useState({});
+  const [supportErrors, setSupportErrors] = React.useState({});
 
   const columnsKey = safeColumns.join('|');
   React.useEffect(() => { setVisibleSet(new Set(safeColumns)); }, [columnsKey]);
@@ -1184,6 +1211,7 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
     var records = resetRowsFromSource();
     setLocalRows(records);
     setSessionDocs([]);
+    setSessionSupportCoverage([]);
     setFilters({});
     setSearch('');
   }, [rows]);
@@ -1323,6 +1351,59 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
     RECORD_STORE.documents.push(doc);
     setSessionDocs(function(prev) { return prev.concat(doc); });
     setAttachDocOpen(false);
+  }
+
+  function openSupportCoverage() {
+    setSupportForm({});
+    setSupportErrors({});
+    setSupportOpen(true);
+  }
+
+  function handleSupportSave() {
+    var covFields = getSupportCoverageFields(workspaceMode);
+    var errs = {};
+    covFields.forEach(function(f) {
+      if (!f.required) return;
+      if (!(supportForm[f.key] || '').trim()) errs[f.key] = 'Required';
+    });
+    if (Object.keys(errs).length) { setSupportErrors(errs); return; }
+    var today = new Date().toISOString().slice(0, 10);
+    var cov = {
+      id:                'sc-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
+      moduleKey:         'contracts',
+      contractType:      'Support Coverage',
+      name:              supportForm.name,
+      coverageType:      supportForm.coverageType,
+      provider:          supportForm.provider,
+      owner:             supportForm.owner,
+      startDate:         supportForm.startDate || '',
+      endDate:           supportForm.endDate,
+      alertPolicy:       supportForm.alertPolicy,
+      value:             supportForm.value || '',
+      notes:             supportForm.notes || '',
+      coveredModule:     selectedRecord.moduleKey,
+      coveredRecordId:   selectedRecord.id,
+      coveredRecordName: selectedRecord.row[0] || '',
+      createdAt:         today,
+      source:            'supportCoverage',
+    };
+    var contractsCols = workspaceMode === 'Internal IT'
+      ? ['Contract','Type','Department','Provider','Owner','Document','Renewal','Notice','Approval status','Next action','Risk']
+      : ['Contract','Type','Client','Provider / Distributor','Owner','Document','Renewal','Notice','Legal status','Next action','Risk'];
+    var covForm = {
+      name:        cov.name,
+      type:        'Support Coverage',
+      provider:    cov.provider,
+      owner:       cov.owner,
+      renewalDate: cov.endDate,
+      alertPolicy: cov.alertPolicy,
+      notes:       cov.notes,
+    };
+    RECORD_STORE.contracts.push({ id: cov.id, row: buildNewRow(covForm, contractsCols) });
+    setSessionSupportCoverage(function(prev) { return prev.concat([cov]); });
+    setSupportOpen(false);
+    setSupportForm({});
+    setSupportErrors({});
   }
 
   function handleFormField(key, value) {
@@ -1614,6 +1695,62 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
       </div>
     </div>}
 
+    {supportOpen && selectedRecord && (() => {
+      var covFields = getSupportCoverageFields(workspaceMode);
+      var reqF  = covFields.filter(function(f) { return f.required; });
+      var optF  = covFields.filter(function(f) { return !f.required && !f.multi; });
+      var noteF = covFields.filter(function(f) { return f.multi; });
+      var helperText = workspaceMode === 'Internal IT'
+        ? 'Create a renewable support, warranty, maintenance or SLA coverage record linked to this item.'
+        : 'Create a renewable support, warranty, maintenance or SLA coverage record linked to this item.';
+      var renderSF = function(f) {
+        return <div key={f.key}>
+          <label style={{display:'block',marginBottom:5,fontSize:13,fontWeight:700,color:'#334155'}}>
+            {f.label}{f.required && <span style={{color:'#DC2626',marginLeft:3}}>*</span>}
+          </label>
+          {f.multi
+            ? <textarea value={supportForm[f.key]||''} onChange={function(e) { setSupportForm(function(p) { return Object.assign({},p,{[f.key]:e.target.value}); }); }} rows={3} style={{...fieldStyle,resize:'vertical'}}/>
+            : f.type === 'select'
+              ? <select value={supportForm[f.key]||''} onChange={function(e) { setSupportForm(function(p) { return Object.assign({},p,{[f.key]:e.target.value}); }); }} style={{...fieldStyle,cursor:'pointer',color:supportForm[f.key]?'#132033':'#94A3B8'}}>
+                  <option value="">Select...</option>
+                  {(f.source ? resolveFieldOptions(f.source, workspaceMode) : (f.options||[])).map(function(o) { return <option key={o} value={o}>{o}</option>; })}
+                </select>
+              : f.type === 'date'
+              ? <input type="date" value={supportForm[f.key]||''} onChange={function(e) { setSupportForm(function(p) { return Object.assign({},p,{[f.key]:e.target.value}); }); }} style={fieldStyle}/>
+              : f.type === 'number'
+              ? <input type="number" min="0" value={supportForm[f.key]||''} onChange={function(e) { setSupportForm(function(p) { return Object.assign({},p,{[f.key]:e.target.value}); }); }} style={fieldStyle}/>
+              : <input type="text" value={supportForm[f.key]||''} onChange={function(e) { setSupportForm(function(p) { return Object.assign({},p,{[f.key]:e.target.value}); }); }} style={fieldStyle}/>
+          }
+          {supportErrors[f.key] && <span style={errStyle}>{supportErrors[f.key]}</span>}
+        </div>;
+      };
+      return <div style={modalWrap} onClick={function() { setSupportOpen(false); }} role="dialog" aria-modal="true" aria-label="Add support coverage">
+        <div style={modalBox(520)} onClick={function(e) { e.stopPropagation(); }}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
+            <div>
+              <p style={eyebrow}>{selectedRecord.moduleKey}</p>
+              <h2 style={modalH2}>Add support coverage</h2>
+              <p style={{margin:'4px 0 0',fontSize:12,color:'#64748B',lineHeight:1.4}}>{helperText}</p>
+            </div>
+            <button style={closeBtn} onClick={function() { setSupportOpen(false); }} aria-label="Close">x</button>
+          </div>
+          {reqF.length > 0 && <div style={{display:'grid',gap:12}}>{reqF.map(renderSF)}</div>}
+          {optF.length > 0 && <>
+            <div style={{display:'flex',alignItems:'center',gap:8,margin:'4px 0 -4px'}}>
+              <span style={{fontSize:11,fontWeight:800,color:'#94A3B8',letterSpacing:'.1em',textTransform:'uppercase',flexShrink:0}}>Optional</span>
+              <div style={{flex:1,height:1,background:'#EEF2F7'}}/>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>{optF.map(renderSF)}</div>
+          </>}
+          {noteF.length > 0 && <div style={{display:'grid',gap:12}}>{noteF.map(renderSF)}</div>}
+          <div style={{...modalFoot,justifyContent:'flex-end'}}>
+            <button onClick={function() { setSupportOpen(false); }}>Cancel</button>
+            <button className="primary" onClick={handleSupportSave}>Save coverage</button>
+          </div>
+        </div>
+      </div>;
+    })()}
+
     <section className="panel worklistPanel">
       <div className="tabs">{tabs.map((tab,i)=><button key={tab} className={i===0?'active':''}>{tab}</button>)}</div>
       <div className="toolbar">
@@ -1816,20 +1953,41 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
                     <span style={{color:'#64748B',fontSize:12,lineHeight:1.45}}>{relEmpty}</span>
                   </div>
                 </section>
-                {isLicHw && <section style={{background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'}}>
-                  <div style={{padding:'12px 14px',borderBottom:'1px solid #EEF2F7',background:'#FAFCFF'}}>
-                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
-                      <div style={{minWidth:0}}>
-                        <h3 style={{margin:'0 0 4px',fontSize:14,color:'#0B1F3A',letterSpacing:'-.01em'}}>Support coverage</h3>
-                        <p style={{margin:0,color:'#64748B',fontSize:12,lineHeight:1.45}}>Track support, warranty, maintenance or SLA coverage linked to this record.</p>
+                {isLicHw && (() => {
+                  var linkedCoverage = sessionSupportCoverage.filter(function(c) {
+                    return c.coveredRecordId === selectedRecord.id && c.coveredModule === selectedRecord.moduleKey;
+                  });
+                  return <section style={{background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'}}>
+                    <div style={{padding:'12px 14px',borderBottom:'1px solid #EEF2F7',background:'#FAFCFF'}}>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
+                        <div style={{minWidth:0}}>
+                          <h3 style={{margin:'0 0 4px',fontSize:14,color:'#0B1F3A',letterSpacing:'-.01em'}}>Support coverage</h3>
+                          <p style={{margin:0,color:'#64748B',fontSize:12,lineHeight:1.45}}>Track support, warranty, maintenance or SLA coverage linked to this record.</p>
+                        </div>
+                        <button style={{...detailActionBtn,flexShrink:0}} onClick={openSupportCoverage}>Add support coverage</button>
                       </div>
-                      <button style={{...detailActionBtn,flexShrink:0}}>Add support coverage</button>
                     </div>
-                  </div>
-                  <div style={{padding:'14px'}}>
-                    <span style={{color:'#64748B',fontSize:12,lineHeight:1.45}}>No support coverage record linked yet.</span>
-                  </div>
-                </section>}
+                    <div style={{padding:'14px',display:'grid',gap:10}}>
+                      {linkedCoverage.length === 0
+                        ? <span style={{color:'#64748B',fontSize:12,lineHeight:1.45}}>No support coverage record linked yet.</span>
+                        : linkedCoverage.map(function(cov) {
+                            return <div key={cov.id} style={{border:'1px solid #EEF2F7',borderRadius:10,padding:'12px 14px',background:'#FAFCFF',display:'grid',gap:6}}>
+                              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8}}>
+                                <strong style={{fontSize:13,color:'#0B1F3A',fontWeight:700,lineHeight:1.3}}>{cov.name}</strong>
+                                <span style={{fontSize:11,fontWeight:700,color:'#0F766E',background:'#F0FDF9',border:'1px solid #CCFBEF',borderRadius:6,padding:'2px 7px',flexShrink:0,whiteSpace:'nowrap'}}>{cov.coverageType}</span>
+                              </div>
+                              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'4px 12px',fontSize:12,color:'#475569'}}>
+                                {cov.provider && <span><span style={{color:'#94A3B8',fontWeight:700}}>Provider: </span>{cov.provider}</span>}
+                                {cov.endDate && <span><span style={{color:'#94A3B8',fontWeight:700}}>Ends: </span>{cov.endDate}</span>}
+                                {cov.owner && <span><span style={{color:'#94A3B8',fontWeight:700}}>Owner: </span>{cov.owner}</span>}
+                                {cov.alertPolicy && <span><span style={{color:'#94A3B8',fontWeight:700}}>Alerts: </span>{cov.alertPolicy}</span>}
+                              </div>
+                            </div>;
+                          })
+                      }
+                    </div>
+                  </section>;
+                })()}
               </div>;
             })()
           : activeDetailTab === 'Documents'

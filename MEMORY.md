@@ -948,7 +948,35 @@ The current local sandbox implements rule-based "AI-assisted mapping preview" be
 
 ---
 
-### 19.4 Columns That Should Be Skipped by Default
+### 19.4 Confirmed Import Promotion
+
+Imported records must be promoted into the central Opriva canonical data model after user approval. Imported data should not remain as isolated spreadsheet rows.
+
+Once confirmed, imported records must behave like first-class Opriva records and be available across modules, drawers, relationships, documents, tasks, activity, dashboards, reports, alerts, search and AI context.
+
+In sandbox/local mode, imported records must be added to the central local store and appear in relevant modules such as Companies/Clients, Licenses, Assets & Renewals, Contracts, Dashboard/Reports and record drawers where applicable.
+
+In sandbox/local mode this can be simulated through `RECORD_STORE`, but corporate MVP requires backend persistence, audit trail and permissions.
+
+---
+
+### 19.5 Import Preview and Enrichment
+
+Import preview must show final Opriva records before creation, not only technical row/mapping data. Users must be able to review, enrich and correct imported records before confirming. Warnings should be grouped and actionable instead of repeated as long text per row.
+
+The preview should show business-facing record context such as client/department, brand/product, expiration date, target module, issues and creation action. Technical row details can remain available behind a secondary "View raw row details" control.
+
+---
+
+### 19.6 Bulk-first Import Enrichment
+
+Import enrichment should be bulk-first and exception-based. Opriva should let users apply common values such as Brand, Product, Owner and Alert Policy to all or selected imported records, edit important fields efficiently, and only require row-level review for exceptions.
+
+This avoids forcing users to review every imported row manually while keeping the user in control of mappings, enrichment and final import approval.
+
+---
+
+### 19.7 Columns That Should Be Skipped by Default
 
 These source column types should be suggested as "skip" by default during mapping, unless the user explicitly chooses to map them:
 

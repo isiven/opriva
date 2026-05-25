@@ -441,7 +441,8 @@ function Dashboard({ workspaceMode = 'MSP / Integrator', setWorkspaceMode = func
   if(vp === 'mobile') return <MobileDashboard />;
   const isInternalIt = workspaceMode === 'Internal IT';
 
-  const priorityRows = isInternalIt ? [
+  const importedPriorityRows = getImportedDashboardPriorityRows(workspaceMode);
+  const basePriorityRows = isInternalIt ? [
     ['Oracle POS Support','Support','Oracle','Oracle Direct / Nextcom','Jul 18, 2026','$96,000','Retail Operations','Confirm budget owner'],
     ['Microsoft 365 Enterprise','License','Microsoft','Nextcom','Jun 30, 2026','$142,000','Finance','Prepare CIO approval'],
     ['Kaspersky Endpoint Security','Security License','Kaspersky','Local Security Provider','Jun 22, 2026','$82,000','IT Security','Compare consolidation'],
@@ -454,6 +455,7 @@ function Dashboard({ workspaceMode = 'MSP / Integrator', setWorkspaceMode = func
     ['Metro Retail Group','Dell','Server Warranty','Dell Direct','Jul 18, 2026','$22,400','$3,800','María Chen','Validate warranty'],
     ['Multiple Clients','DigiCert','SSL Certs','Intcomex','May 23, 2026','$3,200','$850','Unassigned','Renew certs']
   ];
+  const priorityRows = importedPriorityRows.concat(basePriorityRows);
   const priorityColumns = isInternalIt ? ['Record','Type','Brand','Provider','Renewal','Value','Department','Action'] : ['Client','Brand','Product','Distributor','Renewal','Value','Margin','Owner','Action'];
   const dashboardSubtitle = isInternalIt ? 'Control IT assets, provider renewals, budget exposure and operational risk across departments.' : undefined;
   return <main className="content dashboardContent"><ScreenHeader active="Dashboard" eyebrow={isInternalIt ? 'INTERNAL IT COMMAND CENTER' : undefined} subtitle={dashboardSubtitle}><button>Import records</button><button className="primary">Review exposure</button></ScreenHeader><StatCards workspaceMode={workspaceMode}/><section className="dashboardStack"><article className="panel aiRiskPanel">{isInternalIt ? <><div style={{display:'grid', gridTemplateColumns:'minmax(220px, 0.9fr) minmax(320px, 1.6fr) auto', gap:18, alignItems:'center', width:'100%'}}><div style={{display:'grid', gap:5}}><span style={{display:'inline-flex', alignItems:'center', gap:7, color:'#0D9488', fontSize:12, fontWeight:850, letterSpacing:'.04em', textTransform:'uppercase'}}><span style={{width:7, height:7, borderRadius:999, background:'#0D9488', boxShadow:'0 0 0 3px rgba(13,148,136,.10)'}} aria-hidden="true"></span>Opriva AI</span><strong style={{color:'#0B1F3A', fontSize:19, lineHeight:1.18, letterSpacing:'-.025em'}}>$487K in renewal exposure across 90 days</strong></div><div style={{display:'grid', gap:5, color:'#475569', fontSize:13, lineHeight:1.45}}><span>Finance and Retail Operations carry the largest department impact.</span><span style={{color:'#64748B'}}>Endpoint security and cloud storage show consolidation opportunities for CIO approval.</span></div><div className="compactActions" style={{justifyContent:'flex-end', flexWrap:'wrap'}}><button className="primary" type="button">Review forecast</button><button type="button">Review approvals</button><button type="button">Find consolidation</button></div></div></> : <><div style={{display:'grid', gridTemplateColumns:'minmax(220px, 0.9fr) minmax(320px, 1.6fr) auto', gap:18, alignItems:'center', width:'100%'}}><div style={{display:'grid', gap:5}}><span style={{display:'inline-flex', alignItems:'center', gap:7, color:'#0D9488', fontSize:12, fontWeight:850, letterSpacing:'.04em', textTransform:'uppercase'}}><span style={{width:7, height:7, borderRadius:999, background:'#0D9488', boxShadow:'0 0 0 3px rgba(13,148,136,.10)'}} aria-hidden="true"></span>Opriva AI</span><strong style={{color:'#0B1F3A', fontSize:19, lineHeight:1.18, letterSpacing:'-.025em'}}>$64K margin at risk across 12 client renewals</strong></div><div style={{display:'grid', gap:5, color:'#475569', fontSize:13, lineHeight:1.45}}><span>Microsoft, Trend Micro and Fortinet drive the highest renewal exposure.</span><span style={{color:'#64748B'}}>Recommended next step: assign owners and request distributor quotes today.</span></div><div className="compactActions" style={{justifyContent:'flex-end', flexWrap:'nowrap'}}><button className="primary" type="button">Review risk</button><button type="button">Create tasks</button></div></div></>}</article><article className="panel priorityQueuePanel"><div className="panelTitle"><h2>Priority action queue</h2><span>{isInternalIt ? 'Internal renewals prioritized by budget impact, brand/provider dependency, department and approval blockers.' : 'Client renewals prioritized by value, margin exposure, distributor dependency and ownership gaps.'}</span></div><div className={cx('tableWrap priorityQueueWrap', !isInternalIt && 'priorityQueueWrapMsp')}><table className={cx('priorityQueueTable', !isInternalIt && 'priorityQueueTableMsp')}><thead><tr>{priorityColumns.map(column=><th key={column}>{column}</th>)}</tr></thead><tbody>{priorityRows.map(row=><tr key={row[0]}>{row.map((cell,index)=>{ const ownerIndex = isInternalIt ? 6 : 7; const actionIndex = isInternalIt ? 7 : 8; return <td key={index} className={cx(index===0 && 'recordCell', index===1 && 'compactCell', index===2 && 'compactCell', index===4 && 'compactCell', index===5 && 'compactCell', index===6 && 'compactCell', index===7 && !isInternalIt && 'compactCell', index===actionIndex && 'actionCell')}>{index===ownerIndex && cell==='Unassigned' ? <Badge tone="Warning">Unassigned</Badge> : index===actionIndex ? <button type="button" className="rowAction">{cell}</button> : cell}</td>; })}</tr>)}</tbody></table></div></article></section></main>;
@@ -538,6 +540,7 @@ function SearchScreen(){
 function CompaniesScreen({ workspaceMode = 'MSP / Integrator' }){
   const isInternalIT = workspaceMode === 'Internal IT';
   const [tab, setTab] = React.useState('Companies');
+  const importedClientRows = getImportedClientRows(workspaceMode);
   const companyRecords = [['Trend Micro renewal','Renewal','May 2, 2026','High','María Chen','Open'],['Vision One Credits','License','1,200 credits','High','María Chen','Open'],['Dell Support Contract','Contract','May 26, 2026','Critical','Unassigned','Assign owner'],['Renewal Quote.pdf','Document','Version 2','Linked','María Chen','Open']];
   const departmentRows = [
     ['Retail Operations','Laura Méndez','Oracle, Microsoft, Cloud Storage','18','$156,000','2','High','Confirm owner'],
@@ -556,9 +559,11 @@ function CompaniesScreen({ workspaceMode = 'MSP / Integrator' }){
     ['Cloud Storage Platform','Cloud service','Operations','$119,000','Pending','Review usage forecast']
   ];
   if (isInternalIT) {
-    return <main className="content companiesClientsPage departmentsReadabilityPage"><ScreenHeader active="Departments" eyebrow="DEPARTMENT PORTFOLIO" subtitle="Track IT ownership, renewal exposure, brand and provider coverage, and operational risk across business areas."><button>Import departments</button><button>Configure fields</button><button className="primary">New department</button></ScreenHeader><section className="statsGrid" aria-label="Department portfolio summary">{[['Departments tracked','8','Business areas in IT scope'],['90-day department exposure','$487K','Upcoming renewal exposure'],['Approval blockers','5','Renewals waiting on approval'],['Highest impact area','Retail Operations','Largest exposed department']].map(stat=><article className="statCard" key={stat[0]}><span>{stat[0]}</span><strong>{stat[1]}</strong><p>{stat[2]}</p></article>)}</section><div className="tabs" role="tablist" aria-label="Department filters">{['All','High exposure','Approval blockers','Security impact'].map((filter,index)=><button key={filter} className={index===0?'active':''}>{filter}</button>)}</div><section className="panel clientPortfolioPanel"><div className="toolbar"><input placeholder="Filter departments by name, owner, brand, provider, exposure or risk..."/><button>Owner</button><button>Brand / Provider</button><button>Risk</button><button>CIO view</button></div><div className="aiInsightBar assetsInsightBar"><p><strong>AI Insight</strong> Retail Operations and Finance carry the highest renewal exposure this quarter. Endpoint security brands overlap across departments, creating a provider consolidation opportunity before CIO approval.</p><div className="compactActions"><button>Review department exposure</button><button>Find brand/provider overlap</button><button>Prepare CIO summary</button></div></div><div className="panelTitle"><h2>Department portfolio</h2><span>Departments prioritized by budget exposure, renewal pressure, approval blockers and operational risk.</span></div><div className="tableWrap departmentsTableScroll"><table><thead><tr>{['Department','Owner','Brands & Providers','Records','90-day exposure','Blockers','Risk','Action'].map(column=><th key={column}>{column}</th>)}</tr></thead><tbody>{departmentRows.map(row=><tr key={row[0]}><td className="recordCell">{row[0]}</td><td>{row[1]}</td><td>{row[2]}</td><td>{row[3]}</td><td>{row[4]}</td><td>{row[5]}</td><td><Badge tone={row[6]}>{row[6]}</Badge></td><td className="actionCell"><button type="button" className="rowAction">{row[7]}</button></td></tr>)}</tbody></table></div></section><section className="panel selectedClientPanel"><div className="panelTitle"><h2>Selected department overview</h2><span>Secondary detail for the selected business area.</span></div><div className="selectedDepartmentOverview" aria-label="Selected department details"><div className="selectedDepartmentRow">{[['Department name','Retail Operations'],['IT owner','Laura Méndez'],['Renewal exposure','$156,000'],['Open approvals','2']].map(item=><article className="selectedDepartmentItem" key={item[0]}><span>{item[0]}</span><strong>{item[1]}</strong></article>)}</div><div className="selectedDepartmentRow selectedDepartmentRowWide">{[['Brands & Providers','Oracle, Microsoft, Cloud Storage'],['Recommended next action','Confirm owner']].map(item=><article className="selectedDepartmentItem" key={item[0]}><span>{item[0]}</span><strong>{item[1]}</strong></article>)}</div></div><div className="tableWrap compactClientPreview relatedDepartmentRecords"><table><thead><tr>{['Related record','Type','Department','Renewal exposure','Approval','Recommended next action'].map(column=><th key={column}>{column}</th>)}</tr></thead><tbody>{departmentRecords.map(row=><tr key={row[0]}>{row.map((cell,index)=><td key={index} className={cx(index===0 && 'recordCell', index===5 && 'actionCell')}>{index===4 ? <Badge tone={cell}>{cell}</Badge> : index===5 ? <button type="button" className="rowAction subtleRowAction">{cell}</button> : cell}</td>)}</tr>)}</tbody></table></div></section></main>;
+    const visibleDepartmentRows = importedClientRows.concat(departmentRows);
+    return <main className="content companiesClientsPage departmentsReadabilityPage"><ScreenHeader active="Departments" eyebrow="DEPARTMENT PORTFOLIO" subtitle="Track IT ownership, renewal exposure, brand and provider coverage, and operational risk across business areas."><button>Import departments</button><button>Configure fields</button><button className="primary">New department</button></ScreenHeader><section className="statsGrid" aria-label="Department portfolio summary">{[['Departments tracked',String(8 + importedClientRows.length),'Business areas in IT scope'],['90-day department exposure','$487K','Upcoming renewal exposure'],['Approval blockers','5','Renewals waiting on approval'],['Highest impact area','Retail Operations','Largest exposed department']].map(stat=><article className="statCard" key={stat[0]}><span>{stat[0]}</span><strong>{stat[1]}</strong><p>{stat[2]}</p></article>)}</section><div className="tabs" role="tablist" aria-label="Department filters">{['All','High exposure','Approval blockers','Security impact'].map((filter,index)=><button key={filter} className={index===0?'active':''}>{filter}</button>)}</div><section className="panel clientPortfolioPanel"><div className="toolbar"><input placeholder="Filter departments by name, owner, brand, provider, exposure or risk..."/><button>Owner</button><button>Brand / Provider</button><button>Risk</button><button>CIO view</button></div><div className="aiInsightBar assetsInsightBar"><p><strong>AI Insight</strong> Retail Operations and Finance carry the highest renewal exposure this quarter. Endpoint security brands overlap across departments, creating a provider consolidation opportunity before CIO approval.</p><div className="compactActions"><button>Review department exposure</button><button>Find brand/provider overlap</button><button>Prepare CIO summary</button></div></div><div className="panelTitle"><h2>Department portfolio</h2><span>Departments prioritized by budget exposure, renewal pressure, approval blockers and operational risk.</span></div><div className="tableWrap departmentsTableScroll"><table><thead><tr>{['Department','Owner','Brands & Providers','Records','90-day exposure','Blockers','Risk','Action'].map(column=><th key={column}>{column}</th>)}</tr></thead><tbody>{visibleDepartmentRows.map(row=><tr key={row[0]}><td className="recordCell">{row[0]}</td><td>{row[1]}</td><td>{row[2]}</td><td>{row[3]}</td><td>{row[4]}</td><td>{row[5]}</td><td><Badge tone={row[6]}>{row[6]}</Badge></td><td className="actionCell"><button type="button" className="rowAction">{row[7]}</button></td></tr>)}</tbody></table></div></section><section className="panel selectedClientPanel"><div className="panelTitle"><h2>Selected department overview</h2><span>Secondary detail for the selected business area.</span></div><div className="selectedDepartmentOverview" aria-label="Selected department details"><div className="selectedDepartmentRow">{[['Department name','Retail Operations'],['IT owner','Laura Méndez'],['Renewal exposure','$156,000'],['Open approvals','2']].map(item=><article className="selectedDepartmentItem" key={item[0]}><span>{item[0]}</span><strong>{item[1]}</strong></article>)}</div><div className="selectedDepartmentRow selectedDepartmentRowWide">{[['Brands & Providers','Oracle, Microsoft, Cloud Storage'],['Recommended next action','Confirm owner']].map(item=><article className="selectedDepartmentItem" key={item[0]}><span>{item[0]}</span><strong>{item[1]}</strong></article>)}</div></div><div className="tableWrap compactClientPreview relatedDepartmentRecords"><table><thead><tr>{['Related record','Type','Department','Renewal exposure','Approval','Recommended next action'].map(column=><th key={column}>{column}</th>)}</tr></thead><tbody>{departmentRecords.map(row=><tr key={row[0]}>{row.map((cell,index)=><td key={index} className={cx(index===0 && 'recordCell', index===5 && 'actionCell')}>{index===4 ? <Badge tone={cell}>{cell}</Badge> : index===5 ? <button type="button" className="rowAction subtleRowAction">{cell}</button> : cell}</td>)}</tr>)}</tbody></table></div></section></main>;
   }
-  return <main className="content companiesClientsPage"><ScreenHeader active="Companies / Clients" subtitle="Manage client context, contacts, ownership, renewal exposure and related records from one workspace."><button>Configure columns</button><button className="primary">Add company</button></ScreenHeader><div className="tabs" role="tablist"><button className={tab==='Companies'?'active':''} onClick={()=>setTab('Companies')}>Companies</button><button className={tab==='Contacts'?'active':''} onClick={()=>setTab('Contacts')}>Contacts</button><button>Exposure</button><button>Documents</button></div><section className="panel clientPortfolioPanel"><div className="toolbar"><input placeholder="Search companies, contacts or domains…"/><button>Saved view: High exposure</button><button>Filters</button><button>Columns</button></div>{tab==='Contacts' ? <><div className="panelTitle"><h2>Key contacts</h2><span>Technical, commercial and legal owners per client</span></div><Table columns={['Contact','Company','Role','Email','Contact type','Responsibility']} rows={contacts}/></> : <><div className="panelTitle"><h2>Client portfolio</h2><span>Client-level exposure, ownership and upcoming renewal pressure.</span></div><Table columns={['Company','Segment','Main contact','Opriva owner','Managed records','Renewal pressure','Exposure','Risk']} rows={companies}/></>}</section><section className="panel selectedClientPanel"><div className="panelTitle"><h2>Selected client preview</h2><span>Key records, documents and actions linked to the selected client.</span></div><div className="tableWrap compactClientPreview"><table><thead><tr>{['Record','Type','Detail','Risk / status','Owner','Action'].map(column=><th key={column}>{column}</th>)}</tr></thead><tbody>{companyRecords.map(row=><tr key={row[0]}>{row.map((cell,index)=><td key={index} className={cx(index===0 && 'recordCell', index===5 && 'actionCell')}>{index===3 ? <Badge tone={cell}>{cell}</Badge> : index===4 && cell==='Unassigned' ? <Badge tone="Needs assignment">Unassigned</Badge> : index===5 ? <button type="button" className="rowAction subtleRowAction">{cell}</button> : cell}</td>)}</tr>)}</tbody></table></div></section></main>;
+  const visibleCompanies = importedClientRows.concat(companies);
+  return <main className="content companiesClientsPage"><ScreenHeader active="Companies / Clients" subtitle="Manage client context, contacts, ownership, renewal exposure and related records from one workspace."><button>Configure columns</button><button className="primary">Add company</button></ScreenHeader><div className="tabs" role="tablist"><button className={tab==='Companies'?'active':''} onClick={()=>setTab('Companies')}>Companies</button><button className={tab==='Contacts'?'active':''} onClick={()=>setTab('Contacts')}>Contacts</button><button>Exposure</button><button>Documents</button></div><section className="panel clientPortfolioPanel"><div className="toolbar"><input placeholder="Search companies, contacts or domains…"/><button>Saved view: High exposure</button><button>Filters</button><button>Columns</button></div>{tab==='Contacts' ? <><div className="panelTitle"><h2>Key contacts</h2><span>Technical, commercial and legal owners per client</span></div><Table columns={['Contact','Company','Role','Email','Contact type','Responsibility']} rows={contacts}/></> : <><div className="panelTitle"><h2>Client portfolio</h2><span>Client-level exposure, ownership and upcoming renewal pressure.</span></div><Table columns={['Company','Segment','Main contact','Opriva owner','Managed records','Renewal pressure','Exposure','Risk']} rows={visibleCompanies}/></>}</section><section className="panel selectedClientPanel"><div className="panelTitle"><h2>Selected client preview</h2><span>Key records, documents and actions linked to the selected client.</span></div><div className="tableWrap compactClientPreview"><table><thead><tr>{['Record','Type','Detail','Risk / status','Owner','Action'].map(column=><th key={column}>{column}</th>)}</tr></thead><tbody>{companyRecords.map(row=><tr key={row[0]}>{row.map((cell,index)=><td key={index} className={cx(index===0 && 'recordCell', index===5 && 'actionCell')}>{index===3 ? <Badge tone={cell}>{cell}</Badge> : index===4 && cell==='Unassigned' ? <Badge tone="Needs assignment">Unassigned</Badge> : index===5 ? <button type="button" className="rowAction subtleRowAction">{cell}</button> : cell}</td>)}</tr>)}</tbody></table></div></section></main>;
 }
 
 const MASTER_DATA = {
@@ -656,6 +661,7 @@ const RECORD_STORE = {
   licenses:  [],
   hardware:  [],
   contracts: [],
+  clients:   [],
   documents: [],
   tasks:     [],
   activity:  [],
@@ -737,6 +743,206 @@ function addActivityEvent(event) {
   });
   RECORD_STORE.activity.push(ev);
   return ev;
+}
+
+function getImportSandboxRecords(moduleKey, workspaceMode) {
+  return Array.isArray(RECORD_STORE[moduleKey])
+    ? RECORD_STORE[moduleKey].filter(function(record) {
+        return record && record.meta && record.meta.source === 'importSandbox' && (!record.meta.workspaceMode || record.meta.workspaceMode === workspaceMode);
+      })
+    : [];
+}
+
+function getRecordCell(record, columns, fieldNames) {
+  if (!record || !Array.isArray(record.row)) return '';
+  for (var i = 0; i < fieldNames.length; i += 1) {
+    var index = columns.indexOf(fieldNames[i]);
+    if (index >= 0 && record.row[index] && record.row[index] !== '-') return record.row[index];
+  }
+  return '';
+}
+
+function summarizeImportedRecordValue(records) {
+  var total = records.reduce(function(sum, record) {
+    var raw = record && record.meta ? (record.meta.commercialValue || record.meta.vendorCost || '') : '';
+    var amount = parseFloat(importMoney(raw));
+    return sum + (isNaN(amount) ? 0 : amount);
+  }, 0);
+  return total > 0 ? formatImportMoney(total) : '-';
+}
+
+function ensureImportedClientRecords(records, workspaceMode) {
+  if (!Array.isArray(RECORD_STORE.clients)) RECORD_STORE.clients = [];
+  var isIT = workspaceMode === 'Internal IT';
+  var staticNames = new Set((isIT
+    ? ['Retail Operations','Finance','IT Security','Infrastructure','Digital Channels','Logistics','Corporate IT','Operations']
+    : companies.map(function(row) { return row[0]; })
+  ).map(normalizeImportText));
+  var existingByName = new Map();
+  RECORD_STORE.clients.forEach(function(clientRecord) {
+    if (clientRecord && clientRecord.meta && clientRecord.meta.name) existingByName.set(normalizeImportText(clientRecord.meta.name), clientRecord);
+  });
+  var grouped = new Map();
+  records.forEach(function(record) {
+    var name = record && record.meta && record.meta.clientDepartment ? record.meta.clientDepartment : '';
+    if (!name || name.indexOf('Unassigned') === 0) return;
+    var key = normalizeImportText(name);
+    if (!grouped.has(key)) grouped.set(key, { name: name, records: [] });
+    grouped.get(key).records.push(record);
+  });
+  var created = 0;
+  var matched = 0;
+  grouped.forEach(function(group, key) {
+    var clientRecord = existingByName.get(key);
+    if (clientRecord) {
+      matched += 1;
+    } else {
+      clientRecord = {
+        id: createRecordId('clients'),
+        row: isIT
+          ? [group.name, 'Unassigned', '-', String(group.records.length), summarizeImportedRecordValue(group.records), '0', 'Review', 'Review import']
+          : [group.name, 'Imported', 'Imported contact', 'Unassigned', String(group.records.length) + ' imported records', 'Imported session', summarizeImportedRecordValue(group.records), 'Review'],
+        meta: {
+          source: 'importSandbox',
+          moduleKey: 'clients',
+          type: isIT ? 'department' : 'client',
+          name: group.name,
+          workspaceMode: workspaceMode,
+          importedAt: new Date().toISOString(),
+          importFileName: group.records[0] && group.records[0].meta ? group.records[0].meta.importFileName : '',
+          recordCount: group.records.length,
+          exposure: summarizeImportedRecordValue(group.records)
+        }
+      };
+      RECORD_STORE.clients.unshift(clientRecord);
+      existingByName.set(key, clientRecord);
+      created += 1;
+    }
+    group.records.forEach(function(record) {
+      record.meta = Object.assign({}, record.meta || {}, { clientRecordId: clientRecord.id, clientRecordName: group.name });
+    });
+  });
+  return { created: created, matched: matched };
+}
+
+function getImportedClientRows(workspaceMode) {
+  return getImportSandboxRecords('clients', workspaceMode).map(function(record) { return record.row; });
+}
+
+function getImportedRenewalRows(workspaceMode) {
+  var isIT = workspaceMode === 'Internal IT';
+  var licenses = getImportSandboxRecords('licenses', workspaceMode);
+  var hardware = getImportSandboxRecords('hardware', workspaceMode);
+  var contracts = getImportSandboxRecords('contracts', workspaceMode);
+  var licenseColumns = getModuleColumns('licenses', workspaceMode);
+  var hardwareColumns = getModuleColumns('hardware', workspaceMode);
+  var contractColumns = getModuleColumns('contracts', workspaceMode);
+  return licenses.map(function(record) {
+    return isIT
+      ? {
+          record: getRecordCell(record, licenseColumns, ['License / Product']) || record.meta.displayName,
+          type: 'License',
+          brand: getRecordCell(record, licenseColumns, ['Brand']) || record.meta.brandManufacturer || '-',
+          provider: getRecordCell(record, licenseColumns, ['Provider']) || record.meta.providerDistributor || '-',
+          department: getRecordCell(record, licenseColumns, ['Department']) || record.meta.clientDepartment || '-',
+          expiry: getRecordCell(record, licenseColumns, ['Renewal']) || record.meta.expirationRenewalDate || '-',
+          amount: getRecordCell(record, licenseColumns, ['Value']) || '-',
+          approval: getRecordCell(record, licenseColumns, ['Approval status']) || 'Pending review',
+          risk: getRecordCell(record, licenseColumns, ['Status']) || 'Review',
+          action: getRecordCell(record, licenseColumns, ['Action']) || 'Review import'
+        }
+      : {
+          record: getRecordCell(record, licenseColumns, ['License / Product']) || record.meta.displayName,
+          type: 'License',
+          vendor: getRecordCell(record, licenseColumns, ['Brand']) || record.meta.brandManufacturer || '-',
+          expiry: getRecordCell(record, licenseColumns, ['Renewal']) || record.meta.expirationRenewalDate || '-',
+          days: '-',
+          value: getRecordCell(record, licenseColumns, ['Value']) || '-',
+          owner: getRecordCell(record, licenseColumns, ['Owner']) || 'Unassigned',
+          status: getRecordCell(record, licenseColumns, ['Status']) || 'Review',
+          action: getRecordCell(record, licenseColumns, ['Action']) || 'Review import'
+        };
+  }).concat(hardware.map(function(record) {
+    return isIT
+      ? {
+          record: getRecordCell(record, hardwareColumns, ['Asset']) || record.meta.displayName,
+          type: 'Hardware',
+          brand: getRecordCell(record, hardwareColumns, ['Brand']) || record.meta.brandManufacturer || '-',
+          provider: getRecordCell(record, hardwareColumns, ['Provider']) || record.meta.providerDistributor || '-',
+          department: getRecordCell(record, hardwareColumns, ['Department']) || record.meta.clientDepartment || '-',
+          expiry: getRecordCell(record, hardwareColumns, ['Warranty end']) || record.meta.expirationRenewalDate || '-',
+          amount: '-',
+          approval: getRecordCell(record, hardwareColumns, ['Approval status']) || 'Pending review',
+          risk: getRecordCell(record, hardwareColumns, ['Status']) || 'Review',
+          action: getRecordCell(record, hardwareColumns, ['Action']) || 'Review import'
+        }
+      : {
+          record: getRecordCell(record, hardwareColumns, ['Asset']) || record.meta.displayName,
+          type: 'Hardware',
+          vendor: getRecordCell(record, hardwareColumns, ['Brand']) || record.meta.brandManufacturer || '-',
+          expiry: getRecordCell(record, hardwareColumns, ['Warranty end']) || record.meta.expirationRenewalDate || '-',
+          days: '-',
+          value: '-',
+          owner: getRecordCell(record, hardwareColumns, ['Owner']) || 'Unassigned',
+          status: getRecordCell(record, hardwareColumns, ['Status']) || 'Review',
+          action: getRecordCell(record, hardwareColumns, ['Action']) || 'Review import'
+        };
+  })).concat(contracts.map(function(record) {
+    return isIT
+      ? {
+          record: getRecordCell(record, contractColumns, ['Contract']) || record.meta.displayName,
+          type: 'Contract',
+          brand: '-',
+          provider: getRecordCell(record, contractColumns, ['Provider']) || record.meta.providerDistributor || '-',
+          department: getRecordCell(record, contractColumns, ['Department']) || record.meta.clientDepartment || '-',
+          expiry: getRecordCell(record, contractColumns, ['Renewal']) || record.meta.expirationRenewalDate || '-',
+          amount: '-',
+          approval: getRecordCell(record, contractColumns, ['Approval status']) || 'Pending review',
+          risk: getRecordCell(record, contractColumns, ['Risk']) || 'Review',
+          action: getRecordCell(record, contractColumns, ['Next action']) || 'Review import'
+        }
+      : {
+          record: getRecordCell(record, contractColumns, ['Contract']) || record.meta.displayName,
+          type: 'Contract',
+          vendor: getRecordCell(record, contractColumns, ['Provider / Distributor']) || record.meta.providerDistributor || '-',
+          expiry: getRecordCell(record, contractColumns, ['Renewal']) || record.meta.expirationRenewalDate || '-',
+          days: '-',
+          value: '-',
+          owner: getRecordCell(record, contractColumns, ['Owner']) || 'Unassigned',
+          status: getRecordCell(record, contractColumns, ['Legal status']) || 'Review',
+          action: getRecordCell(record, contractColumns, ['Next action']) || 'Review import'
+        };
+  }));
+}
+
+function getImportedDashboardPriorityRows(workspaceMode) {
+  var isIT = workspaceMode === 'Internal IT';
+  var licenseColumns = getModuleColumns('licenses', workspaceMode);
+  return getImportSandboxRecords('licenses', workspaceMode).slice(0, 5).map(function(record) {
+    if (isIT) {
+      return [
+        getRecordCell(record, licenseColumns, ['License / Product']) || record.meta.displayName || 'Imported license',
+        'License',
+        getRecordCell(record, licenseColumns, ['Brand']) || record.meta.brandManufacturer || '-',
+        getRecordCell(record, licenseColumns, ['Provider']) || record.meta.providerDistributor || '-',
+        getRecordCell(record, licenseColumns, ['Renewal']) || record.meta.expirationRenewalDate || '-',
+        getRecordCell(record, licenseColumns, ['Value']) || '-',
+        getRecordCell(record, licenseColumns, ['Department']) || record.meta.clientDepartment || '-',
+        'Review import'
+      ];
+    }
+    return [
+      getRecordCell(record, licenseColumns, ['Client']) || record.meta.clientDepartment || '-',
+      getRecordCell(record, licenseColumns, ['Brand']) || record.meta.brandManufacturer || '-',
+      getRecordCell(record, licenseColumns, ['License / Product']) || record.meta.productLicenseName || 'Imported license',
+      getRecordCell(record, licenseColumns, ['Distributor']) || record.meta.providerDistributor || '-',
+      getRecordCell(record, licenseColumns, ['Renewal']) || record.meta.expirationRenewalDate || '-',
+      getRecordCell(record, licenseColumns, ['Value']) || '-',
+      getRecordCell(record, licenseColumns, ['Margin']) || '-',
+      getRecordCell(record, licenseColumns, ['Owner']) || 'Unassigned',
+      'Review import'
+    ];
+  });
 }
 
 const DOC_TYPE_OPTIONS = [
@@ -1261,9 +1467,7 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
   }
   function resetRowsFromSource() {
     function importSandboxRecords() {
-      return Array.isArray(RECORD_STORE[moduleKey])
-        ? RECORD_STORE[moduleKey].filter(function(r) { return r && r.meta && r.meta.source === 'importSandbox'; })
-        : [];
+      return getImportSandboxRecords(moduleKey, workspaceMode);
     }
     if (moduleKey === 'documents' && Array.isArray(RECORD_STORE.documents) && RECORD_STORE.documents.length) {
       var existingDocuments = normalizeDocumentRecords(RECORD_STORE.documents);
@@ -3289,12 +3493,13 @@ function TasksScreen({ workspaceMode = 'MSP / Integrator' }){
 
 function ReportsScreen({ workspaceMode = 'MSP / Integrator' }){
   const isInternalIT = workspaceMode === 'Internal IT';
+  const importedReportCount = getImportSandboxRecords('licenses', workspaceMode).length + getImportSandboxRecords('hardware', workspaceMode).length + getImportSandboxRecords('contracts', workspaceMode).length;
   const reportsSubtitle = isInternalIT
     ? 'Executive and operational reporting across IT budget, approvals and renewal risk.'
     : workspaceMode === 'MSP / Integrator'
     ? 'Executive and operational reporting across your client renewal portfolio.'
     : 'Reports center for templates, schedules, generated reports, governance and exports.';
-  const reportRows = isInternalIT ? reportsInternalIT : reportsMsp;
+  const reportRows = (importedReportCount > 0 ? [['Imported Session Records', 'Sandbox validation', 'Operators', 'Current user', 'Session', importedReportCount + ' records ready']] : []).concat(isInternalIT ? reportsInternalIT : reportsMsp);
   const exportButtons = isInternalIT
     ? ['Department renewal exposure CSV', 'CIO renewal brief', 'Governance evidence export']
     : ['Client renewal exposure CSV', 'Executive renewal brief', 'Governance evidence export'];
@@ -3307,10 +3512,14 @@ function ReportsScreen({ workspaceMode = 'MSP / Integrator' }){
 const IMPORT_CANONICAL_FIELDS = [
   'Client / Department',
   'License / Product',
+  'Product / License Name',
   'Asset Name',
   'Brand',
+  'Brand / Manufacturer',
   'Provider / Distributor',
+  'Reseller / Partner',
   'Quantity',
+  'Quantity / Seats',
   'Entitlement Metric',
   'Start Date',
   'Expiration / Renewal Date',
@@ -3321,7 +3530,10 @@ const IMPORT_CANONICAL_FIELDS = [
   'Billing Cycle',
   'License Term',
   'Annual Value / Annual Cost',
+  'Sale Price / Annual Value',
   'Vendor Cost',
+  'Invoice Date',
+  'Invoice / Billing Reference',
   'Serial Number',
   'Warranty End Date',
   'Purchase Date',
@@ -3380,11 +3592,12 @@ function suggestImportField(header) {
   }
   var direct = [
     [['customer','customer name','cliente','client','department','departamento','customer domain'], 'Client / Department'],
-    [['product','offer name','offer friendly name','nombre completo del producto servicio','license','licencia','item','description'], 'License / Product'],
+    [['product','offer name','offer friendly name','nombre completo del producto servicio','license','licencia','item','description'], 'Product / License Name'],
     [['asset','asset name','equipo','hardware','nombre equipo'], 'Asset Name'],
-    [['brand','marca','manufacturer','fabricante'], 'Brand'],
+    [['brand','marca','manufacturer','fabricante'], 'Brand / Manufacturer'],
     [['distributor','distribuidor','provider','partner','supplier','proveedor'], 'Provider / Distributor'],
-    [['quantity','cantidad','licenses #','users #','sockets #','vms #','servers #','workstations #','volume','qty'], 'Quantity'],
+    [['reseller','reventa','reseller partner','partner reseller','partner name'], 'Reseller / Partner'],
+    [['quantity','cantidad','licenses #','users #','sockets #','vms #','servers #','workstations #','volume','qty','seats'], 'Quantity / Seats'],
     [['entitlement metric','metric','metrica'], 'Entitlement Metric'],
     [['con start date','subscription start date','start date','fecha inicio'], 'Start Date'],
     [['con end date','subscription end date','end date','vencimiento licencia','expiration date','renewal date','fecha vencimiento'], 'Expiration / Renewal Date'],
@@ -3394,8 +3607,10 @@ function suggestImportField(header) {
     [['support','soporte'], 'Support'],
     [['billing cycle','ciclo facturacion','billing'], 'Billing Cycle'],
     [['license term','term','periodo','termino'], 'License Term'],
-    [['annual value','annual cost','monto total','value','amount','importe','sale price','precio venta'], 'Annual Value / Annual Cost'],
+    [['annual value','annual cost','monto total','value','amount','importe','sale price','precio venta'], 'Sale Price / Annual Value'],
     [['vendor cost','cost','costo','purchase cost'], 'Vendor Cost'],
+    [['invoice date','fecha factura','billing date','fecha facturacion','fecha facturación'], 'Invoice Date'],
+    [['invoice','invoice number','billing reference','billing ref','referencia factura','factura'], 'Invoice / Billing Reference'],
     [['serial','serial number','serie'], 'Serial Number'],
     [['warranty end','warranty end date','fecha fin garantia','fecha fin garantía'], 'Warranty End Date'],
     [['purchase date','fecha de la transaccion','fecha de la transacción','transaction date'], 'Purchase Date'],
@@ -3455,6 +3670,64 @@ function getMappedImportValue(rowObj, mappings, targetField) {
     return mapping.action === 'Import' && mapping.suggestedField === targetField;
   });
   return match ? (rowObj[match.sourceColumn] || '') : '';
+}
+
+function getMappedImportValueAny(rowObj, mappings, targetFields) {
+  for (var i = 0; i < targetFields.length; i += 1) {
+    var value = getMappedImportValue(rowObj, mappings, targetFields[i]);
+    if (value) return value;
+  }
+  return '';
+}
+
+function buildImportLicenseDisplayName(brand, product, client) {
+  var parts = [brand && brand !== '-' ? brand : '', product && product !== 'Imported license' ? product : '', client && client.indexOf('Unassigned') !== 0 ? client : ''].filter(Boolean);
+  if (parts.length >= 2) return parts.join(' - ');
+  if (product && product !== 'Imported license') return client && client.indexOf('Unassigned') !== 0 ? product + ' - ' + client : product;
+  if (brand && brand !== '-') return client && client.indexOf('Unassigned') !== 0 ? brand + ' - ' + client : brand;
+  return 'Imported license';
+}
+
+function buildImportRecordKey(canonical) {
+  return [
+    canonical.moduleKey,
+    canonical.clientDepartment,
+    canonical.brandManufacturer,
+    canonical.productLicenseName || canonical.displayName,
+    canonical.expirationRenewalDate,
+    canonical.contractNumber,
+    canonical.orderReference,
+    canonical.providerDistributor
+  ].map(function(value) { return normalizeImportText(value); }).filter(Boolean).join('|');
+}
+
+function withImportRecordMeta(record, moduleKey, canonical, importContext) {
+  var meta = Object.assign({}, record.meta || {}, {
+    source: 'importSandbox',
+    moduleKey: moduleKey,
+    type: moduleKey,
+    displayName: canonical.displayName,
+    clientDepartment: canonical.clientDepartment,
+    brandManufacturer: canonical.brandManufacturer,
+    productLicenseName: canonical.productLicenseName,
+    providerDistributor: canonical.providerDistributor,
+    expirationRenewalDate: canonical.expirationRenewalDate,
+    quantitySeats: canonical.quantitySeats,
+    commercialValue: canonical.commercialValue,
+    vendorCost: canonical.vendorCost,
+    owner: canonical.owner || 'Unassigned',
+    alertPolicy: canonical.alertPolicy || 'Workspace default',
+    contractNumber: canonical.contractNumber,
+    orderReference: canonical.orderReference,
+    importKey: canonical.importKey || buildImportRecordKey(Object.assign({}, canonical, { moduleKey: moduleKey })),
+    importFileName: importContext.fileName || '',
+    importSheetName: importContext.sheetName || '',
+    importTarget: importContext.importTarget || '',
+    detectedSource: importContext.sourceType || '',
+    workspaceMode: importContext.workspaceMode || '',
+    importedAt: importContext.importedAt || new Date().toISOString()
+  });
+  return Object.assign({}, record, { meta: meta });
 }
 
 function normalizeImportDate(value) {
@@ -3534,18 +3807,26 @@ function detectImportTarget(rowObj, mappings, sourceType, importTarget) {
   return { moduleKey: 'review', label: 'Review needed', review: true, warning: 'Opriva could not identify a target module.' };
 }
 
-function buildImportLicenseRecord(rowObj, mappings, workspaceMode, sourceType, rowIndex) {
+function buildImportLicenseRecord(rowObj, mappings, workspaceMode, sourceType, rowIndex, importContext) {
   var isIT = workspaceMode === 'Internal IT';
-  var product = getMappedImportValue(rowObj, mappings, 'License / Product') || 'Imported license';
-  var client = getMappedImportValue(rowObj, mappings, 'Client / Department') || (isIT ? 'Unassigned department' : 'Unassigned client');
-  var brand = inferBrandFromProduct(product, getMappedImportValue(rowObj, mappings, 'Brand'));
-  var provider = getMappedImportValue(rowObj, mappings, 'Provider / Distributor') || '-';
-  var quantity = getMappedImportValue(rowObj, mappings, 'Quantity') || '-';
-  var renewalDate = normalizeImportDate(getMappedImportValue(rowObj, mappings, 'Expiration / Renewal Date'));
-  var annualValue = importMoney(getMappedImportValue(rowObj, mappings, 'Annual Value / Annual Cost'));
-  var vendorCost = importMoney(getMappedImportValue(rowObj, mappings, 'Vendor Cost'));
+  var edit = (importContext && importContext.recordEdits && importContext.recordEdits[rowIndex + 2]) || {};
+  var product = edit.productLicenseName || getMappedImportValueAny(rowObj, mappings, ['Product / License Name','License / Product']) || 'Imported license';
+  var client = edit.clientDepartment || getMappedImportValue(rowObj, mappings, 'Client / Department') || (isIT ? 'Unassigned department' : 'Unassigned client');
+  var brand = edit.brandManufacturer || inferBrandFromProduct(product, getMappedImportValueAny(rowObj, mappings, ['Brand / Manufacturer','Brand']));
+  var provider = edit.providerDistributor || getMappedImportValue(rowObj, mappings, 'Provider / Distributor') || '-';
+  var resellerPartner = edit.resellerPartner || getMappedImportValue(rowObj, mappings, 'Reseller / Partner');
+  var quantity = edit.quantitySeats || getMappedImportValueAny(rowObj, mappings, ['Quantity / Seats','Quantity']) || '-';
+  var renewalDate = normalizeImportDate(edit.expirationRenewalDate || getMappedImportValue(rowObj, mappings, 'Expiration / Renewal Date'));
+  var contractNumber = edit.contractNumber || getMappedImportValue(rowObj, mappings, 'Contract Number');
+  var orderReference = edit.orderReference || getMappedImportValue(rowObj, mappings, 'PO / Order Reference');
+  var invoiceDate = normalizeImportDate(edit.invoiceDate || getMappedImportValue(rowObj, mappings, 'Invoice Date'));
+  var invoiceReference = edit.invoiceReference || getMappedImportValue(rowObj, mappings, 'Invoice / Billing Reference');
+  var annualValue = importMoney(edit.commercialValue || getMappedImportValueAny(rowObj, mappings, ['Sale Price / Annual Value','Annual Value / Annual Cost']));
+  var vendorCost = importMoney(edit.vendorCost || getMappedImportValue(rowObj, mappings, 'Vendor Cost'));
+  var owner = edit.owner || 'Unassigned';
+  var alertPolicy = edit.alertPolicy || 'Workspace default';
   var calc = calcMargin(annualValue, vendorCost);
-  var status = calcExpirationState(renewalDate, 'Workspace default', '').systemStatus;
+  var status = calcExpirationState(renewalDate, alertPolicy, '').systemStatus;
   var columns = getModuleColumns('licenses', workspaceMode);
   var valueDisplay = formatImportMoney(annualValue);
   var marginDisplay = calc.marginDollar ? formatImportMoney(calc.marginDollar) : '-';
@@ -3561,7 +3842,7 @@ function buildImportLicenseRecord(rowObj, mappings, workspaceMode, sourceType, r
         'Renewal': renewalDate || '-',
         'Value': valueDisplay,
         'Approval status': sourceStatus || 'Pending review',
-        'Owner': 'Unassigned',
+        'Owner': owner,
         'Status': status,
         'Action': 'Review import'
       }
@@ -3574,11 +3855,12 @@ function buildImportLicenseRecord(rowObj, mappings, workspaceMode, sourceType, r
         'Renewal': renewalDate || '-',
         'Value': valueDisplay,
         'Margin': marginDisplay,
-        'Owner': 'Unassigned',
+        'Owner': owner,
         'Status': status,
         'Action': 'Review import'
       };
-  return {
+  var displayName = buildImportLicenseDisplayName(brand, product, client);
+  var record = {
     id: createRecordId('licenses'),
     row: columns.map(function(col) { return map[col] !== undefined && map[col] !== '' ? map[col] : '-'; }),
     meta: {
@@ -3586,18 +3868,38 @@ function buildImportLicenseRecord(rowObj, mappings, workspaceMode, sourceType, r
       sourceType: sourceType,
       rowNumber: rowIndex + 2,
       notes: note,
-      alertPolicy: 'Workspace default',
+      alertPolicy: alertPolicy,
       sourceStatus: sourceStatus,
-      sourceReference: getMappedImportValue(rowObj, mappings, 'PO / Order Reference') || getMappedImportValue(rowObj, mappings, 'Contract Number') || ''
+      sourceReference: orderReference || contractNumber || invoiceReference || '',
+      contractNumber: contractNumber,
+      orderReference: orderReference,
+      invoiceDate: invoiceDate,
+      invoiceReference: invoiceReference,
+      resellerPartner: resellerPartner
     }
   };
+  return withImportRecordMeta(record, 'licenses', {
+    displayName: displayName,
+    clientDepartment: client,
+    brandManufacturer: brand,
+    productLicenseName: product,
+    providerDistributor: provider,
+    expirationRenewalDate: renewalDate,
+    quantitySeats: quantity,
+    commercialValue: annualValue,
+    vendorCost: vendorCost,
+    owner: owner,
+    alertPolicy: alertPolicy,
+    contractNumber: contractNumber,
+    orderReference: orderReference
+  }, importContext || {});
 }
 
-function buildImportHardwareRecord(rowObj, mappings, workspaceMode, sourceType, rowIndex) {
+function buildImportHardwareRecord(rowObj, mappings, workspaceMode, sourceType, rowIndex, importContext) {
   var isIT = workspaceMode === 'Internal IT';
-  var assetName = getMappedImportValue(rowObj, mappings, 'Asset Name') || getMappedImportValue(rowObj, mappings, 'License / Product') || 'Imported hardware asset';
+  var assetName = getMappedImportValue(rowObj, mappings, 'Asset Name') || getMappedImportValueAny(rowObj, mappings, ['Product / License Name','License / Product']) || 'Imported hardware asset';
   var client = getMappedImportValue(rowObj, mappings, 'Client / Department') || (isIT ? 'Unassigned department' : 'Unassigned client');
-  var brand = inferBrandFromProduct(assetName, getMappedImportValue(rowObj, mappings, 'Brand'));
+  var brand = inferBrandFromProduct(assetName, getMappedImportValueAny(rowObj, mappings, ['Brand / Manufacturer','Brand']));
   var provider = getMappedImportValue(rowObj, mappings, 'Provider / Distributor') || '-';
   var serial = getMappedImportValue(rowObj, mappings, 'Serial Number') || '-';
   var warrantyEnd = normalizeImportDate(getMappedImportValue(rowObj, mappings, 'Warranty End Date') || getMappedImportValue(rowObj, mappings, 'Expiration / Renewal Date'));
@@ -3633,7 +3935,7 @@ function buildImportHardwareRecord(rowObj, mappings, workspaceMode, sourceType, 
         'Risk': '-',
         'Action': 'Review import'
       };
-  return {
+  var record = {
     id: createRecordId('hardware'),
     row: columns.map(function(col) { return map[col] !== undefined && map[col] !== '' ? map[col] : '-'; }),
     meta: {
@@ -3644,9 +3946,24 @@ function buildImportHardwareRecord(rowObj, mappings, workspaceMode, sourceType, 
       notes: getMappedImportValue(rowObj, mappings, 'Notes') || ('Imported from ' + sourceType + ' row ' + (rowIndex + 2) + '.')
     }
   };
+  return withImportRecordMeta(record, 'hardware', {
+    displayName: assetName,
+    clientDepartment: client,
+    brandManufacturer: brand,
+    productLicenseName: assetName,
+    providerDistributor: provider,
+    expirationRenewalDate: warrantyEnd,
+    quantitySeats: '',
+    commercialValue: '',
+    vendorCost: '',
+    owner: 'Unassigned',
+    alertPolicy: 'Workspace default',
+    contractNumber: '',
+    orderReference: ''
+  }, importContext || {});
 }
 
-function buildImportContractRecord(rowObj, mappings, workspaceMode, sourceType, rowIndex) {
+function buildImportContractRecord(rowObj, mappings, workspaceMode, sourceType, rowIndex, importContext) {
   var contractNumber = getMappedImportValue(rowObj, mappings, 'Contract Number');
   var renewalDate = normalizeImportDate(getMappedImportValue(rowObj, mappings, 'Expiration / Renewal Date'));
   if (!contractNumber || !renewalDate) return null;
@@ -3683,62 +4000,165 @@ function buildImportContractRecord(rowObj, mappings, workspaceMode, sourceType, 
         'Next action': 'Review import',
         'Risk': '-'
       };
-  return {
+  var record = {
     id: createRecordId('contracts'),
     row: columns.map(function(col) { return map[col] !== undefined && map[col] !== '' ? map[col] : '-'; }),
     meta: { source: 'importSandbox', sourceType: sourceType, rowNumber: rowIndex + 2 }
   };
+  return withImportRecordMeta(record, 'contracts', {
+    displayName: contractNumber,
+    clientDepartment: client,
+    brandManufacturer: '',
+    productLicenseName: support,
+    providerDistributor: provider,
+    expirationRenewalDate: renewalDate,
+    quantitySeats: '',
+    commercialValue: '',
+    vendorCost: '',
+    owner: 'Unassigned',
+    alertPolicy: 'Workspace default',
+    contractNumber: contractNumber,
+    orderReference: ''
+  }, importContext || {});
 }
 
-function buildImportPreview(rowObjects, mappings, sourceType, workspaceMode, importTarget) {
+function buildImportPreview(rowObjects, mappings, sourceType, workspaceMode, importTarget, importContext) {
   var preview = [];
   var records = { licenses: [], hardware: [], contracts: [] };
-  var stats = { processed: rowObjects.length, licenses: 0, hardware: 0, contracts: 0, skipped: 0, review: 0 };
-  var skippedColumns = mappings.filter(function(mapping) { return mapping.action === 'Skip'; }).map(function(mapping) { return mapping.sourceColumn; });
+  var stats = { processed: rowObjects.length, ready: 0, licenses: 0, hardware: 0, contracts: 0, skipped: 0, review: 0, duplicates: 0, missingBrandProduct: 0 };
+  var generalWarnings = [];
+  var seenImportKeys = new Set();
+  var skippedColumns = mappings.filter(function(mapping) { return mapping.action === 'Skip' || !mapping.suggestedField; }).map(function(mapping) { return mapping.sourceColumn; });
   rowObjects.forEach(function(rowObj, index) {
     var target = detectImportTarget(rowObj, mappings, sourceType, importTarget);
     var warnings = [];
     if (target.warning) warnings.push(target.warning);
-    if (skippedColumns.length) warnings.push('Skipped calculated columns: ' + skippedColumns.join(', '));
+    if (target.moduleKey === 'package') {
+      if (generalWarnings.indexOf('Renewal Package import is partially supported in this sandbox. Opriva will preview the records and create linked license/contract-style records where possible. Full Renewal Package modeling will require backend support.') < 0) {
+        generalWarnings.push('Renewal Package import is partially supported in this sandbox. Opriva will preview the records and create linked license/contract-style records where possible. Full Renewal Package modeling will require backend support.');
+      }
+      target = getMappedImportValue(rowObj, mappings, 'Contract Number') && getMappedImportValue(rowObj, mappings, 'Expiration / Renewal Date')
+        ? { moduleKey: 'contracts', label: 'Contract / Support Coverage' }
+        : { moduleKey: 'licenses', label: 'License' };
+    }
     var quantitySources = mappings.filter(function(mapping) {
-      return mapping.action === 'Import' && mapping.suggestedField === 'Quantity' && rowObj[mapping.sourceColumn];
+      return mapping.action === 'Import' && (mapping.suggestedField === 'Quantity' || mapping.suggestedField === 'Quantity / Seats') && rowObj[mapping.sourceColumn];
     });
-    if (quantitySources.length > 1) warnings.push('Multiple quantity metrics populated.');
+    if (quantitySources.length > 1) warnings.push('Review quantity');
     var record = null;
     if (target.moduleKey === 'licenses') {
-      if (!getMappedImportValue(rowObj, mappings, 'License / Product')) warnings.push('Missing License / Product.');
-      if (!getMappedImportValue(rowObj, mappings, 'Client / Department')) warnings.push('Missing Client / Department.');
-      if (!getMappedImportValue(rowObj, mappings, 'Expiration / Renewal Date')) warnings.push('Missing Expiration / Renewal Date.');
-      record = buildImportLicenseRecord(rowObj, mappings, workspaceMode, sourceType, index);
+      var edit = (importContext && importContext.recordEdits && importContext.recordEdits[index + 2]) || {};
+      var previewProduct = edit.productLicenseName || getMappedImportValueAny(rowObj, mappings, ['Product / License Name','License / Product']);
+      var previewBrand = edit.brandManufacturer || inferBrandFromProduct(previewProduct, getMappedImportValueAny(rowObj, mappings, ['Brand / Manufacturer','Brand']));
+      var previewClient = edit.clientDepartment || getMappedImportValue(rowObj, mappings, 'Client / Department');
+      var previewProvider = edit.providerDistributor || getMappedImportValue(rowObj, mappings, 'Provider / Distributor');
+      var previewReseller = edit.resellerPartner || getMappedImportValue(rowObj, mappings, 'Reseller / Partner');
+      var previewQuantity = edit.quantitySeats || getMappedImportValueAny(rowObj, mappings, ['Quantity / Seats','Quantity']);
+      var previewRenewal = normalizeImportDate(edit.expirationRenewalDate || getMappedImportValue(rowObj, mappings, 'Expiration / Renewal Date'));
+      var previewContract = edit.contractNumber || getMappedImportValue(rowObj, mappings, 'Contract Number');
+      var previewOrderRef = edit.orderReference || getMappedImportValue(rowObj, mappings, 'PO / Order Reference');
+      var previewValue = edit.commercialValue || getMappedImportValueAny(rowObj, mappings, ['Sale Price / Annual Value','Annual Value / Annual Cost']);
+      var previewCost = edit.vendorCost || getMappedImportValue(rowObj, mappings, 'Vendor Cost');
+      var previewOwner = edit.owner || 'Unassigned';
+      var previewAlertPolicy = edit.alertPolicy || 'Workspace default';
+      var previewInvoice = edit.invoiceReference || getMappedImportValue(rowObj, mappings, 'Invoice / Billing Reference') || edit.invoiceDate || getMappedImportValue(rowObj, mappings, 'Invoice Date');
+      if (!previewProduct) warnings.push('Missing product');
+      if (!previewBrand || previewBrand === '-') warnings.push('Missing brand');
+      if (!previewProduct || !previewBrand || previewBrand === '-') stats.missingBrandProduct += 1;
+      if (!previewClient) warnings.push('Missing client/department');
+      if (!previewRenewal) warnings.push('Missing expiration date');
+      if (!previewOwner || previewOwner === 'Unassigned') warnings.push('Missing owner');
+      record = buildImportLicenseRecord(rowObj, mappings, workspaceMode, sourceType, index, importContext || {});
+      var duplicateRisk = record.meta && record.meta.importKey && (
+        seenImportKeys.has(record.meta.importKey)
+        || (Array.isArray(RECORD_STORE.licenses) && RECORD_STORE.licenses.some(function(existing) { return existing && existing.meta && existing.meta.importKey === record.meta.importKey; }))
+      );
+      if (duplicateRisk) {
+        warnings.push('Duplicate risk');
+        stats.duplicates += 1;
+      }
+      if (record.meta && record.meta.importKey) seenImportKeys.add(record.meta.importKey);
       records.licenses.push(record);
       stats.licenses += 1;
+      if (warnings.length) stats.review += 1; else stats.ready += 1;
+      preview.push({
+        rowNumber: index + 2,
+        moduleLabel: target.label,
+        name: buildImportLicenseDisplayName(previewBrand, previewProduct, previewClient),
+        clientDepartment: previewClient || '-',
+        brandProduct: [previewBrand && previewBrand !== '-' ? previewBrand : '', previewProduct].filter(Boolean).join(' / ') || '-',
+        expiration: previewRenewal || '-',
+        createdRecords: ['License'].concat(previewContract ? ['Contract reference'] : []).concat(importTarget === 'Renewal Package' ? ['Renewal Package preview'] : []),
+        canonical: {
+          brandManufacturer: previewBrand && previewBrand !== '-' ? previewBrand : '',
+          productLicenseName: previewProduct || '',
+          clientDepartment: previewClient || '',
+          providerDistributor: previewProvider || '',
+          resellerPartner: previewReseller || '',
+          quantitySeats: previewQuantity || '',
+          expirationRenewalDate: previewRenewal || '',
+          contractNumber: previewContract || '',
+          orderReference: previewOrderRef || '',
+          commercialValue: previewValue || '',
+          vendorCost: previewCost || '',
+          owner: previewOwner || 'Unassigned',
+          alertPolicy: previewAlertPolicy,
+          invoiceReference: previewInvoice || ''
+        },
+        issues: warnings,
+        status: warnings.length ? 'Needs review' : 'Ready'
+      });
+      return;
     } else if (target.moduleKey === 'hardware') {
-      if (!getMappedImportValue(rowObj, mappings, 'Serial Number')) warnings.push('Missing Serial Number.');
-      record = buildImportHardwareRecord(rowObj, mappings, workspaceMode, sourceType, index);
+      if (!getMappedImportValue(rowObj, mappings, 'Serial Number')) warnings.push('Missing serial');
+      record = buildImportHardwareRecord(rowObj, mappings, workspaceMode, sourceType, index, importContext || {});
+      var hardwareDuplicate = record.meta && record.meta.importKey && (
+        seenImportKeys.has(record.meta.importKey)
+        || (Array.isArray(RECORD_STORE.hardware) && RECORD_STORE.hardware.some(function(existing) { return existing && existing.meta && existing.meta.importKey === record.meta.importKey; }))
+      );
+      if (hardwareDuplicate) {
+        warnings.push('Duplicate risk');
+        stats.duplicates += 1;
+      }
+      if (record.meta && record.meta.importKey) seenImportKeys.add(record.meta.importKey);
       records.hardware.push(record);
       stats.hardware += 1;
     } else if (target.moduleKey === 'contracts') {
-      record = buildImportContractRecord(rowObj, mappings, workspaceMode, sourceType, index);
+      record = buildImportContractRecord(rowObj, mappings, workspaceMode, sourceType, index, importContext || {});
       if (record) {
+        var contractDuplicate = record.meta && record.meta.importKey && (
+          seenImportKeys.has(record.meta.importKey)
+          || (Array.isArray(RECORD_STORE.contracts) && RECORD_STORE.contracts.some(function(existing) { return existing && existing.meta && existing.meta.importKey === record.meta.importKey; }))
+        );
+        if (contractDuplicate) {
+          warnings.push('Duplicate risk');
+          stats.duplicates += 1;
+        }
+        if (record.meta && record.meta.importKey) seenImportKeys.add(record.meta.importKey);
         records.contracts.push(record);
         stats.contracts += 1;
       } else {
         stats.skipped += 1;
-        warnings.push('Contract/support coverage needs review before creation.');
+        warnings.push('Review required');
       }
     }
-    if (target.review || warnings.length) stats.review += 1;
+    if (target.review || warnings.length) stats.review += 1; else stats.ready += 1;
     if (!record && target.moduleKey !== 'review' && target.moduleKey !== 'package') stats.skipped += 1;
     preview.push({
       rowNumber: index + 2,
       moduleLabel: target.label,
-      name: record && record.row ? record.row[0] : (getMappedImportValue(rowObj, mappings, 'License / Product') || getMappedImportValue(rowObj, mappings, 'Asset Name') || 'Needs review'),
-      status: warnings.length ? 'Review' : 'Ready',
-      warnings: warnings
+      name: record && record.row ? record.row[0] : (getMappedImportValueAny(rowObj, mappings, ['Product / License Name','License / Product']) || getMappedImportValue(rowObj, mappings, 'Asset Name') || 'Needs review'),
+      clientDepartment: record && record.meta ? (record.meta.clientDepartment || '-') : '-',
+      brandProduct: record && record.meta ? ([record.meta.brandManufacturer, record.meta.productLicenseName].filter(Boolean).join(' / ') || '-') : '-',
+      expiration: record && record.meta ? (record.meta.expirationRenewalDate || '-') : '-',
+      createdRecords: [target.label],
+      canonical: {},
+      issues: warnings,
+      status: warnings.length ? 'Needs review' : 'Ready'
     });
   });
   stats.skipped += preview.filter(function(item) { return item.moduleLabel === 'Renewal Package' || item.moduleLabel === 'Related Component' || item.moduleLabel === 'Review needed'; }).length;
-  return { preview: preview, records: records, stats: stats };
+  return { preview: preview, records: records, stats: stats, generalWarnings: generalWarnings };
 }
 
 function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
@@ -3767,6 +4187,16 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
   const [importTarget, setImportTarget] = React.useState('Mixed / Multiple record types');
   const [importError, setImportError] = React.useState('');
   const [importResult, setImportResult] = React.useState(null);
+  const [recordEdits, setRecordEdits] = React.useState({});
+  const [importDefaults, setImportDefaults] = React.useState({
+    brandManufacturer: '',
+    productLicenseName: '',
+    owner: '',
+    alertPolicy: 'Workspace default',
+    providerDistributor: ''
+  });
+  const [reviewRowNumber, setReviewRowNumber] = React.useState(null);
+  const [rawDetailsOpen, setRawDetailsOpen] = React.useState(false);
 
   function applySheet(nextWorkbook, nextSheetName) {
     var data = getImportSheetData(nextWorkbook, nextSheetName);
@@ -3779,6 +4209,15 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
     var suggestedTarget = suggestImportTargetFromSource(detected);
     setSuggestedImportTarget(suggestedTarget);
     setImportTarget(suggestedTarget);
+    setRecordEdits({});
+    setImportDefaults({
+      brandManufacturer: '',
+      productLicenseName: '',
+      owner: '',
+      alertPolicy: 'Workspace default',
+      providerDistributor: ''
+    });
+    setReviewRowNumber(null);
     setImportResult(null);
   }
 
@@ -3814,9 +4253,79 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
     setImportResult(null);
   }
 
+  function updateRecordEdit(rowNumber, key, value) {
+    setRecordEdits(function(prev) {
+      var next = Object.assign({}, prev);
+      next[rowNumber] = Object.assign({}, next[rowNumber] || {}, { [key]: value });
+      return next;
+    });
+    setImportResult(null);
+  }
+
+  function updateImportDefault(key, value) {
+    setImportDefaults(function(prev) {
+      return Object.assign({}, prev, { [key]: value });
+    });
+    setImportResult(null);
+  }
+
+  function insertImportedRecords(moduleKey, records) {
+    var existing = Array.isArray(RECORD_STORE[moduleKey]) ? RECORD_STORE[moduleKey] : [];
+    var knownKeys = new Set(existing.map(function(record) {
+      return record && record.meta && record.meta.importKey ? record.meta.importKey : '';
+    }).filter(Boolean));
+    var created = [];
+    var duplicates = 0;
+    records.forEach(function(record) {
+      var importKey = record && record.meta && record.meta.importKey ? record.meta.importKey : '';
+      if (importKey && knownKeys.has(importKey)) {
+        duplicates += 1;
+        return;
+      }
+      if (importKey) knownKeys.add(importKey);
+      created.push(record);
+    });
+    if (created.length) RECORD_STORE[moduleKey] = created.concat(existing);
+    return { created: created, duplicates: duplicates };
+  }
+
   const importPreview = React.useMemo(function() {
-    return buildImportPreview(rowObjects, mappings, sourceType, workspaceMode, importTarget);
-  }, [rowObjects, mappings, sourceType, workspaceMode, importTarget]);
+    return buildImportPreview(rowObjects, mappings, sourceType, workspaceMode, importTarget, {
+      fileName: fileName,
+      sheetName: selectedSheet,
+      importTarget: importTarget,
+      sourceType: sourceType,
+      workspaceMode: workspaceMode,
+      recordEdits: recordEdits
+    });
+  }, [rowObjects, mappings, sourceType, workspaceMode, importTarget, fileName, selectedSheet, recordEdits]);
+  const unmappedColumns = mappings.filter(function(mapping) {
+    return mapping.action === 'Skip' || !mapping.suggestedField;
+  });
+
+  function applyImportDefaults(overwrite) {
+    var defaultFields = ['brandManufacturer','productLicenseName','owner','alertPolicy','providerDistributor'];
+    setRecordEdits(function(prev) {
+      var next = Object.assign({}, prev);
+      importPreview.preview.forEach(function(item) {
+        if (!item || item.moduleLabel === 'Review needed' || item.moduleLabel === 'Related Component') return;
+        var rowNumber = item.rowNumber;
+        var canonical = item.canonical || {};
+        var existingEdit = next[rowNumber] || {};
+        var rowEdit = Object.assign({}, existingEdit);
+        defaultFields.forEach(function(key) {
+          var defaultValue = importDefaults[key];
+          if (!defaultValue) return;
+          var currentValue = existingEdit[key] || canonical[key] || '';
+          if (overwrite || !currentValue) rowEdit[key] = defaultValue;
+        });
+        next[rowNumber] = rowEdit;
+      });
+      return next;
+    });
+    setReviewRowNumber(null);
+    setImportResult(null);
+  }
 
   function confirmImport() {
     var licenses = importPreview.records.licenses;
@@ -3826,36 +4335,45 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
       setImportResult({ processed: rowObjects.length, licenses: 0, hardware: 0, contracts: 0, skipped: rowObjects.length, review: importPreview.stats.review, message: 'No records were ready to create.' });
       return;
     }
-    if (licenses.length) RECORD_STORE.licenses = licenses.concat(Array.isArray(RECORD_STORE.licenses) ? RECORD_STORE.licenses : []);
-    if (hardware.length) RECORD_STORE.hardware = hardware.concat(Array.isArray(RECORD_STORE.hardware) ? RECORD_STORE.hardware : []);
-    if (contracts.length) RECORD_STORE.contracts = contracts.concat(Array.isArray(RECORD_STORE.contracts) ? RECORD_STORE.contracts : []);
+    var licenseInsert = insertImportedRecords('licenses', licenses);
+    var hardwareInsert = insertImportedRecords('hardware', hardware);
+    var contractInsert = insertImportedRecords('contracts', contracts);
+    var createdRecords = licenseInsert.created.concat(hardwareInsert.created).concat(contractInsert.created);
+    var duplicateCount = licenseInsert.duplicates + hardwareInsert.duplicates + contractInsert.duplicates;
+    var clientSync = ensureImportedClientRecords(createdRecords, workspaceMode);
     addActivityEvent({
       eventType: 'import_completed',
       title: 'Import completed',
-      description: fileName + ' created ' + (licenses.length + hardware.length + contracts.length) + ' local sandbox records.',
+      description: fileName + ' created ' + createdRecords.length + ' first-class local Opriva records and matched ' + clientSync.matched + ' clients/departments.',
       sourceModule: 'data-import',
       sourceRecordName: fileName,
+      source: 'importSandbox',
       workspaceMode: workspaceMode,
     });
-    licenses.concat(hardware).concat(contracts).forEach(function(record) {
+    createdRecords.forEach(function(record) {
       addActivityEvent({
-        eventType: 'record_created',
-        title: 'Record created from import',
-        description: (record.row[0] || 'Record') + ' was created from ' + fileName + '.',
-        sourceModule: record.id.split('-')[0],
+        eventType: 'imported',
+        title: 'Imported record',
+        description: 'Imported from ' + fileName,
+        sourceModule: record.meta && record.meta.moduleKey ? record.meta.moduleKey : record.id.split('-')[0],
         sourceRecordId: record.id,
-        sourceRecordName: record.row[0] || '',
+        sourceRecordName: record.meta && record.meta.displayName ? record.meta.displayName : (record.row[0] || ''),
+        source: 'importSandbox',
+        relatedRecordId: 'data-import',
         workspaceMode: workspaceMode,
       });
     });
     setImportResult({
       processed: rowObjects.length,
-      licenses: licenses.length,
-      hardware: hardware.length,
-      contracts: contracts.length,
-      skipped: importPreview.stats.skipped,
+      licenses: licenseInsert.created.length,
+      hardware: hardwareInsert.created.length,
+      contracts: contractInsert.created.length,
+      clientsCreated: clientSync.created,
+      clientsMatched: clientSync.matched,
+      skipped: importPreview.stats.skipped + duplicateCount,
       review: importPreview.stats.review,
-      message: 'Local sandbox import completed. Navigate to Licenses, Hardware or Contracts to review created records.'
+      duplicates: duplicateCount,
+      message: 'Imported records were added to the central local Opriva record store for this session. They can now be opened from relevant modules. Backend persistence is still required for corporate MVP. ' + duplicateCount + ' duplicate-looking record' + (duplicateCount === 1 ? ' was' : 's were') + ' skipped.'
     });
   }
 
@@ -3956,26 +4474,158 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
           </tbody>
         </table>
       </div>}
+      {unmappedColumns.length > 0 && <div style={{border:'1px solid #F1E3C8',borderRadius:12,background:'#FFFDF7',padding:'12px 14px',display:'grid',gap:10}}>
+        <div>
+          <strong style={{display:'block',fontSize:14,color:'#0B1F3A',marginBottom:4}}>Unmapped / skipped columns</strong>
+          <span style={{display:'block',fontSize:12,color:'#64748B',lineHeight:1.45}}>Opriva will not blindly import these columns. Map them to a canonical field, map useful context to Notes, or keep them skipped.</span>
+        </div>
+        <div className="tableWrap">
+          <table>
+            <thead><tr>{['Source Column','Action','Sample Value'].map(function(col) { return <th key={col}>{col}</th>; })}</tr></thead>
+            <tbody>
+              {unmappedColumns.slice(0, 8).map(function(mapping) {
+                return <tr key={'unmapped-' + mapping.sourceColumn}>
+                  <td className="recordCell">{mapping.sourceColumn}</td>
+                  <td>{mapping.action === 'Skip' ? 'Skipped' : 'No target'}</td>
+                  <td style={{maxWidth:280,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={mapping.sampleValue}>{mapping.sampleValue || '-'}</td>
+                </tr>;
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>}
       {rowObjects.length > 0 && <div style={{display:'grid',gap:12}}>
-        <div className="panelTitle" style={{margin:0}}><h2>Normalized records preview</h2><span>Opriva will create Licenses, Hardware and clear Contracts locally after confirmation.</span></div>
-        <Table columns={['Row','Target','Record','Status','Warnings']} rows={importPreview.preview.slice(0, 12).map(function(item) {
-          return [item.rowNumber, item.moduleLabel, item.name, item.status, item.warnings.length ? item.warnings.join(' ') : '-'];
-        })}/>
+        <div style={{border:'1px solid #DDEFEA',borderRadius:12,background:'#F8FFFD',padding:'12px 14px',display:'grid',gap:12}}>
+          <div style={{display:'flex',justifyContent:'space-between',gap:12,alignItems:'flex-start',flexWrap:'wrap'}}>
+            <div style={{minWidth:240,flex:'1 1 360px'}}>
+              <strong style={{display:'block',fontSize:14,color:'#0B1F3A',marginBottom:4}}>Import defaults</strong>
+              <span style={{display:'block',fontSize:12,color:'#64748B',lineHeight:1.45}}>Use defaults to enrich many imported records at once. You can still review individual rows when something needs correction.</span>
+            </div>
+            <div style={{border:'1px solid #CDEDE5',borderRadius:999,padding:'5px 9px',fontSize:11,fontWeight:800,color:'#0F766E',background:'#fff'}}>
+              Target: {importTarget}
+            </div>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(5,minmax(0,1fr))',gap:10}}>
+            {[
+              ['brandManufacturer','Brand / Manufacturer'],
+              ['productLicenseName','Product / License Name'],
+              ['providerDistributor','Distributor / Provider'],
+              ['owner','Owner']
+            ].map(function(field) {
+              return <label key={field[0]} style={{display:'grid',gap:4,fontSize:12,fontWeight:800,color:'#64748B'}}>
+                {field[1]}
+                <input value={importDefaults[field[0]] || ''} onChange={function(e) { updateImportDefault(field[0], e.target.value); }} style={{border:'1px solid #DDE5EF',borderRadius:8,padding:'8px 9px',background:'#fff',color:'#132033',fontWeight:650}} />
+              </label>;
+            })}
+            <label style={{display:'grid',gap:4,fontSize:12,fontWeight:800,color:'#64748B'}}>
+              Alert Policy
+              <select value={importDefaults.alertPolicy || 'Workspace default'} onChange={function(e) { updateImportDefault('alertPolicy', e.target.value); }} style={{border:'1px solid #DDE5EF',borderRadius:8,padding:'8px 9px',background:'#fff',color:'#132033',fontWeight:650}}>
+                {LICENSE_ALERT_POLICY_OPTIONS.map(function(opt) { return <option key={opt} value={opt}>{opt}</option>; })}
+              </select>
+            </label>
+          </div>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+            <button type="button" className="primary" onClick={function() { applyImportDefaults(false); }}>Apply defaults to rows missing these values</button>
+            <button type="button" onClick={function() { applyImportDefaults(true); }}>Apply defaults to all rows</button>
+          </div>
+        </div>
+        <div className="panelTitle" style={{margin:0}}><h2>Review & enrich records</h2><span>Review normalized records before creation. Improve mappings above when brand, product, client or commercial context is missing.</span></div>
+        <p style={{margin:0,color:'#64748B',fontSize:13,lineHeight:1.5}}>Review how Opriva will create these records. You can adjust mappings or enrich missing fields before importing.</p>
+        <div style={{border:'1px solid #DDEFEA',background:'#F6FEFC',borderRadius:10,padding:'10px 12px',fontSize:12,color:'#475569',lineHeight:1.45}}>
+          After confirmation, imported records are added to the central local Opriva record store and can be opened like regular records during this session. Backend persistence will be required for corporate MVP.
+        </div>
+        {importPreview.generalWarnings.length > 0 && <div style={{border:'1px solid #F1E3C8',background:'#FFFDF7',borderRadius:10,padding:'10px 12px',fontSize:12,color:'#7C5A12',lineHeight:1.45}}>
+          {importPreview.generalWarnings[0]}
+        </div>}
         <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
           {[
-            ['Processed', importPreview.stats.processed],
-            ['Licenses', importPreview.stats.licenses],
-            ['Hardware', importPreview.stats.hardware],
-            ['Contracts', importPreview.stats.contracts],
-            ['Skipped', importPreview.stats.skipped],
-            ['Need review', importPreview.stats.review]
+            ['Total rows parsed', importPreview.stats.processed],
+            ['Ready to import', importPreview.stats.ready],
+            ['Needs review', importPreview.stats.review],
+            ['Duplicate risks', importPreview.stats.duplicates],
+            ['Missing brand/product', importPreview.stats.missingBrandProduct]
           ].map(function(item) {
             return <span key={item[0]} style={{fontSize:12,fontWeight:800,color:'#475569',border:'1px solid #E2E8F0',background:'#fff',borderRadius:999,padding:'5px 9px'}}>{item[0]}: {item[1]}</span>;
           })}
         </div>
+        <div className="tableWrap">
+          <table>
+            <thead><tr>{['Status','Record preview','Client / Department','Brand / Product','Expiration','Target module','Issues','Action'].map(function(col) { return <th key={col}>{col}</th>; })}</tr></thead>
+            <tbody>
+              {importPreview.preview.slice(0, 12).map(function(item) {
+                return <tr key={'preview-' + item.rowNumber}>
+                  <td><Badge tone={item.status}>{item.status}</Badge></td>
+                  <td className="recordCell"><strong>{item.name}</strong><br/><span style={{fontSize:11,color:'#64748B',fontWeight:600}}>{item.createdRecords.join(' + ')}</span></td>
+                  <td>{item.clientDepartment || '-'}</td>
+                  <td>{item.brandProduct || '-'}</td>
+                  <td>{item.expiration || '-'}</td>
+                  <td>{item.moduleLabel}</td>
+                  <td>{item.issues.length ? item.issues.slice(0, 3).join(', ') : '-'}</td>
+                  <td className="actionCell"><button type="button" className="rowAction" onClick={function() { setReviewRowNumber(item.rowNumber); }}>Review</button></td>
+                </tr>;
+              })}
+            </tbody>
+          </table>
+        </div>
+        {reviewRowNumber && (() => {
+          var item = importPreview.preview.find(function(row) { return row.rowNumber === reviewRowNumber; });
+          if (!item) return null;
+          var edit = Object.assign({}, item.canonical || {}, recordEdits[reviewRowNumber] || {});
+          var editFields = [
+            ['brandManufacturer','Brand / Manufacturer'],
+            ['productLicenseName','Product / License Name'],
+            ['clientDepartment','Client / Department'],
+            ['providerDistributor','Distributor / Provider'],
+            ['resellerPartner','Reseller / Partner'],
+            ['quantitySeats','Quantity / Seats'],
+            ['expirationRenewalDate','Expiration / Renewal Date'],
+            ['contractNumber','Contract Number'],
+            ['orderReference','PO / Order Reference'],
+            ['commercialValue','Sale Price / Annual Value'],
+            ['vendorCost','Vendor Cost'],
+            ['owner','Owner'],
+            ['alertPolicy','Alert Policy']
+          ];
+          return <div style={{border:'1px solid #DDEFEA',borderRadius:12,background:'#F8FFFD',padding:'12px 14px',display:'grid',gap:12}}>
+            <div style={{display:'flex',justifyContent:'space-between',gap:10,alignItems:'flex-start'}}>
+              <div>
+                <strong style={{display:'block',fontSize:14,color:'#0B1F3A',marginBottom:3}}>Review row {reviewRowNumber}</strong>
+                <span style={{fontSize:12,color:'#64748B'}}>Use this exception editor for row-specific corrections before creating this local Opriva record.</span>
+              </div>
+              <button type="button" onClick={function() { setReviewRowNumber(null); }}>Close</button>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:10}}>
+              {editFields.map(function(field) {
+                var isSelect = field[0] === 'alertPolicy';
+                return <label key={field[0]} style={{display:'grid',gap:4,fontSize:12,fontWeight:800,color:'#64748B'}}>
+                  {field[1]}
+                  {isSelect
+                    ? <select value={edit[field[0]] || 'Workspace default'} onChange={function(e) { updateRecordEdit(reviewRowNumber, field[0], e.target.value); }} style={{border:'1px solid #DDE5EF',borderRadius:8,padding:'8px 9px',background:'#fff',color:'#132033',fontWeight:650}}>
+                        {LICENSE_ALERT_POLICY_OPTIONS.map(function(opt) { return <option key={opt} value={opt}>{opt}</option>; })}
+                      </select>
+                    : <input value={edit[field[0]] || ''} onChange={function(e) { updateRecordEdit(reviewRowNumber, field[0], e.target.value); }} style={{border:'1px solid #DDE5EF',borderRadius:8,padding:'8px 9px',background:'#fff',color:'#132033',fontWeight:650}} />
+                  }
+                </label>;
+              })}
+            </div>
+          </div>;
+        })()}
+        <button type="button" onClick={function() { setRawDetailsOpen(function(value) { return !value; }); }} style={{justifySelf:'start'}}>View raw row details</button>
+        {rawDetailsOpen && <div className="tableWrap">
+          <table>
+            <thead><tr>{['Row','Source columns','Skipped / unmapped'].map(function(col) { return <th key={col}>{col}</th>; })}</tr></thead>
+            <tbody>{importPreview.preview.slice(0, 8).map(function(item, index) {
+              return <tr key={'raw-' + item.rowNumber}>
+                <td>{item.rowNumber}</td>
+                <td style={{maxWidth:420,whiteSpace:'normal'}}>{Object.keys(rowObjects[index] || {}).join(', ')}</td>
+                <td style={{maxWidth:320,whiteSpace:'normal'}}>{unmappedColumns.map(function(col) { return col.sourceColumn; }).join(', ') || '-'}</td>
+              </tr>;
+            })}</tbody>
+          </table>
+        </div>}
         <button className="primary" type="button" onClick={confirmImport} style={{justifySelf:'start'}}>Confirm import to local session</button>
         {importResult && <div className="miniState successState" role="status">
-          {importResult.message} Processed {importResult.processed}; created {importResult.licenses} licenses, {importResult.hardware} hardware records and {importResult.contracts} contracts; skipped {importResult.skipped}; review {importResult.review}.
+          {importResult.message} Records created: {(importResult.licenses || 0) + (importResult.hardware || 0) + (importResult.contracts || 0)}; clients created/matched: {importResult.clientsCreated || 0}/{importResult.clientsMatched || 0}; licenses created: {importResult.licenses}; contracts/support coverage created: {importResult.contracts}; records needing review: {importResult.review}; duplicates skipped: {importResult.duplicates || 0}.
         </div>}
       </div>}
     </section>
@@ -5169,7 +5819,8 @@ function VendorIntelligenceScreen(){
 
 function AssetsRenewalsScreen({ workspaceMode = 'MSP / Integrator' }){
   const isInternalIT = workspaceMode === 'Internal IT';
-  const rows = isInternalIT ? [
+  const importedRenewalRows = getImportedRenewalRows(workspaceMode);
+  const baseRows = isInternalIT ? [
     { record: 'Kaspersky Endpoint Security', type: 'License', brand: 'Kaspersky', provider: 'Local Security Provider', department: 'IT Security', expiry: 'Jun 22, 2026', amount: '$82,000', approval: 'Approval needed', risk: 'High', action: 'Compare consolidation' },
     { record: 'Symantec Endpoint Protection', type: 'License', brand: 'Broadcom / Symantec', provider: 'Legacy reseller', department: 'Finance', expiry: 'Jun 30, 2026', amount: '$52,000', approval: 'Pending', risk: 'High', action: 'Evaluate overlap' },
     { record: 'McAfee Endpoint Security', type: 'License', brand: 'Trellix / McAfee', provider: 'Regional reseller', department: 'Logistics', expiry: 'Jul 5, 2026', amount: '$41,800', approval: 'Approval needed', risk: 'High', action: 'Consolidation candidate' },
@@ -5187,6 +5838,7 @@ function AssetsRenewalsScreen({ workspaceMode = 'MSP / Integrator' }){
     { record: 'HPE Server Warranty', type: 'Warranty', vendor: 'HPE', expiry: 'Jul 18, 2026', days: '65 days', value: '$22,400', owner: 'Maria Chen', status: 'Medium', action: 'Schedule review' },
     { record: 'Veeam Backup Renewal', type: 'License', vendor: 'Veeam', expiry: 'Aug 4, 2026', days: '82 days', value: '$14,900', owner: 'Diego Paredes', status: 'Low', action: 'Monitor' }
   ];
+  const rows = importedRenewalRows.concat(baseRows);
   const tabs = isInternalIT ? ['All','Approval required','Next 30 days','Next 90 days','By department','Consolidation candidates'] : ['All','Critical','30 days','60 days','Missing owner','Expired'];
   const filters = isInternalIT ? ['Type','Department','Provider','Approval','Saved view: CIO forecast'] : ['Type','Owner','Vendor','Status','Saved view: Operational risk'];
   const stats = isInternalIT ? [

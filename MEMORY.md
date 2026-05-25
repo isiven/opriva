@@ -12,6 +12,18 @@ The app is a single-file React prototype that is compatible with the current run
 
 The root entrypoint is `index.html`, which loads `source/main.jsx`. `source/main.jsx` exposes `React` and `ReactDOM` on `window`, then dynamically imports `source/App.jsx`.
 
+Current stable state after commits `a05ce1d` and `745585a`:
+
+- `BACKEND_READINESS_AUDIT.md` exists and is committed. It audits the current local/sandbox implementation and defines what must migrate to backend/database/storage/auth/permissions before a corporate MVP.
+- The local Excel Import Sandbox is implemented and committed. It is a local/session validation feature only, not the final backend import engine.
+- The Import Sandbox changed `source/App.jsx`, `package.json`, and `package-lock.json`, and added the `xlsx` dependency for browser-side Excel parsing.
+- The build passed after the import sandbox implementation.
+- `git diff --check` passed after the import sandbox implementation.
+- The git working tree was clean after commit `745585a`.
+- The official import template is available at `templates/OPRIVA_IMPORT_TEMPLATE.xlsx` and `public/templates/OPRIVA_IMPORT_TEMPLATE.xlsx`.
+
+Opriva remains in design + local/sandbox functional validation. Local/session state is acceptable for UX and product logic testing, but corporate MVP readiness requires backend support for persistence, users, workspaces, roles, permissions, documents, imports, alerts, audit trail, AI knowledge, storage and enterprise testing.
+
 ## 3. Design Direction
 
 Opriva should feel like a focused enterprise SaaS operations tool: dense, clear, quiet, and built for repeated use. The design should prioritize readable tables, accountable actions, risk triage, workspace context, and executive-ready renewal intelligence.
@@ -683,6 +695,23 @@ Support contracts must appear in the **Contracts module** and must be linked to 
 
 ## 16. Next Steps
 
+### Backend Readiness Warning
+
+The next major milestone should not be adding unlimited front-end-only features. The next major milestone is preparing the backend foundation required for corporate MVP readiness.
+
+Backend foundation includes:
+
+- Authentication
+- Workspaces / tenants
+- Roles and permissions
+- Persistent canonical records
+- Secure document storage
+- Import jobs and import history
+- Alert scheduler and notifications
+- Activity/audit trail
+- AI knowledge retrieval with permissions
+- Reporting/dashboard data layer
+
 Safe Phase 1 candidates:
 
 - Normalize visible terminology only.
@@ -716,7 +745,8 @@ The following items are architecturally approved and should be implemented only 
 - Package / Bundle / Renewal Bundle concept defined and documented
 - Support Coverage creation/linking from License and Hardware drawer setup
 - Controlled custom fields per module — after core workspace-specific forms stabilize
-- Guided column-mapping step in Data Import (source column → Opriva canonical field, with AI suggestions and user approval)
+- Local Excel Import Sandbox in Data Import: `.xlsx` / `.xls` upload, sheet parsing, sheet selection, source detection, header mapping, canonical field mapping, skipped/calculated column handling, row normalization, target module detection, normalized record preview, and confirmed local/session creation into `RECORD_STORE`.
+- Import sandbox records are preserved during local mock refresh when `meta.source === 'importSandbox'`.
 
 ### Phase 2 Roadmap (deferred, do not implement yet)
 
@@ -731,10 +761,10 @@ The following items are architecturally approved and should be implemented only 
 - Multi-asset support coverage management (one contract covering multiple assets)
 - Support coverage renewal workflows
 - Support coverage compliance and SLA tracking
-- Automated PDF parsing and PO/OC matching for Trend Micro entitlement imports
-- AI-powered column detection and canonical field mapping in Data Import
-- Official Opriva Template generation: tailored workbook download per workspace mode and enabled modules, with data validation dropdowns and pre-filled defaults
-- Template recognition on upload: detect Official Opriva Template and bypass AI mapping step, proceeding directly to import preview
+- Backend-backed import engine with persistent import jobs, import files, import mappings, import rows, validation, preview, import history and confirmed durable record creation.
+- Automated PDF parsing and PO/OC matching for Trend Micro entitlement imports.
+- Real AI-powered column detection and canonical field mapping in Data Import. Current import sandbox uses local/browser rule-based mapping only.
+- Template recognition on upload: detect Official Opriva Template and bypass AI mapping step, proceeding directly to import preview.
 
 ## 20. Official Opriva Import Template
 
@@ -752,6 +782,19 @@ Opriva supports two coexisting data import paths:
 | **Path B — Official Opriva Template** | Official Opriva Template (.xlsx) | Data already in canonical format; Opriva validates, previews, and imports directly |
 
 Both paths produce the same canonical records. Path B skips the AI mapping step. Neither path creates records without user confirmation of an import preview.
+
+Current stable implementation:
+
+- Path A is represented in the Data Import screen as AI-assisted mapping preview. For now, it uses a local/browser rule-based mapping assistant and writes confirmed records into local/session `RECORD_STORE`.
+- Path B is represented through the downloadable official workbook at `/templates/OPRIVA_IMPORT_TEMPLATE.xlsx`.
+- Users can either use the official Opriva template or upload their own Excel file and use AI-assisted mapping.
+- Backend import jobs, backend import history, durable record creation and server-side template recognition are still required before corporate MVP.
+
+Data handling rules:
+
+- Real client files must not be committed to GitHub.
+- `private-samples/` is for real local test files only and must remain ignored.
+- `sample-data/` may contain demo or anonymized files only.
 
 ---
 
@@ -845,7 +888,9 @@ When implemented, template download should:
 
 ## 19. Guided Import Mapping Model
 
-This section documents the approved philosophy and product decision for all Opriva data import flows. It applies to Excel, CSV, and PDF sources. Do not implement this section immediately — it defines the approved direction for Phase 2 import UX and the AI-assisted mapping layer.
+This section documents the approved philosophy and product decision for all Opriva data import flows. It applies to Excel, CSV, and PDF sources.
+
+Current implementation status: Opriva now includes a local Excel Import Sandbox for `.xlsx` / `.xls` files. The sandbox validates UX and import logic in the browser using local/session state. It does not replace the future backend import engine.
 
 ---
 
@@ -862,6 +907,8 @@ Opriva must not blindly replicate the structure of uploaded source files. Source
 **Opriva imports data into its own product model — not into a reproduction of the source spreadsheet.**
 
 Every import flow must transform source data into Opriva's canonical records: Clients, Renewal Packages, Licenses, Hardware, Contracts, Documents, Support Coverage, Tasks.
+
+Opriva should not blindly import every Excel column. Uploaded Excel data must be mapped into Opriva canonical fields. Calculated or derived columns such as Status, Days to Expiration, Risk, Margin, Renewal Stage and Missing Evidence should be skipped or recalculated by Opriva, not imported as user-entered truth.
 
 ---
 
@@ -896,6 +943,8 @@ The Opriva AI should assist the mapping step by:
 - Suggesting transformations (e.g., date format normalization, currency stripping)
 
 **AI suggestions are advisory only.** The user must review and approve all mappings. Nothing is imported automatically without user confirmation.
+
+The current local sandbox implements rule-based "AI-assisted mapping preview" behavior only. Real AI mapping and backend-backed import jobs remain required before corporate MVP.
 
 ---
 
@@ -1184,3 +1233,5 @@ Phase 2 should include:
 - 2026-05-22: MEMORY.md §19 "Guided Import Mapping Model" added. Core decision: Opriva imports into its own product model, not a replica of the source file. Every import must include a guided column-mapping step with AI-assisted field suggestions, user approval, skip recommendations for calculated/identity columns, custom field creation rule, and record type inference. §18 Trend Micro specific application updated with skip recommendation for Reventa column. MVP Roadmap updated: guided column-mapping step added. Phase 2 Roadmap updated: automated PDF parsing, AI column detection. MEMORY.md, USER_GUIDE.md, AI_KNOWLEDGE_BASE.md updated. No application code modified.
 - 2026-05-22: MEMORY.md §18 "Trend Micro Import Model" added. Documents approved import model: Excel row = Renewal Package, PDF page = License line item, PDF file = License Entitlement document, OC Partner/PO Number join key, manufacturer support as derived coverage, Nextcom SLA as separate Support Coverage contract, MVP manual approach, Phase 2 automation targets. MEMORY.md, USER_GUIDE.md, and AI_KNOWLEDGE_BASE.md updated. No application code modified.
 - 2026-05-22: OPRIVA_IMPORT_TEMPLATE_SPEC.md created. Defines the Official Opriva Import Template as Path B alongside AI-assisted Path A. Documents 9-sheet workbook structure (Instructions, Clients/Departments, Renewal Packages, Licenses, Hardware, Contracts/Support Coverage, Documents, Tasks, Custom Fields), reference system (Package Reference, Linked Record Reference, Covered Record Reference), all column definitions with required/optional status, controlled vocabulary, validation rules, import preview requirement, and Phase 2 template generation roadmap. MEMORY.md §20 added. USER_GUIDE.md §11 and §12 updated. AI_KNOWLEDGE_BASE.md updated. No application code modified.
+- 2026-05-25: BACKEND_READINESS_AUDIT.md committed in `a05ce1d`. The audit documents current local/sandbox functionality and defines backend/database/storage/auth/permissions requirements for corporate MVP readiness. Key conclusion: local/session state is acceptable for UX and product logic testing, but corporate MVP requires backend support for persistence, users, workspaces, roles, permissions, documents, imports, alerts, audit trail, AI knowledge, storage and enterprise testing.
+- 2026-05-25: Local Excel Import Sandbox committed in `745585a`. Data Import now supports local `.xlsx` / `.xls` upload, sheet parsing, sheet selection, source detection, header mapping, canonical field mapping, skipped/calculated column handling, row normalization, target module detection, normalized record preview and confirmed local/session creation into `RECORD_STORE`. Imported session records are preserved during mock refresh when `meta.source === 'importSandbox'`. The `xlsx` dependency was added in `package.json` / `package-lock.json`. Build and `git diff --check` passed, and the working tree was clean after the commit. This remains a local sandbox validation feature, not the future backend import engine.

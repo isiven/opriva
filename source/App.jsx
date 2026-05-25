@@ -3338,6 +3338,18 @@ const IMPORT_SKIP_HEADERS = [
   'margin %'
 ];
 
+const IMPORT_TARGET_OPTIONS = [
+  'Renewal Package',
+  'Licenses',
+  'Hardware',
+  'Contracts / Support Coverage',
+  'Clients / Departments',
+  'Vendors / Providers',
+  'Documents Metadata',
+  'Tasks',
+  'Mixed / Multiple record types'
+];
+
 function normalizeImportText(value) {
   return String(value || '')
     .normalize('NFD')
@@ -3480,7 +3492,29 @@ function formatImportMoney(value) {
   return '$' + n.toLocaleString();
 }
 
-function detectImportTarget(rowObj, mappings, sourceType) {
+function suggestImportTargetFromSource(sourceType) {
+  if (sourceType === 'Microsoft CSP') return 'Licenses';
+  if (sourceType === 'Veeam Renewal Export') return 'Licenses';
+  if (sourceType === 'Hardware Sales Export') return 'Hardware';
+  if (sourceType === 'Commercial Renewal Package') return 'Renewal Package';
+  return 'Mixed / Multiple record types';
+}
+
+function importTargetToModule(importTarget) {
+  if (importTarget === 'Licenses') return { moduleKey: 'licenses', label: 'License' };
+  if (importTarget === 'Hardware') return { moduleKey: 'hardware', label: 'Hardware' };
+  if (importTarget === 'Contracts / Support Coverage') return { moduleKey: 'contracts', label: 'Contract / Support Coverage' };
+  if (importTarget === 'Renewal Package') return { moduleKey: 'package', label: 'Renewal Package', review: true, warning: 'Renewal Package import is preview-only in this MVP.' };
+  if (importTarget === 'Clients / Departments') return { moduleKey: 'clients', label: 'Clients / Departments', review: true, warning: 'Clients / Departments import is preview-only in this MVP.' };
+  if (importTarget === 'Vendors / Providers') return { moduleKey: 'vendors', label: 'Vendors / Providers', review: true, warning: 'Vendors / Providers import is preview-only in this MVP.' };
+  if (importTarget === 'Documents Metadata') return { moduleKey: 'documents', label: 'Documents Metadata', review: true, warning: 'Documents Metadata import is preview-only in this MVP.' };
+  if (importTarget === 'Tasks') return { moduleKey: 'tasks', label: 'Tasks', review: true, warning: 'Tasks import is preview-only in this MVP.' };
+  return null;
+}
+
+function detectImportTarget(rowObj, mappings, sourceType, importTarget) {
+  var selectedTarget = importTargetToModule(importTarget);
+  if (selectedTarget) return selectedTarget;
   if (sourceType === 'Microsoft CSP') return { moduleKey: 'licenses', label: 'License' };
   if (sourceType === 'Veeam Renewal Export') return { moduleKey: 'licenses', label: 'License' };
   if (sourceType === 'Commercial Renewal Package') return { moduleKey: 'package', label: 'Renewal Package', review: true, warning: 'Package import is preview-only in this MVP.' };
@@ -3656,13 +3690,13 @@ function buildImportContractRecord(rowObj, mappings, workspaceMode, sourceType, 
   };
 }
 
-function buildImportPreview(rowObjects, mappings, sourceType, workspaceMode) {
+function buildImportPreview(rowObjects, mappings, sourceType, workspaceMode, importTarget) {
   var preview = [];
   var records = { licenses: [], hardware: [], contracts: [] };
   var stats = { processed: rowObjects.length, licenses: 0, hardware: 0, contracts: 0, skipped: 0, review: 0 };
   var skippedColumns = mappings.filter(function(mapping) { return mapping.action === 'Skip'; }).map(function(mapping) { return mapping.sourceColumn; });
   rowObjects.forEach(function(rowObj, index) {
-    var target = detectImportTarget(rowObj, mappings, sourceType);
+    var target = detectImportTarget(rowObj, mappings, sourceType, importTarget);
     var warnings = [];
     if (target.warning) warnings.push(target.warning);
     if (skippedColumns.length) warnings.push('Skipped calculated columns: ' + skippedColumns.join(', '));
@@ -3729,6 +3763,8 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
   const [rowObjects, setRowObjects] = React.useState([]);
   const [mappings, setMappings] = React.useState([]);
   const [sourceType, setSourceType] = React.useState('No file loaded');
+  const [suggestedImportTarget, setSuggestedImportTarget] = React.useState('Mixed / Multiple record types');
+  const [importTarget, setImportTarget] = React.useState('Mixed / Multiple record types');
   const [importError, setImportError] = React.useState('');
   const [importResult, setImportResult] = React.useState(null);
 
@@ -3740,6 +3776,9 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
     setRowObjects(data.rowObjects);
     setMappings(createImportMappings(data.headers, data.rowObjects));
     setSourceType(detected);
+    var suggestedTarget = suggestImportTargetFromSource(detected);
+    setSuggestedImportTarget(suggestedTarget);
+    setImportTarget(suggestedTarget);
     setImportResult(null);
   }
 
@@ -3776,8 +3815,8 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
   }
 
   const importPreview = React.useMemo(function() {
-    return buildImportPreview(rowObjects, mappings, sourceType, workspaceMode);
-  }, [rowObjects, mappings, sourceType, workspaceMode]);
+    return buildImportPreview(rowObjects, mappings, sourceType, workspaceMode, importTarget);
+  }, [rowObjects, mappings, sourceType, workspaceMode, importTarget]);
 
   function confirmImport() {
     var licenses = importPreview.records.licenses;
@@ -3863,6 +3902,7 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
           ['Workbook', fileName || 'No file selected'],
           ['Sheet', selectedSheet || '-'],
           ['Detected source', sourceType],
+          ['Suggested target', suggestedImportTarget],
           ['Rows parsed', String(rowObjects.length)]
         ].map(function(item) {
           return <div key={item[0]} style={{border:'1px solid #EEF2F7',borderRadius:10,padding:'10px 12px',background:'#FAFCFF'}}>
@@ -3871,6 +3911,21 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
           </div>;
         })}
       </div>
+      {headers.length > 0 && <div style={{border:'1px solid #DDEFEA',borderRadius:12,background:'#F6FEFC',padding:'12px 14px',display:'grid',gap:10}}>
+        <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}>
+          <div style={{minWidth:220,flex:'1 1 320px'}}>
+            <strong style={{display:'block',fontSize:14,color:'#0B1F3A',marginBottom:4}}>Import target</strong>
+            <span style={{display:'block',fontSize:12,color:'#64748B',lineHeight:1.45}}>Mappings are suggested based on workspace mode, detected source, and selected import target. You can adjust them before creating records.</span>
+          </div>
+          <div style={{display:'grid',gap:5,flex:'0 1 320px'}}>
+            <label style={{fontSize:11,fontWeight:800,color:'#64748B',textTransform:'uppercase',letterSpacing:'.06em'}}>Confirm or override target</label>
+            <select value={importTarget} onChange={function(e) { setImportTarget(e.target.value); setImportResult(null); }} style={{border:'1px solid #CDEDE5',borderRadius:10,padding:'9px 10px',fontWeight:750,color:'#132033',background:'#fff'}}>
+              {IMPORT_TARGET_OPTIONS.map(function(target) { return <option key={target} value={target}>{target}</option>; })}
+            </select>
+            <span style={{fontSize:11,color:'#64748B'}}>Suggested from source: {suggestedImportTarget}. Workspace mode: {workspaceMode}.</span>
+          </div>
+        </div>
+      </div>}
       {sheetNames.length > 1 && <div style={{display:'flex',alignItems:'center',gap:10}}>
         <label style={{fontSize:12,fontWeight:800,color:'#64748B'}}>Choose sheet</label>
         <select value={selectedSheet} onChange={handleSheetChange} style={{border:'1px solid #DDE5EF',borderRadius:10,padding:'8px 10px',fontWeight:700,color:'#132033',background:'#fff'}}>

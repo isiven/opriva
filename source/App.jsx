@@ -1,3 +1,5 @@
+import * as XLSX from 'xlsx';
+
 function useViewport(){
   const [vp, setVp] = React.useState('desktop');
   React.useEffect(() => {
@@ -1258,6 +1260,11 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
     });
   }
   function resetRowsFromSource() {
+    function importSandboxRecords() {
+      return Array.isArray(RECORD_STORE[moduleKey])
+        ? RECORD_STORE[moduleKey].filter(function(r) { return r && r.meta && r.meta.source === 'importSandbox'; })
+        : [];
+    }
     if (moduleKey === 'documents' && Array.isArray(RECORD_STORE.documents) && RECORD_STORE.documents.length) {
       var existingDocuments = normalizeDocumentRecords(RECORD_STORE.documents);
       RECORD_STORE.documents = existingDocuments;
@@ -1272,11 +1279,11 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
       var sessionCoverage = Array.isArray(RECORD_STORE.contracts)
         ? RECORD_STORE.contracts.filter(function(r) { return r.id && r.id.indexOf('sc-') === 0; })
         : [];
-      var mergedContracts = mockContractRecords.concat(sessionCoverage);
+      var mergedContracts = importSandboxRecords().concat(mockContractRecords).concat(sessionCoverage);
       RECORD_STORE.contracts = mergedContracts;
       return mergedContracts;
     }
-    var records = toRecords(safeRows, moduleKey);
+    var records = importSandboxRecords().concat(toRecords(safeRows, moduleKey));
     RECORD_STORE[moduleKey] = records;
     return records;
   }
@@ -3297,6 +3304,409 @@ function ReportsScreen({ workspaceMode = 'MSP / Integrator' }){
   return <main className="content"><ScreenHeader active="Reports" subtitle={reportsSubtitle}><button>Schedule report</button><button className="primary">Generate report</button></ScreenHeader><section className="split"><article className="panel wide"><div className="panelTitle"><h2>Report templates</h2><span>Operational, executive and governance-ready templates</span></div><Table columns={['Template','Type','Audience','Owner','Cadence','Status']} rows={reportRows}/></article><aside className="panel"><div className="panelTitle"><h2>Export center</h2><span>Controlled outputs with history</span></div><div className="actionStack">{exportButtons.map(label=><button key={label}>{label}</button>)}<button disabled aria-disabled="true">Export selected rows</button></div><div className="miniState loadingState" role="status"><span className="spinner"/>Report generation queued for executive renewal brief.</div><ErrorState title="Failed report generation" message="The governance export timed out. Retry generation or contact support with the report ID." /></aside></section><section className="panel"><div className="panelTitle"><h2>Scheduled and generated reports</h2><span>Recurring packs and recent outputs</span></div><Table columns={['Report','Schedule','Last generated','Recipients','Next run','Governance status']} rows={scheduledRows}/></section></main>;
 }
 
+const IMPORT_CANONICAL_FIELDS = [
+  'Client / Department',
+  'License / Product',
+  'Asset Name',
+  'Brand',
+  'Provider / Distributor',
+  'Quantity',
+  'Entitlement Metric',
+  'Start Date',
+  'Expiration / Renewal Date',
+  'Contract Number',
+  'PO / Order Reference',
+  'Source Status / Vendor Status',
+  'Support',
+  'Billing Cycle',
+  'License Term',
+  'Annual Value / Annual Cost',
+  'Vendor Cost',
+  'Serial Number',
+  'Warranty End Date',
+  'Purchase Date',
+  'Notes'
+];
+
+const IMPORT_SKIP_HEADERS = [
+  'days before expiration',
+  'remaining days',
+  'system status',
+  'risk',
+  'margin',
+  'margin $',
+  'margin %'
+];
+
+function normalizeImportText(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9#]+/g, ' ')
+    .trim();
+}
+
+function normalizedIncludes(headers, expected) {
+  var set = headers.map(normalizeImportText);
+  return set.indexOf(normalizeImportText(expected)) >= 0;
+}
+
+function detectImportSourceType(headers) {
+  if (normalizedIncludes(headers, 'Subscription End Date') && normalizedIncludes(headers, 'Offer Name') && normalizedIncludes(headers, 'Customer Domain')) return 'Microsoft CSP';
+  if (normalizedIncludes(headers, 'Con. End Date') && normalizedIncludes(headers, 'Support') && normalizedIncludes(headers, 'Contract status')) return 'Veeam Renewal Export';
+  if (normalizedIncludes(headers, 'Clase de artículo') && normalizedIncludes(headers, 'Serial') && normalizedIncludes(headers, 'Fecha de la transacción')) return 'Hardware Sales Export';
+  if (normalizedIncludes(headers, 'OC Partner') && normalizedIncludes(headers, 'Vencimiento Licencia') && normalizedIncludes(headers, 'Monto Total')) return 'Commercial Renewal Package';
+  return 'Unknown source';
+}
+
+function suggestImportField(header) {
+  var normalized = normalizeImportText(header);
+  if (!normalized) return { target: '', action: 'Skip', reason: 'Empty source column' };
+  if (IMPORT_SKIP_HEADERS.indexOf(normalized) >= 0 || normalized.indexOf('days before expiration') >= 0 || normalized.indexOf('remaining days') >= 0) {
+    return { target: '', action: 'Skip', reason: 'Calculated by Opriva' };
+  }
+  var direct = [
+    [['customer','customer name','cliente','client','department','departamento','customer domain'], 'Client / Department'],
+    [['product','offer name','offer friendly name','nombre completo del producto servicio','license','licencia','item','description'], 'License / Product'],
+    [['asset','asset name','equipo','hardware','nombre equipo'], 'Asset Name'],
+    [['brand','marca','manufacturer','fabricante'], 'Brand'],
+    [['distributor','distribuidor','provider','partner','supplier','proveedor'], 'Provider / Distributor'],
+    [['quantity','cantidad','licenses #','users #','sockets #','vms #','servers #','workstations #','volume','qty'], 'Quantity'],
+    [['entitlement metric','metric','metrica'], 'Entitlement Metric'],
+    [['con start date','subscription start date','start date','fecha inicio'], 'Start Date'],
+    [['con end date','subscription end date','end date','vencimiento licencia','expiration date','renewal date','fecha vencimiento'], 'Expiration / Renewal Date'],
+    [['con number','contract number','contrato'], 'Contract Number'],
+    [['po number','order id','# oc','oc partner','numero','número','order reference'], 'PO / Order Reference'],
+    [['contract status','subscription status','status','estado'], 'Source Status / Vendor Status'],
+    [['support','soporte'], 'Support'],
+    [['billing cycle','ciclo facturacion','billing'], 'Billing Cycle'],
+    [['license term','term','periodo','termino'], 'License Term'],
+    [['annual value','annual cost','monto total','value','amount','importe','sale price','precio venta'], 'Annual Value / Annual Cost'],
+    [['vendor cost','cost','costo','purchase cost'], 'Vendor Cost'],
+    [['serial','serial number','serie'], 'Serial Number'],
+    [['warranty end','warranty end date','fecha fin garantia','fecha fin garantía'], 'Warranty End Date'],
+    [['purchase date','fecha de la transaccion','fecha de la transacción','transaction date'], 'Purchase Date'],
+    [['notes','note','observaciones','comments','comentarios'], 'Notes']
+  ];
+  for (var i = 0; i < direct.length; i += 1) {
+    if (direct[i][0].indexOf(normalized) >= 0) return { target: direct[i][1], action: 'Import', reason: 'Header match' };
+  }
+  if (normalized.indexOf('end date') >= 0 || normalized.indexOf('vencimiento') >= 0) return { target: 'Expiration / Renewal Date', action: 'Import', reason: 'Date keyword match' };
+  if (normalized.indexOf('start date') >= 0 || normalized.indexOf('inicio') >= 0) return { target: 'Start Date', action: 'Import', reason: 'Date keyword match' };
+  if (normalized.indexOf('serial') >= 0) return { target: 'Serial Number', action: 'Import', reason: 'Serial keyword match' };
+  if (normalized.indexOf('support') >= 0 || normalized.indexOf('soporte') >= 0) return { target: 'Support', action: 'Import', reason: 'Support keyword match' };
+  if (normalized.indexOf('margin') >= 0 || normalized.indexOf('margen') >= 0) return { target: '', action: 'Skip', reason: 'Calculated by Opriva' };
+  return { target: '', action: 'Review', reason: 'Needs user review' };
+}
+
+function getImportSheetData(workbook, sheetName) {
+  var sheet = workbook && workbook.Sheets ? workbook.Sheets[sheetName] : null;
+  if (!sheet) return { headers: [], rows: [], rowObjects: [] };
+  var rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
+  var firstDataRow = rawRows.findIndex(function(row) {
+    return Array.isArray(row) && row.some(function(cell) { return String(cell || '').trim(); });
+  });
+  if (firstDataRow < 0) return { headers: [], rows: [], rowObjects: [] };
+  var headers = (rawRows[firstDataRow] || []).map(function(cell, index) {
+    var header = String(cell || '').trim();
+    return header || ('Column ' + (index + 1));
+  });
+  var rows = rawRows.slice(firstDataRow + 1).filter(function(row) {
+    return Array.isArray(row) && row.some(function(cell) { return String(cell || '').trim(); });
+  });
+  var rowObjects = rows.map(function(row) {
+    var obj = {};
+    headers.forEach(function(header, index) { obj[header] = row[index] !== undefined ? String(row[index]).trim() : ''; });
+    return obj;
+  });
+  return { headers: headers, rows: rows, rowObjects: rowObjects };
+}
+
+function createImportMappings(headers, rowObjects) {
+  return headers.map(function(header, index) {
+    var suggestion = suggestImportField(header);
+    var sampleRow = (rowObjects || []).find(function(row) { return row[header]; }) || {};
+    return {
+      sourceColumn: header,
+      suggestedField: suggestion.target,
+      action: suggestion.action,
+      sampleValue: sampleRow[header] || '',
+      reason: suggestion.reason,
+      index: index
+    };
+  });
+}
+
+function getMappedImportValue(rowObj, mappings, targetField) {
+  var match = (mappings || []).find(function(mapping) {
+    return mapping.action === 'Import' && mapping.suggestedField === targetField;
+  });
+  return match ? (rowObj[match.sourceColumn] || '') : '';
+}
+
+function normalizeImportDate(value) {
+  if (!value) return '';
+  var d = new Date(value);
+  if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+  var parts = String(value).match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if (!parts) return String(value);
+  var year = parts[3].length === 2 ? '20' + parts[3] : parts[3];
+  var month = parts[1].padStart(2, '0');
+  var day = parts[2].padStart(2, '0');
+  return year + '-' + month + '-' + day;
+}
+
+function inferBrandFromProduct(product, fallbackBrand) {
+  if (fallbackBrand) return fallbackBrand;
+  var catalog = getProductByName(product);
+  if (catalog && catalog.brand) return catalog.brand;
+  var p = String(product || '');
+  var known = MASTER_DATA.vendors.find(function(vendor) {
+    return p.toLowerCase().indexOf(vendor.toLowerCase()) >= 0;
+  });
+  return known || '-';
+}
+
+function importMoney(value) {
+  if (!value) return '';
+  var cleaned = String(value).replace(/[^0-9.-]+/g, '');
+  return cleaned && !isNaN(parseFloat(cleaned)) ? cleaned : '';
+}
+
+function formatImportMoney(value) {
+  var n = parseFloat(importMoney(value));
+  if (isNaN(n)) return '-';
+  return '$' + n.toLocaleString();
+}
+
+function detectImportTarget(rowObj, mappings, sourceType) {
+  if (sourceType === 'Microsoft CSP') return { moduleKey: 'licenses', label: 'License' };
+  if (sourceType === 'Veeam Renewal Export') return { moduleKey: 'licenses', label: 'License' };
+  if (sourceType === 'Commercial Renewal Package') return { moduleKey: 'package', label: 'Renewal Package', review: true, warning: 'Package import is preview-only in this MVP.' };
+  if (sourceType === 'Hardware Sales Export') {
+    var itemClass = Object.keys(rowObj).reduce(function(found, key) {
+      return found || (normalizeImportText(key).indexOf('clase de articulo') >= 0 ? rowObj[key] : '');
+    }, '');
+    var normalizedClass = normalizeImportText(itemClass);
+    if (/(equipos|hardware|qnap|nas)/.test(normalizedClass)) return { moduleKey: 'hardware', label: 'Hardware' };
+    if (/(discos|riel|accessory|component|componente)/.test(normalizedClass)) {
+      return { moduleKey: 'review', label: 'Related Component', review: true, warning: 'Component/accessory rows need review before linking.' };
+    }
+  }
+  if (getMappedImportValue(rowObj, mappings, 'Serial Number') || getMappedImportValue(rowObj, mappings, 'Warranty End Date')) return { moduleKey: 'hardware', label: 'Hardware' };
+  if (getMappedImportValue(rowObj, mappings, 'Contract Number') && getMappedImportValue(rowObj, mappings, 'Expiration / Renewal Date')) return { moduleKey: 'contracts', label: 'Contract / Support Coverage' };
+  if (getMappedImportValue(rowObj, mappings, 'License / Product') || getMappedImportValue(rowObj, mappings, 'Expiration / Renewal Date')) return { moduleKey: 'licenses', label: 'License' };
+  return { moduleKey: 'review', label: 'Review needed', review: true, warning: 'Opriva could not identify a target module.' };
+}
+
+function buildImportLicenseRecord(rowObj, mappings, workspaceMode, sourceType, rowIndex) {
+  var isIT = workspaceMode === 'Internal IT';
+  var product = getMappedImportValue(rowObj, mappings, 'License / Product') || 'Imported license';
+  var client = getMappedImportValue(rowObj, mappings, 'Client / Department') || (isIT ? 'Unassigned department' : 'Unassigned client');
+  var brand = inferBrandFromProduct(product, getMappedImportValue(rowObj, mappings, 'Brand'));
+  var provider = getMappedImportValue(rowObj, mappings, 'Provider / Distributor') || '-';
+  var quantity = getMappedImportValue(rowObj, mappings, 'Quantity') || '-';
+  var renewalDate = normalizeImportDate(getMappedImportValue(rowObj, mappings, 'Expiration / Renewal Date'));
+  var annualValue = importMoney(getMappedImportValue(rowObj, mappings, 'Annual Value / Annual Cost'));
+  var vendorCost = importMoney(getMappedImportValue(rowObj, mappings, 'Vendor Cost'));
+  var calc = calcMargin(annualValue, vendorCost);
+  var status = calcExpirationState(renewalDate, 'Workspace default', '').systemStatus;
+  var columns = getModuleColumns('licenses', workspaceMode);
+  var valueDisplay = formatImportMoney(annualValue);
+  var marginDisplay = calc.marginDollar ? formatImportMoney(calc.marginDollar) : '-';
+  var sourceStatus = getMappedImportValue(rowObj, mappings, 'Source Status / Vendor Status');
+  var note = getMappedImportValue(rowObj, mappings, 'Notes') || ('Imported from ' + sourceType + ' row ' + (rowIndex + 2) + '.');
+  var map = isIT
+    ? {
+        'License / Product': product,
+        'Brand': brand,
+        'Provider': provider,
+        'Department': client,
+        'Quantity': quantity,
+        'Renewal': renewalDate || '-',
+        'Value': valueDisplay,
+        'Approval status': sourceStatus || 'Pending review',
+        'Owner': 'Unassigned',
+        'Status': status,
+        'Action': 'Review import'
+      }
+    : {
+        'License / Product': product,
+        'Client': client,
+        'Brand': brand,
+        'Distributor': provider,
+        'Quantity': quantity,
+        'Renewal': renewalDate || '-',
+        'Value': valueDisplay,
+        'Margin': marginDisplay,
+        'Owner': 'Unassigned',
+        'Status': status,
+        'Action': 'Review import'
+      };
+  return {
+    id: createRecordId('licenses'),
+    row: columns.map(function(col) { return map[col] !== undefined && map[col] !== '' ? map[col] : '-'; }),
+    meta: {
+      source: 'importSandbox',
+      sourceType: sourceType,
+      rowNumber: rowIndex + 2,
+      notes: note,
+      alertPolicy: 'Workspace default',
+      sourceStatus: sourceStatus,
+      sourceReference: getMappedImportValue(rowObj, mappings, 'PO / Order Reference') || getMappedImportValue(rowObj, mappings, 'Contract Number') || ''
+    }
+  };
+}
+
+function buildImportHardwareRecord(rowObj, mappings, workspaceMode, sourceType, rowIndex) {
+  var isIT = workspaceMode === 'Internal IT';
+  var assetName = getMappedImportValue(rowObj, mappings, 'Asset Name') || getMappedImportValue(rowObj, mappings, 'License / Product') || 'Imported hardware asset';
+  var client = getMappedImportValue(rowObj, mappings, 'Client / Department') || (isIT ? 'Unassigned department' : 'Unassigned client');
+  var brand = inferBrandFromProduct(assetName, getMappedImportValue(rowObj, mappings, 'Brand'));
+  var provider = getMappedImportValue(rowObj, mappings, 'Provider / Distributor') || '-';
+  var serial = getMappedImportValue(rowObj, mappings, 'Serial Number') || '-';
+  var warrantyEnd = normalizeImportDate(getMappedImportValue(rowObj, mappings, 'Warranty End Date') || getMappedImportValue(rowObj, mappings, 'Expiration / Renewal Date'));
+  var sourceStatus = getMappedImportValue(rowObj, mappings, 'Source Status / Vendor Status');
+  var columns = getModuleColumns('hardware', workspaceMode);
+  var map = isIT
+    ? {
+        'Asset': assetName,
+        'Type': 'Hardware',
+        'Brand': brand,
+        'Model': assetName,
+        'Serial': serial,
+        'Department': client,
+        'Provider': provider,
+        'Warranty end': warrantyEnd || '-',
+        'Approval status': sourceStatus || 'Pending review',
+        'Owner': 'Unassigned',
+        'Status': warrantyEnd ? calcExpirationState(warrantyEnd, 'Workspace default', '').systemStatus : 'Pending date',
+        'Risk': '-',
+        'Action': 'Review import'
+      }
+    : {
+        'Asset': assetName,
+        'Type': 'Hardware',
+        'Client': client,
+        'Brand': brand,
+        'Model': assetName,
+        'Serial': serial,
+        'Warranty end': warrantyEnd || '-',
+        'Support': getMappedImportValue(rowObj, mappings, 'Support') || '-',
+        'Owner': 'Unassigned',
+        'Status': warrantyEnd ? calcExpirationState(warrantyEnd, 'Workspace default', '').systemStatus : 'Pending date',
+        'Risk': '-',
+        'Action': 'Review import'
+      };
+  return {
+    id: createRecordId('hardware'),
+    row: columns.map(function(col) { return map[col] !== undefined && map[col] !== '' ? map[col] : '-'; }),
+    meta: {
+      source: 'importSandbox',
+      sourceType: sourceType,
+      rowNumber: rowIndex + 2,
+      purchaseDate: normalizeImportDate(getMappedImportValue(rowObj, mappings, 'Purchase Date')),
+      notes: getMappedImportValue(rowObj, mappings, 'Notes') || ('Imported from ' + sourceType + ' row ' + (rowIndex + 2) + '.')
+    }
+  };
+}
+
+function buildImportContractRecord(rowObj, mappings, workspaceMode, sourceType, rowIndex) {
+  var contractNumber = getMappedImportValue(rowObj, mappings, 'Contract Number');
+  var renewalDate = normalizeImportDate(getMappedImportValue(rowObj, mappings, 'Expiration / Renewal Date'));
+  if (!contractNumber || !renewalDate) return null;
+  var isIT = workspaceMode === 'Internal IT';
+  var client = getMappedImportValue(rowObj, mappings, 'Client / Department') || (isIT ? 'Unassigned department' : 'Unassigned client');
+  var provider = getMappedImportValue(rowObj, mappings, 'Provider / Distributor') || '-';
+  var support = getMappedImportValue(rowObj, mappings, 'Support') || 'Support coverage';
+  var columns = getModuleColumns('contracts', workspaceMode);
+  var sourceStatus = getMappedImportValue(rowObj, mappings, 'Source Status / Vendor Status');
+  var map = isIT
+    ? {
+        'Contract': contractNumber,
+        'Type': support,
+        'Department': client,
+        'Provider': provider,
+        'Owner': 'Unassigned',
+        'Document': 'Not attached',
+        'Renewal': renewalDate,
+        'Notice': 'Workspace default',
+        'Approval status': sourceStatus || 'Pending review',
+        'Next action': 'Review import',
+        'Risk': '-'
+      }
+    : {
+        'Contract': contractNumber,
+        'Type': support,
+        'Client': client,
+        'Provider / Distributor': provider,
+        'Owner': 'Unassigned',
+        'Document': 'Not attached',
+        'Renewal': renewalDate,
+        'Notice': 'Workspace default',
+        'Legal status': sourceStatus || 'Pending review',
+        'Next action': 'Review import',
+        'Risk': '-'
+      };
+  return {
+    id: createRecordId('contracts'),
+    row: columns.map(function(col) { return map[col] !== undefined && map[col] !== '' ? map[col] : '-'; }),
+    meta: { source: 'importSandbox', sourceType: sourceType, rowNumber: rowIndex + 2 }
+  };
+}
+
+function buildImportPreview(rowObjects, mappings, sourceType, workspaceMode) {
+  var preview = [];
+  var records = { licenses: [], hardware: [], contracts: [] };
+  var stats = { processed: rowObjects.length, licenses: 0, hardware: 0, contracts: 0, skipped: 0, review: 0 };
+  var skippedColumns = mappings.filter(function(mapping) { return mapping.action === 'Skip'; }).map(function(mapping) { return mapping.sourceColumn; });
+  rowObjects.forEach(function(rowObj, index) {
+    var target = detectImportTarget(rowObj, mappings, sourceType);
+    var warnings = [];
+    if (target.warning) warnings.push(target.warning);
+    if (skippedColumns.length) warnings.push('Skipped calculated columns: ' + skippedColumns.join(', '));
+    var quantitySources = mappings.filter(function(mapping) {
+      return mapping.action === 'Import' && mapping.suggestedField === 'Quantity' && rowObj[mapping.sourceColumn];
+    });
+    if (quantitySources.length > 1) warnings.push('Multiple quantity metrics populated.');
+    var record = null;
+    if (target.moduleKey === 'licenses') {
+      if (!getMappedImportValue(rowObj, mappings, 'License / Product')) warnings.push('Missing License / Product.');
+      if (!getMappedImportValue(rowObj, mappings, 'Client / Department')) warnings.push('Missing Client / Department.');
+      if (!getMappedImportValue(rowObj, mappings, 'Expiration / Renewal Date')) warnings.push('Missing Expiration / Renewal Date.');
+      record = buildImportLicenseRecord(rowObj, mappings, workspaceMode, sourceType, index);
+      records.licenses.push(record);
+      stats.licenses += 1;
+    } else if (target.moduleKey === 'hardware') {
+      if (!getMappedImportValue(rowObj, mappings, 'Serial Number')) warnings.push('Missing Serial Number.');
+      record = buildImportHardwareRecord(rowObj, mappings, workspaceMode, sourceType, index);
+      records.hardware.push(record);
+      stats.hardware += 1;
+    } else if (target.moduleKey === 'contracts') {
+      record = buildImportContractRecord(rowObj, mappings, workspaceMode, sourceType, index);
+      if (record) {
+        records.contracts.push(record);
+        stats.contracts += 1;
+      } else {
+        stats.skipped += 1;
+        warnings.push('Contract/support coverage needs review before creation.');
+      }
+    }
+    if (target.review || warnings.length) stats.review += 1;
+    if (!record && target.moduleKey !== 'review' && target.moduleKey !== 'package') stats.skipped += 1;
+    preview.push({
+      rowNumber: index + 2,
+      moduleLabel: target.label,
+      name: record && record.row ? record.row[0] : (getMappedImportValue(rowObj, mappings, 'License / Product') || getMappedImportValue(rowObj, mappings, 'Asset Name') || 'Needs review'),
+      status: warnings.length ? 'Review' : 'Ready',
+      warnings: warnings
+    });
+  });
+  stats.skipped += preview.filter(function(item) { return item.moduleLabel === 'Renewal Package' || item.moduleLabel === 'Related Component' || item.moduleLabel === 'Review needed'; }).length;
+  return { preview: preview, records: records, stats: stats };
+}
+
 function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
   const isInternalIT = workspaceMode === 'Internal IT';
   const templateHref = '/templates/OPRIVA_IMPORT_TEMPLATE.xlsx';
@@ -3311,7 +3721,212 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
     ['Owner assignment', '7 client renewal rows have no commercial owner', 'Assign owners based on client portfolio history', 'Assign owners'],
     ['Margin validation', '3 rows have missing cost or margin fields', 'Add cost data before proposal preparation', 'Complete margin data']
   ];
-  return <main className="content"><ScreenHeader active="Data Import" subtitle="A full import workflow from file upload through validation, duplicate detection and confirmation."><a href={templateHref} download="OPRIVA_IMPORT_TEMPLATE.xlsx" style={{display:'inline-flex',alignItems:'center',justifyContent:'center',textDecoration:'none',border:'1px solid var(--border)',background:'#fff',color:'#243247',borderRadius:10,padding:'9px 12px',fontWeight:700}}>Download template</a><button className="primary">Start import</button></ScreenHeader><section className="split"><article className="panel"><div className="panelTitle"><h2>AI-assisted mapping</h2><span>Path A</span></div><p style={{margin:'0 0 14px',color:'#526174',fontSize:13,lineHeight:1.55}}>Upload any vendor, client or internal Excel file and let Opriva suggest how to map it.</p><div style={{display:'grid',gap:8,marginBottom:14,color:'#64748B',fontSize:13,lineHeight:1.4}}><span>Upload any Excel, CSV or PDF</span><span>Opriva AI suggests mappings</span><span>User reviews and approves</span><span>Opriva normalizes into its model</span></div><button className="primary">Upload file</button></article><article className="panel"><div className="panelTitle"><h2>Official Opriva Template</h2><span>Path B</span></div><p style={{margin:'0 0 14px',color:'#526174',fontSize:13,lineHeight:1.55}}>Use this template if you want to prepare your data directly in Opriva's standard format.</p><div style={{display:'grid',gap:8,marginBottom:14,color:'#64748B',fontSize:13,lineHeight:1.4}}><span>Download the official template</span><span>Fill it using Opriva's canonical fields</span><span>Upload completed template</span><span>Validate and preview records</span></div><a href={templateHref} download="OPRIVA_IMPORT_TEMPLATE.xlsx" className="primary" style={{display:'inline-flex',alignItems:'center',justifyContent:'center',textDecoration:'none',borderRadius:10,padding:'9px 12px',fontWeight:700}}>Download template</a></article></section><section className="panel"><div className="panelTitle"><h2>Import history</h2><span>Landing page with recent jobs and operational status</span></div><Table columns={['Import','File','Rows','Duplicate prevention','Status']} rows={historyRows}/></section><section className="panel"><div className="panelTitle"><h2>Import wizard</h2><span>Guided steps prevent bad data before records are created</span></div><div className="wizardSteps">{steps.map((step,i)=><div className={cx('wizardStep',i<3&&'done',i===3&&'active')} key={step}><strong>{i+1}</strong><span>{step}</span></div>)}</div><Table columns={['Validation area','Finding','AI suggestion','Action']} rows={validationRows}/><div className="miniState loadingState" role="status"><span className="spinner"/>Import processing: validating 1,248 rows before confirmation.</div><ErrorState title="Failed import" message="The uploaded workbook contains an invalid file format in one sheet. Retry with CSV/XLSX or open help." /><ValidationPanel workspaceMode={workspaceMode} /></section></main>;
+  const [workbook, setWorkbook] = React.useState(null);
+  const [fileName, setFileName] = React.useState('');
+  const [sheetNames, setSheetNames] = React.useState([]);
+  const [selectedSheet, setSelectedSheet] = React.useState('');
+  const [headers, setHeaders] = React.useState([]);
+  const [rowObjects, setRowObjects] = React.useState([]);
+  const [mappings, setMappings] = React.useState([]);
+  const [sourceType, setSourceType] = React.useState('No file loaded');
+  const [importError, setImportError] = React.useState('');
+  const [importResult, setImportResult] = React.useState(null);
+
+  function applySheet(nextWorkbook, nextSheetName) {
+    var data = getImportSheetData(nextWorkbook, nextSheetName);
+    var detected = detectImportSourceType(data.headers);
+    setSelectedSheet(nextSheetName);
+    setHeaders(data.headers);
+    setRowObjects(data.rowObjects);
+    setMappings(createImportMappings(data.headers, data.rowObjects));
+    setSourceType(detected);
+    setImportResult(null);
+  }
+
+  async function handleExcelUpload(event) {
+    var file = event.target.files && event.target.files[0];
+    if (!file) return;
+    setImportError('');
+    try {
+      var buffer = await file.arrayBuffer();
+      var parsed = XLSX.read(buffer, { type: 'array' });
+      var names = parsed.SheetNames || [];
+      setWorkbook(parsed);
+      setFileName(file.name);
+      setSheetNames(names);
+      if (names.length > 0) applySheet(parsed, names[0]);
+      else setImportError('No sheets were found in this workbook.');
+    } catch (err) {
+      setImportError('Opriva could not read this Excel file. Try another .xlsx or .xls workbook.');
+    }
+  }
+
+  function handleSheetChange(event) {
+    var nextSheet = event.target.value;
+    if (workbook && nextSheet) applySheet(workbook, nextSheet);
+  }
+
+  function updateMapping(index, key, value) {
+    setMappings(function(prev) {
+      return prev.map(function(mapping, i) {
+        return i === index ? Object.assign({}, mapping, { [key]: value }) : mapping;
+      });
+    });
+    setImportResult(null);
+  }
+
+  const importPreview = React.useMemo(function() {
+    return buildImportPreview(rowObjects, mappings, sourceType, workspaceMode);
+  }, [rowObjects, mappings, sourceType, workspaceMode]);
+
+  function confirmImport() {
+    var licenses = importPreview.records.licenses;
+    var hardware = importPreview.records.hardware;
+    var contracts = importPreview.records.contracts;
+    if (!licenses.length && !hardware.length && !contracts.length) {
+      setImportResult({ processed: rowObjects.length, licenses: 0, hardware: 0, contracts: 0, skipped: rowObjects.length, review: importPreview.stats.review, message: 'No records were ready to create.' });
+      return;
+    }
+    if (licenses.length) RECORD_STORE.licenses = licenses.concat(Array.isArray(RECORD_STORE.licenses) ? RECORD_STORE.licenses : []);
+    if (hardware.length) RECORD_STORE.hardware = hardware.concat(Array.isArray(RECORD_STORE.hardware) ? RECORD_STORE.hardware : []);
+    if (contracts.length) RECORD_STORE.contracts = contracts.concat(Array.isArray(RECORD_STORE.contracts) ? RECORD_STORE.contracts : []);
+    addActivityEvent({
+      eventType: 'import_completed',
+      title: 'Import completed',
+      description: fileName + ' created ' + (licenses.length + hardware.length + contracts.length) + ' local sandbox records.',
+      sourceModule: 'data-import',
+      sourceRecordName: fileName,
+      workspaceMode: workspaceMode,
+    });
+    licenses.concat(hardware).concat(contracts).forEach(function(record) {
+      addActivityEvent({
+        eventType: 'record_created',
+        title: 'Record created from import',
+        description: (record.row[0] || 'Record') + ' was created from ' + fileName + '.',
+        sourceModule: record.id.split('-')[0],
+        sourceRecordId: record.id,
+        sourceRecordName: record.row[0] || '',
+        workspaceMode: workspaceMode,
+      });
+    });
+    setImportResult({
+      processed: rowObjects.length,
+      licenses: licenses.length,
+      hardware: hardware.length,
+      contracts: contracts.length,
+      skipped: importPreview.stats.skipped,
+      review: importPreview.stats.review,
+      message: 'Local sandbox import completed. Navigate to Licenses, Hardware or Contracts to review created records.'
+    });
+  }
+
+  return <main className="content">
+    <ScreenHeader active="Data Import" subtitle="Local import sandbox for reading Excel files, reviewing mappings and creating session-only Opriva records.">
+      <a href={templateHref} download="OPRIVA_IMPORT_TEMPLATE.xlsx" style={{display:'inline-flex',alignItems:'center',justifyContent:'center',textDecoration:'none',border:'1px solid var(--border)',background:'#fff',color:'#243247',borderRadius:10,padding:'9px 12px',fontWeight:700}}>Download template</a>
+      <label className="primary" style={{display:'inline-flex',alignItems:'center',justifyContent:'center',borderRadius:10,padding:'9px 12px',fontWeight:700,cursor:'pointer'}}>
+        Upload Excel
+        <input type="file" accept=".xlsx,.xls,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={handleExcelUpload} style={{display:'none'}} />
+      </label>
+    </ScreenHeader>
+    <section className="split">
+      <article className="panel">
+        <div className="panelTitle"><h2>AI-assisted mapping preview</h2><span>Path A</span></div>
+        <p style={{margin:'0 0 14px',color:'#526174',fontSize:13,lineHeight:1.55}}>Upload any vendor, client or internal Excel file. Opriva uses local rule-based suggestions in this MVP, then you review and approve how columns map into the Opriva model.</p>
+        <div style={{display:'grid',gap:8,marginBottom:14,color:'#64748B',fontSize:13,lineHeight:1.4}}>
+          <span>Upload Excel or XLS files locally</span>
+          <span>Review suggested mappings before import</span>
+          <span>Preview normalized Opriva records</span>
+          <span>Confirm to create session-only records</span>
+        </div>
+        <label className="primary" style={{display:'inline-flex',alignItems:'center',justifyContent:'center',borderRadius:10,padding:'9px 12px',fontWeight:700,cursor:'pointer'}}>
+          Upload file
+          <input type="file" accept=".xlsx,.xls,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={handleExcelUpload} style={{display:'none'}} />
+        </label>
+      </article>
+      <article className="panel">
+        <div className="panelTitle"><h2>Official Opriva Template</h2><span>Path B</span></div>
+        <p style={{margin:'0 0 14px',color:'#526174',fontSize:13,lineHeight:1.55}}>Use this template if you want to prepare your data directly in Opriva's standard format.</p>
+        <div style={{display:'grid',gap:8,marginBottom:14,color:'#64748B',fontSize:13,lineHeight:1.4}}>
+          <span>Download the official template</span>
+          <span>Fill it using Opriva's canonical fields</span>
+          <span>Upload completed template</span>
+          <span>Validate and preview records</span>
+        </div>
+        <a href={templateHref} download="OPRIVA_IMPORT_TEMPLATE.xlsx" className="primary" style={{display:'inline-flex',alignItems:'center',justifyContent:'center',textDecoration:'none',borderRadius:10,padding:'9px 12px',fontWeight:700}}>Download template</a>
+      </article>
+    </section>
+    <section className="panel" style={{display:'grid',gap:14}}>
+      <div className="panelTitle"><h2>Local import sandbox</h2><span>Imported data is stored locally for this MVP session. Backend persistence will be added later.</span></div>
+      {importError && <ErrorState title="Excel import failed" message={importError} />}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,minmax(0,1fr))',gap:10}}>
+        {[
+          ['Workbook', fileName || 'No file selected'],
+          ['Sheet', selectedSheet || '-'],
+          ['Detected source', sourceType],
+          ['Rows parsed', String(rowObjects.length)]
+        ].map(function(item) {
+          return <div key={item[0]} style={{border:'1px solid #EEF2F7',borderRadius:10,padding:'10px 12px',background:'#FAFCFF'}}>
+            <span style={{display:'block',fontSize:11,fontWeight:800,color:'#94A3B8',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:4}}>{item[0]}</span>
+            <strong style={{display:'block',fontSize:13,color:'#132033',lineHeight:1.35,wordBreak:'break-word'}}>{item[1]}</strong>
+          </div>;
+        })}
+      </div>
+      {sheetNames.length > 1 && <div style={{display:'flex',alignItems:'center',gap:10}}>
+        <label style={{fontSize:12,fontWeight:800,color:'#64748B'}}>Choose sheet</label>
+        <select value={selectedSheet} onChange={handleSheetChange} style={{border:'1px solid #DDE5EF',borderRadius:10,padding:'8px 10px',fontWeight:700,color:'#132033',background:'#fff'}}>
+          {sheetNames.map(function(name) { return <option key={name} value={name}>{name}</option>; })}
+        </select>
+      </div>}
+      {headers.length > 0 && <div className="tableWrap">
+        <table>
+          <thead><tr>{['Source Column','Suggested Opriva Field','Action','Sample Value'].map(function(col) { return <th key={col}>{col}</th>; })}</tr></thead>
+          <tbody>
+            {mappings.map(function(mapping, index) {
+              return <tr key={mapping.sourceColumn + index}>
+                <td className="recordCell">{mapping.sourceColumn}<br/><span style={{fontSize:11,color:'#94A3B8',fontWeight:500}}>{mapping.reason}</span></td>
+                <td>
+                  <select value={mapping.suggestedField} onChange={function(e) { updateMapping(index, 'suggestedField', e.target.value); }} style={{width:'100%',border:'1px solid #DDE5EF',borderRadius:8,padding:'7px 8px',background:'#fff',fontWeight:650,color:'#132033'}}>
+                    <option value="">No target</option>
+                    {IMPORT_CANONICAL_FIELDS.map(function(field) { return <option key={field} value={field}>{field}</option>; })}
+                  </select>
+                </td>
+                <td>
+                  <select value={mapping.action} onChange={function(e) { updateMapping(index, 'action', e.target.value); }} style={{border:'1px solid #DDE5EF',borderRadius:8,padding:'7px 8px',background:'#fff',fontWeight:650,color:'#132033'}}>
+                    {['Import','Skip','Review'].map(function(action) { return <option key={action} value={action}>{action}</option>; })}
+                  </select>
+                </td>
+                <td style={{maxWidth:220,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={mapping.sampleValue}>{mapping.sampleValue || '-'}</td>
+              </tr>;
+            })}
+          </tbody>
+        </table>
+      </div>}
+      {rowObjects.length > 0 && <div style={{display:'grid',gap:12}}>
+        <div className="panelTitle" style={{margin:0}}><h2>Normalized records preview</h2><span>Opriva will create Licenses, Hardware and clear Contracts locally after confirmation.</span></div>
+        <Table columns={['Row','Target','Record','Status','Warnings']} rows={importPreview.preview.slice(0, 12).map(function(item) {
+          return [item.rowNumber, item.moduleLabel, item.name, item.status, item.warnings.length ? item.warnings.join(' ') : '-'];
+        })}/>
+        <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
+          {[
+            ['Processed', importPreview.stats.processed],
+            ['Licenses', importPreview.stats.licenses],
+            ['Hardware', importPreview.stats.hardware],
+            ['Contracts', importPreview.stats.contracts],
+            ['Skipped', importPreview.stats.skipped],
+            ['Need review', importPreview.stats.review]
+          ].map(function(item) {
+            return <span key={item[0]} style={{fontSize:12,fontWeight:800,color:'#475569',border:'1px solid #E2E8F0',background:'#fff',borderRadius:999,padding:'5px 9px'}}>{item[0]}: {item[1]}</span>;
+          })}
+        </div>
+        <button className="primary" type="button" onClick={confirmImport} style={{justifySelf:'start'}}>Confirm import to local session</button>
+        {importResult && <div className="miniState successState" role="status">
+          {importResult.message} Processed {importResult.processed}; created {importResult.licenses} licenses, {importResult.hardware} hardware records and {importResult.contracts} contracts; skipped {importResult.skipped}; review {importResult.review}.
+        </div>}
+      </div>}
+    </section>
+    <section className="panel"><div className="panelTitle"><h2>Import history</h2><span>Landing page with recent jobs and operational status</span></div><Table columns={['Import','File','Rows','Duplicate prevention','Status']} rows={historyRows}/></section>
+    <section className="panel"><div className="panelTitle"><h2>Import wizard</h2><span>Guided steps prevent bad data before records are created</span></div><div className="wizardSteps">{steps.map((step,i)=><div className={cx('wizardStep',i<3&&'done',i===3&&'active')} key={step}><strong>{i+1}</strong><span>{step}</span></div>)}</div><Table columns={['Validation area','Finding','AI suggestion','Action']} rows={validationRows}/><ValidationPanel workspaceMode={workspaceMode} /></section>
+  </main>;
 }
 
 function Settings({ workspaceMode = 'MSP / Integrator', setWorkspaceMode = function(){} }){

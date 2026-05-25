@@ -455,7 +455,7 @@ function Dashboard({ workspaceMode = 'MSP / Integrator', setWorkspaceMode = func
     ['Metro Retail Group','Dell','Server Warranty','Dell Direct','Jul 18, 2026','$22,400','$3,800','María Chen','Validate warranty'],
     ['Multiple Clients','DigiCert','SSL Certs','Intcomex','May 23, 2026','$3,200','$850','Unassigned','Renew certs']
   ];
-  const priorityRows = importedPriorityRows.concat(basePriorityRows);
+  const priorityRows = importedPriorityRows.length ? importedPriorityRows : basePriorityRows;
   const priorityColumns = isInternalIt ? ['Record','Type','Brand','Provider','Renewal','Value','Department','Action'] : ['Client','Brand','Product','Distributor','Renewal','Value','Margin','Owner','Action'];
   const dashboardSubtitle = isInternalIt ? 'Control IT assets, provider renewals, budget exposure and operational risk across departments.' : undefined;
   return <main className="content dashboardContent"><ScreenHeader active="Dashboard" eyebrow={isInternalIt ? 'INTERNAL IT COMMAND CENTER' : undefined} subtitle={dashboardSubtitle}><button>Import records</button><button className="primary">Review exposure</button></ScreenHeader><StatCards workspaceMode={workspaceMode}/><section className="dashboardStack"><article className="panel aiRiskPanel">{isInternalIt ? <><div style={{display:'grid', gridTemplateColumns:'minmax(220px, 0.9fr) minmax(320px, 1.6fr) auto', gap:18, alignItems:'center', width:'100%'}}><div style={{display:'grid', gap:5}}><span style={{display:'inline-flex', alignItems:'center', gap:7, color:'#0D9488', fontSize:12, fontWeight:850, letterSpacing:'.04em', textTransform:'uppercase'}}><span style={{width:7, height:7, borderRadius:999, background:'#0D9488', boxShadow:'0 0 0 3px rgba(13,148,136,.10)'}} aria-hidden="true"></span>Opriva AI</span><strong style={{color:'#0B1F3A', fontSize:19, lineHeight:1.18, letterSpacing:'-.025em'}}>$487K in renewal exposure across 90 days</strong></div><div style={{display:'grid', gap:5, color:'#475569', fontSize:13, lineHeight:1.45}}><span>Finance and Retail Operations carry the largest department impact.</span><span style={{color:'#64748B'}}>Endpoint security and cloud storage show consolidation opportunities for CIO approval.</span></div><div className="compactActions" style={{justifyContent:'flex-end', flexWrap:'wrap'}}><button className="primary" type="button">Review forecast</button><button type="button">Review approvals</button><button type="button">Find consolidation</button></div></div></> : <><div style={{display:'grid', gridTemplateColumns:'minmax(220px, 0.9fr) minmax(320px, 1.6fr) auto', gap:18, alignItems:'center', width:'100%'}}><div style={{display:'grid', gap:5}}><span style={{display:'inline-flex', alignItems:'center', gap:7, color:'#0D9488', fontSize:12, fontWeight:850, letterSpacing:'.04em', textTransform:'uppercase'}}><span style={{width:7, height:7, borderRadius:999, background:'#0D9488', boxShadow:'0 0 0 3px rgba(13,148,136,.10)'}} aria-hidden="true"></span>Opriva AI</span><strong style={{color:'#0B1F3A', fontSize:19, lineHeight:1.18, letterSpacing:'-.025em'}}>$64K margin at risk across 12 client renewals</strong></div><div style={{display:'grid', gap:5, color:'#475569', fontSize:13, lineHeight:1.45}}><span>Microsoft, Trend Micro and Fortinet drive the highest renewal exposure.</span><span style={{color:'#64748B'}}>Recommended next step: assign owners and request distributor quotes today.</span></div><div className="compactActions" style={{justifyContent:'flex-end', flexWrap:'nowrap'}}><button className="primary" type="button">Review risk</button><button type="button">Create tasks</button></div></div></>}</article><article className="panel priorityQueuePanel"><div className="panelTitle"><h2>Priority action queue</h2><span>{isInternalIt ? 'Internal renewals prioritized by budget impact, brand/provider dependency, department and approval blockers.' : 'Client renewals prioritized by value, margin exposure, distributor dependency and ownership gaps.'}</span></div><div className={cx('tableWrap priorityQueueWrap', !isInternalIt && 'priorityQueueWrapMsp')}><table className={cx('priorityQueueTable', !isInternalIt && 'priorityQueueTableMsp')}><thead><tr>{priorityColumns.map(column=><th key={column}>{column}</th>)}</tr></thead><tbody>{priorityRows.map(row=><tr key={row[0]}>{row.map((cell,index)=>{ const ownerIndex = isInternalIt ? 6 : 7; const actionIndex = isInternalIt ? 7 : 8; return <td key={index} className={cx(index===0 && 'recordCell', index===1 && 'compactCell', index===2 && 'compactCell', index===4 && 'compactCell', index===5 && 'compactCell', index===6 && 'compactCell', index===7 && !isInternalIt && 'compactCell', index===actionIndex && 'actionCell')}>{index===ownerIndex && cell==='Unassigned' ? <Badge tone="Warning">Unassigned</Badge> : index===actionIndex ? <button type="button" className="rowAction">{cell}</button> : cell}</td>; })}</tr>)}</tbody></table></div></article></section></main>;
@@ -559,11 +559,11 @@ function CompaniesScreen({ workspaceMode = 'MSP / Integrator' }){
     ['Cloud Storage Platform','Cloud service','Operations','$119,000','Pending','Review usage forecast']
   ];
   if (isInternalIT) {
-    const visibleDepartmentRows = importedClientRows.concat(departmentRows);
-    return <main className="content companiesClientsPage departmentsReadabilityPage"><ScreenHeader active="Departments" eyebrow="DEPARTMENT PORTFOLIO" subtitle="Track IT ownership, renewal exposure, brand and provider coverage, and operational risk across business areas."><button>Import departments</button><button>Configure fields</button><button className="primary">New department</button></ScreenHeader><section className="statsGrid" aria-label="Department portfolio summary">{[['Departments tracked',String(8 + importedClientRows.length),'Business areas in IT scope'],['90-day department exposure','$487K','Upcoming renewal exposure'],['Approval blockers','5','Renewals waiting on approval'],['Highest impact area','Retail Operations','Largest exposed department']].map(stat=><article className="statCard" key={stat[0]}><span>{stat[0]}</span><strong>{stat[1]}</strong><p>{stat[2]}</p></article>)}</section><div className="tabs" role="tablist" aria-label="Department filters">{['All','High exposure','Approval blockers','Security impact'].map((filter,index)=><button key={filter} className={index===0?'active':''}>{filter}</button>)}</div><section className="panel clientPortfolioPanel"><div className="toolbar"><input placeholder="Filter departments by name, owner, brand, provider, exposure or risk..."/><button>Owner</button><button>Brand / Provider</button><button>Risk</button><button>CIO view</button></div><div className="aiInsightBar assetsInsightBar"><p><strong>AI Insight</strong> Retail Operations and Finance carry the highest renewal exposure this quarter. Endpoint security brands overlap across departments, creating a provider consolidation opportunity before CIO approval.</p><div className="compactActions"><button>Review department exposure</button><button>Find brand/provider overlap</button><button>Prepare CIO summary</button></div></div><div className="panelTitle"><h2>Department portfolio</h2><span>Departments prioritized by budget exposure, renewal pressure, approval blockers and operational risk.</span></div><div className="tableWrap departmentsTableScroll"><table><thead><tr>{['Department','Owner','Brands & Providers','Records','90-day exposure','Blockers','Risk','Action'].map(column=><th key={column}>{column}</th>)}</tr></thead><tbody>{visibleDepartmentRows.map(row=><tr key={row[0]}><td className="recordCell">{row[0]}</td><td>{row[1]}</td><td>{row[2]}</td><td>{row[3]}</td><td>{row[4]}</td><td>{row[5]}</td><td><Badge tone={row[6]}>{row[6]}</Badge></td><td className="actionCell"><button type="button" className="rowAction">{row[7]}</button></td></tr>)}</tbody></table></div></section><section className="panel selectedClientPanel"><div className="panelTitle"><h2>Selected department overview</h2><span>Secondary detail for the selected business area.</span></div><div className="selectedDepartmentOverview" aria-label="Selected department details"><div className="selectedDepartmentRow">{[['Department name','Retail Operations'],['IT owner','Laura Méndez'],['Renewal exposure','$156,000'],['Open approvals','2']].map(item=><article className="selectedDepartmentItem" key={item[0]}><span>{item[0]}</span><strong>{item[1]}</strong></article>)}</div><div className="selectedDepartmentRow selectedDepartmentRowWide">{[['Brands & Providers','Oracle, Microsoft, Cloud Storage'],['Recommended next action','Confirm owner']].map(item=><article className="selectedDepartmentItem" key={item[0]}><span>{item[0]}</span><strong>{item[1]}</strong></article>)}</div></div><div className="tableWrap compactClientPreview relatedDepartmentRecords"><table><thead><tr>{['Related record','Type','Department','Renewal exposure','Approval','Recommended next action'].map(column=><th key={column}>{column}</th>)}</tr></thead><tbody>{departmentRecords.map(row=><tr key={row[0]}>{row.map((cell,index)=><td key={index} className={cx(index===0 && 'recordCell', index===5 && 'actionCell')}>{index===4 ? <Badge tone={cell}>{cell}</Badge> : index===5 ? <button type="button" className="rowAction subtleRowAction">{cell}</button> : cell}</td>)}</tr>)}</tbody></table></div></section></main>;
+    const visibleDepartmentRows = importedClientRows.length ? importedClientRows : departmentRows;
+    return <main className="content companiesClientsPage departmentsReadabilityPage"><ScreenHeader active="Departments" eyebrow="DEPARTMENT PORTFOLIO" subtitle="Track IT ownership, renewal exposure, brand and provider coverage, and operational risk across business areas."><button>Import departments</button><button>Configure fields</button><button className="primary">New department</button></ScreenHeader><section className="statsGrid" aria-label="Department portfolio summary">{[['Departments tracked',String(8 + importedClientRows.length),'Business areas in IT scope'],['90-day department exposure','$487K','Upcoming renewal exposure'],['Approval blockers','5','Renewals waiting on approval'],['Highest impact area','Retail Operations','Largest exposed department']].map(stat=><article className="statCard" key={stat[0]}><span>{stat[0]}</span><strong>{stat[1]}</strong><p>{stat[2]}</p></article>)}</section><div className="tabs" role="tablist" aria-label="Department filters">{['All','High exposure','Approval blockers','Security impact'].map((filter,index)=><button key={filter} className={index===0?'active':''}>{filter}</button>)}</div><section className="panel clientPortfolioPanel"><div className="toolbar"><input placeholder="Filter departments by name, owner, brand, provider, exposure or risk..."/><button>Owner</button><button>Brand / Provider</button><button>Risk</button><button>CIO view</button></div><div className="aiInsightBar assetsInsightBar"><p><strong>AI Insight</strong> Retail Operations and Finance carry the highest renewal exposure this quarter. Endpoint security brands overlap across departments, creating a provider consolidation opportunity before CIO approval.</p><div className="compactActions"><button>Review department exposure</button><button>Find brand/provider overlap</button><button>Prepare CIO summary</button></div></div><div className="panelTitle"><h2>Department portfolio</h2><span>{importedClientRows.length ? 'Showing local sandbox records. Demo data is used only when no local records exist.' : 'Departments prioritized by budget exposure, renewal pressure, approval blockers and operational risk.'}</span></div><div className="tableWrap departmentsTableScroll"><table><thead><tr>{['Department','Owner','Brands & Providers','Records','90-day exposure','Blockers','Risk','Action'].map(column=><th key={column}>{column}</th>)}</tr></thead><tbody>{visibleDepartmentRows.map(row=><tr key={row[0]}><td className="recordCell">{row[0]}</td><td>{row[1]}</td><td>{row[2]}</td><td>{row[3]}</td><td>{row[4]}</td><td>{row[5]}</td><td><Badge tone={row[6]}>{row[6]}</Badge></td><td className="actionCell"><button type="button" className="rowAction">{row[7]}</button></td></tr>)}</tbody></table></div></section><section className="panel selectedClientPanel"><div className="panelTitle"><h2>Selected department overview</h2><span>Secondary detail for the selected business area.</span></div><div className="selectedDepartmentOverview" aria-label="Selected department details"><div className="selectedDepartmentRow">{[['Department name','Retail Operations'],['IT owner','Laura Méndez'],['Renewal exposure','$156,000'],['Open approvals','2']].map(item=><article className="selectedDepartmentItem" key={item[0]}><span>{item[0]}</span><strong>{item[1]}</strong></article>)}</div><div className="selectedDepartmentRow selectedDepartmentRowWide">{[['Brands & Providers','Oracle, Microsoft, Cloud Storage'],['Recommended next action','Confirm owner']].map(item=><article className="selectedDepartmentItem" key={item[0]}><span>{item[0]}</span><strong>{item[1]}</strong></article>)}</div></div><div className="tableWrap compactClientPreview relatedDepartmentRecords"><table><thead><tr>{['Related record','Type','Department','Renewal exposure','Approval','Recommended next action'].map(column=><th key={column}>{column}</th>)}</tr></thead><tbody>{departmentRecords.map(row=><tr key={row[0]}>{row.map((cell,index)=><td key={index} className={cx(index===0 && 'recordCell', index===5 && 'actionCell')}>{index===4 ? <Badge tone={cell}>{cell}</Badge> : index===5 ? <button type="button" className="rowAction subtleRowAction">{cell}</button> : cell}</td>)}</tr>)}</tbody></table></div></section></main>;
   }
-  const visibleCompanies = importedClientRows.concat(companies);
-  return <main className="content companiesClientsPage"><ScreenHeader active="Companies / Clients" subtitle="Manage client context, contacts, ownership, renewal exposure and related records from one workspace."><button>Configure columns</button><button className="primary">Add company</button></ScreenHeader><div className="tabs" role="tablist"><button className={tab==='Companies'?'active':''} onClick={()=>setTab('Companies')}>Companies</button><button className={tab==='Contacts'?'active':''} onClick={()=>setTab('Contacts')}>Contacts</button><button>Exposure</button><button>Documents</button></div><section className="panel clientPortfolioPanel"><div className="toolbar"><input placeholder="Search companies, contacts or domains…"/><button>Saved view: High exposure</button><button>Filters</button><button>Columns</button></div>{tab==='Contacts' ? <><div className="panelTitle"><h2>Key contacts</h2><span>Technical, commercial and legal owners per client</span></div><Table columns={['Contact','Company','Role','Email','Contact type','Responsibility']} rows={contacts}/></> : <><div className="panelTitle"><h2>Client portfolio</h2><span>Client-level exposure, ownership and upcoming renewal pressure.</span></div><Table columns={['Company','Segment','Main contact','Opriva owner','Managed records','Renewal pressure','Exposure','Risk']} rows={visibleCompanies}/></>}</section><section className="panel selectedClientPanel"><div className="panelTitle"><h2>Selected client preview</h2><span>Key records, documents and actions linked to the selected client.</span></div><div className="tableWrap compactClientPreview"><table><thead><tr>{['Record','Type','Detail','Risk / status','Owner','Action'].map(column=><th key={column}>{column}</th>)}</tr></thead><tbody>{companyRecords.map(row=><tr key={row[0]}>{row.map((cell,index)=><td key={index} className={cx(index===0 && 'recordCell', index===5 && 'actionCell')}>{index===3 ? <Badge tone={cell}>{cell}</Badge> : index===4 && cell==='Unassigned' ? <Badge tone="Needs assignment">Unassigned</Badge> : index===5 ? <button type="button" className="rowAction subtleRowAction">{cell}</button> : cell}</td>)}</tr>)}</tbody></table></div></section></main>;
+  const visibleCompanies = importedClientRows.length ? importedClientRows : companies;
+  return <main className="content companiesClientsPage"><ScreenHeader active="Companies / Clients" subtitle="Manage client context, contacts, ownership, renewal exposure and related records from one workspace."><button>Configure columns</button><button className="primary">Add company</button></ScreenHeader><div className="tabs" role="tablist"><button className={tab==='Companies'?'active':''} onClick={()=>setTab('Companies')}>Companies</button><button className={tab==='Contacts'?'active':''} onClick={()=>setTab('Contacts')}>Contacts</button><button>Exposure</button><button>Documents</button></div><section className="panel clientPortfolioPanel"><div className="toolbar"><input placeholder="Search companies, contacts or domains…"/><button>Saved view: High exposure</button><button>Filters</button><button>Columns</button></div>{tab==='Contacts' ? <><div className="panelTitle"><h2>Key contacts</h2><span>Technical, commercial and legal owners per client</span></div><Table columns={['Contact','Company','Role','Email','Contact type','Responsibility']} rows={contacts}/></> : <><div className="panelTitle"><h2>Client portfolio</h2><span>{importedClientRows.length ? 'Showing local sandbox records. Demo data is used only when no local records exist.' : 'Client-level exposure, ownership and upcoming renewal pressure.'}</span></div><Table columns={['Company','Segment','Main contact','Opriva owner','Managed records','Renewal pressure','Exposure','Risk']} rows={visibleCompanies}/></>}</section><section className="panel selectedClientPanel"><div className="panelTitle"><h2>Selected client preview</h2><span>Key records, documents and actions linked to the selected client.</span></div><div className="tableWrap compactClientPreview"><table><thead><tr>{['Record','Type','Detail','Risk / status','Owner','Action'].map(column=><th key={column}>{column}</th>)}</tr></thead><tbody>{companyRecords.map(row=><tr key={row[0]}>{row.map((cell,index)=><td key={index} className={cx(index===0 && 'recordCell', index===5 && 'actionCell')}>{index===3 ? <Badge tone={cell}>{cell}</Badge> : index===4 && cell==='Unassigned' ? <Badge tone="Needs assignment">Unassigned</Badge> : index===5 ? <button type="button" className="rowAction subtleRowAction">{cell}</button> : cell}</td>)}</tr>)}</tbody></table></div></section></main>;
 }
 
 const MASTER_DATA = {
@@ -671,9 +671,11 @@ function createRecordId(moduleKey) {
   return moduleKey + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
 }
 
-function toRecords(rows, moduleKey) {
+function toRecords(rows, moduleKey, metaDefaults) {
   return (Array.isArray(rows) ? rows : []).map(function(row) {
-    return { id: createRecordId(moduleKey), row: Array.isArray(row) ? row : [] };
+    var record = { id: createRecordId(moduleKey), row: Array.isArray(row) ? row : [] };
+    if (metaDefaults) record.meta = Object.assign({ source: 'demoSeed', moduleKey: moduleKey }, metaDefaults);
+    return record;
   });
 }
 
@@ -723,7 +725,7 @@ function getModuleClientDeptIndex(moduleKey, workspaceMode) {
 function ensureModuleRecordsLoaded(moduleKey, workspaceMode) {
   if (Array.isArray(RECORD_STORE[moduleKey]) && RECORD_STORE[moduleKey].length > 0) return;
   var rows = getModuleMockRows(moduleKey, workspaceMode);
-  if (rows.length > 0) RECORD_STORE[moduleKey] = toRecords(rows, moduleKey);
+  if (rows.length > 0) RECORD_STORE[moduleKey] = toRecords(rows, moduleKey, { workspaceMode: workspaceMode });
 }
 
 // ---------------------------------------------------------------------------
@@ -753,6 +755,24 @@ function getImportSandboxRecords(moduleKey, workspaceMode) {
     : [];
 }
 
+function isLocalStoreRecord(record, workspaceMode) {
+  if (!record || !Array.isArray(record.row)) return false;
+  var meta = record.meta || {};
+  if (meta.source === 'demoSeed') return false;
+  if (meta.workspaceMode && meta.workspaceMode !== workspaceMode) return false;
+  return meta.source === 'importSandbox'
+    || meta.source === 'userCreated'
+    || meta.source === 'supportCoverage'
+    || meta.source === 'documentAttached'
+    || (typeof record.id === 'string' && record.id.indexOf('sc-') === 0);
+}
+
+function getLocalStoreRecords(moduleKey, workspaceMode) {
+  return Array.isArray(RECORD_STORE[moduleKey])
+    ? RECORD_STORE[moduleKey].filter(function(record) { return isLocalStoreRecord(record, workspaceMode); })
+    : [];
+}
+
 function getRecordCell(record, columns, fieldNames) {
   if (!record || !Array.isArray(record.row)) return '';
   for (var i = 0; i < fieldNames.length; i += 1) {
@@ -774,10 +794,6 @@ function summarizeImportedRecordValue(records) {
 function ensureImportedClientRecords(records, workspaceMode) {
   if (!Array.isArray(RECORD_STORE.clients)) RECORD_STORE.clients = [];
   var isIT = workspaceMode === 'Internal IT';
-  var staticNames = new Set((isIT
-    ? ['Retail Operations','Finance','IT Security','Infrastructure','Digital Channels','Logistics','Corporate IT','Operations']
-    : companies.map(function(row) { return row[0]; })
-  ).map(normalizeImportText));
   var existingByName = new Map();
   RECORD_STORE.clients.forEach(function(clientRecord) {
     if (clientRecord && clientRecord.meta && clientRecord.meta.name) existingByName.set(normalizeImportText(clientRecord.meta.name), clientRecord);
@@ -826,14 +842,14 @@ function ensureImportedClientRecords(records, workspaceMode) {
 }
 
 function getImportedClientRows(workspaceMode) {
-  return getImportSandboxRecords('clients', workspaceMode).map(function(record) { return record.row; });
+  return getLocalStoreRecords('clients', workspaceMode).map(function(record) { return record.row; });
 }
 
 function getImportedRenewalRows(workspaceMode) {
   var isIT = workspaceMode === 'Internal IT';
-  var licenses = getImportSandboxRecords('licenses', workspaceMode);
-  var hardware = getImportSandboxRecords('hardware', workspaceMode);
-  var contracts = getImportSandboxRecords('contracts', workspaceMode);
+  var licenses = getLocalStoreRecords('licenses', workspaceMode);
+  var hardware = getLocalStoreRecords('hardware', workspaceMode);
+  var contracts = getLocalStoreRecords('contracts', workspaceMode);
   var licenseColumns = getModuleColumns('licenses', workspaceMode);
   var hardwareColumns = getModuleColumns('hardware', workspaceMode);
   var contractColumns = getModuleColumns('contracts', workspaceMode);
@@ -918,7 +934,9 @@ function getImportedRenewalRows(workspaceMode) {
 function getImportedDashboardPriorityRows(workspaceMode) {
   var isIT = workspaceMode === 'Internal IT';
   var licenseColumns = getModuleColumns('licenses', workspaceMode);
-  return getImportSandboxRecords('licenses', workspaceMode).slice(0, 5).map(function(record) {
+  var hardwareColumns = getModuleColumns('hardware', workspaceMode);
+  var contractColumns = getModuleColumns('contracts', workspaceMode);
+  var licenses = getLocalStoreRecords('licenses', workspaceMode).map(function(record) {
     if (isIT) {
       return [
         getRecordCell(record, licenseColumns, ['License / Product']) || record.meta.displayName || 'Imported license',
@@ -943,6 +961,57 @@ function getImportedDashboardPriorityRows(workspaceMode) {
       'Review import'
     ];
   });
+  var hardware = getLocalStoreRecords('hardware', workspaceMode).map(function(record) {
+    if (isIT) {
+      return [
+        getRecordCell(record, hardwareColumns, ['Asset']) || record.meta.displayName || 'Imported hardware',
+        'Hardware',
+        getRecordCell(record, hardwareColumns, ['Brand']) || record.meta.brandManufacturer || '-',
+        getRecordCell(record, hardwareColumns, ['Provider']) || record.meta.providerDistributor || '-',
+        getRecordCell(record, hardwareColumns, ['Warranty end']) || record.meta.expirationRenewalDate || '-',
+        '-',
+        getRecordCell(record, hardwareColumns, ['Department']) || record.meta.clientDepartment || '-',
+        'Review import'
+      ];
+    }
+    return [
+      getRecordCell(record, hardwareColumns, ['Client']) || record.meta.clientDepartment || '-',
+      getRecordCell(record, hardwareColumns, ['Brand']) || record.meta.brandManufacturer || '-',
+      getRecordCell(record, hardwareColumns, ['Asset']) || record.meta.productLicenseName || 'Imported hardware',
+      getRecordCell(record, hardwareColumns, ['Support']) || record.meta.providerDistributor || '-',
+      getRecordCell(record, hardwareColumns, ['Warranty end']) || record.meta.expirationRenewalDate || '-',
+      '-',
+      '-',
+      getRecordCell(record, hardwareColumns, ['Owner']) || 'Unassigned',
+      'Review import'
+    ];
+  });
+  var contracts = getLocalStoreRecords('contracts', workspaceMode).map(function(record) {
+    if (isIT) {
+      return [
+        getRecordCell(record, contractColumns, ['Contract']) || record.meta.displayName || 'Imported contract',
+        'Contract',
+        '-',
+        getRecordCell(record, contractColumns, ['Provider']) || record.meta.providerDistributor || '-',
+        getRecordCell(record, contractColumns, ['Renewal']) || record.meta.expirationRenewalDate || '-',
+        '-',
+        getRecordCell(record, contractColumns, ['Department']) || record.meta.clientDepartment || '-',
+        'Review import'
+      ];
+    }
+    return [
+      getRecordCell(record, contractColumns, ['Client']) || record.meta.clientDepartment || '-',
+      '-',
+      getRecordCell(record, contractColumns, ['Contract']) || record.meta.displayName || 'Imported contract',
+      getRecordCell(record, contractColumns, ['Provider / Distributor']) || record.meta.providerDistributor || '-',
+      getRecordCell(record, contractColumns, ['Renewal']) || record.meta.expirationRenewalDate || '-',
+      '-',
+      '-',
+      getRecordCell(record, contractColumns, ['Owner']) || 'Unassigned',
+      'Review import'
+    ];
+  });
+  return licenses.concat(hardware).concat(contracts).slice(0, 5);
 }
 
 const DOC_TYPE_OPTIONS = [
@@ -1466,28 +1535,27 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
     });
   }
   function resetRowsFromSource() {
-    function importSandboxRecords() {
-      return getImportSandboxRecords(moduleKey, workspaceMode);
+    function localStoreRecords() {
+      return getLocalStoreRecords(moduleKey, workspaceMode);
     }
     if (moduleKey === 'documents' && Array.isArray(RECORD_STORE.documents) && RECORD_STORE.documents.length) {
       var existingDocuments = normalizeDocumentRecords(RECORD_STORE.documents);
       RECORD_STORE.documents = existingDocuments;
       return existingDocuments;
     }
+    var localRecords = localStoreRecords();
+    if (localRecords.length) {
+      RECORD_STORE[moduleKey] = localRecords;
+      return localRecords;
+    }
     if (moduleKey === 'contracts') {
-      // Rebuild mock rows, then append any session-created support coverage records
-      // (identified by the 'sc-' id prefix set in handleSupportSave).
-      // This ensures support coverage rows survive module navigation without
-      // overwriting the workspace-correct mock rows on each mount.
-      var mockContractRecords = toRecords(safeRows, moduleKey);
-      var sessionCoverage = Array.isArray(RECORD_STORE.contracts)
-        ? RECORD_STORE.contracts.filter(function(r) { return r.id && r.id.indexOf('sc-') === 0; })
-        : [];
-      var mergedContracts = importSandboxRecords().concat(mockContractRecords).concat(sessionCoverage);
+      // Use demo contracts only when there are no local/imported contracts.
+      var mockContractRecords = toRecords(safeRows, moduleKey, { workspaceMode: workspaceMode });
+      var mergedContracts = mockContractRecords;
       RECORD_STORE.contracts = mergedContracts;
       return mergedContracts;
     }
-    var records = importSandboxRecords().concat(toRecords(safeRows, moduleKey));
+    var records = toRecords(safeRows, moduleKey, { workspaceMode: workspaceMode });
     RECORD_STORE[moduleKey] = records;
     return records;
   }
@@ -1576,9 +1644,21 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
       else if (!(form[f.key] || '').trim()) errs[f.key] = 'Required';
     });
     if (Object.keys(errs).length) { setErrors(errs); return; }
-    const newRecord = { id: createRecordId(moduleKey), row: buildNewRow(form, safeColumns) };
+    const savedRow = buildNewRow(form, safeColumns);
+    const newRecord = {
+      id: createRecordId(moduleKey),
+      row: savedRow,
+      meta: {
+        source: 'userCreated',
+        moduleKey: moduleKey,
+        type: moduleKey,
+        displayName: savedRow[0] || '',
+        workspaceMode: workspaceMode,
+        createdAt: new Date().toISOString()
+      }
+    };
     setLocalRows(function(prev) {
-      const next = [newRecord, ...prev];
+      const next = [newRecord].concat(prev.filter(function(record) { return isLocalStoreRecord(record, workspaceMode); }));
       RECORD_STORE[moduleKey] = next;
       return next;
     });
@@ -1612,8 +1692,17 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
     const newRow = buildNewRow(editForm, safeColumns);
     setLocalRows(function(prev) {
       const next = prev.map(function(r, i) {
-        return i === selectedRecord.localRowIndex ? { id: r.id, row: newRow } : r;
-      });
+        return i === selectedRecord.localRowIndex ? Object.assign({}, r, {
+          row: newRow,
+          meta: Object.assign({}, r.meta || {}, {
+            source: 'userCreated',
+            moduleKey: moduleKey,
+            displayName: newRow[0] || '',
+            workspaceMode: workspaceMode,
+            editedAt: new Date().toISOString()
+          })
+        }) : r;
+      }).filter(function(record) { return isLocalStoreRecord(record, workspaceMode); });
       RECORD_STORE[moduleKey] = next;
       return next;
     });
@@ -1966,6 +2055,7 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
     var r = record.row;
     return safeColumns.reduce(function(acc, col, i) { if (visibleSet.has(col)) acc.push(r[i] !== undefined ? r[i] : ''); return acc; }, []);
   });
+  const usingLocalStoreRecords = localRows.some(function(record) { return isLocalStoreRecord(record, workspaceMode); });
 
   const fieldStyle = { width: '100%', border: '1px solid #DDE6F1', borderRadius: 10, padding: '10px 12px', fontSize: 14, fontFamily: 'inherit', outline: 0, background: '#FAFCFF', color: '#132033', boxSizing: 'border-box' };
   const errStyle   = { color: '#DC2626', fontSize: 12, marginTop: 4, display: 'block' };
@@ -2344,6 +2434,7 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
         {hasActiveFilter && <button onClick={clearFilters} style={{color:'#64748B',background:'#F8FAFC',borderColor:'#E5E7EB',fontSize:12,padding:'6px 10px'}}>Clear filters</button>}
       </div>
       <div className="panelTitle"><h2>{active} worklist</h2><span>{ai}</span></div>
+      {usingLocalStoreRecords && <p style={{margin:'-6px 0 10px',color:'#64748B',fontSize:12,lineHeight:1.45}}>Showing local sandbox records. Demo data is used only when no local records exist.</p>}
       {activeRows.length === 0
         ? <div className="stateBox emptyState" style={{marginTop:8,textAlign:'center',padding:'28px 20px'}}>
             <strong style={{display:'block',color:'#132033',marginBottom:6}}>No records match the current filters.</strong>
@@ -3493,20 +3584,20 @@ function TasksScreen({ workspaceMode = 'MSP / Integrator' }){
 
 function ReportsScreen({ workspaceMode = 'MSP / Integrator' }){
   const isInternalIT = workspaceMode === 'Internal IT';
-  const importedReportCount = getImportSandboxRecords('licenses', workspaceMode).length + getImportSandboxRecords('hardware', workspaceMode).length + getImportSandboxRecords('contracts', workspaceMode).length;
+  const importedReportCount = getLocalStoreRecords('licenses', workspaceMode).length + getLocalStoreRecords('hardware', workspaceMode).length + getLocalStoreRecords('contracts', workspaceMode).length;
   const reportsSubtitle = isInternalIT
     ? 'Executive and operational reporting across IT budget, approvals and renewal risk.'
     : workspaceMode === 'MSP / Integrator'
     ? 'Executive and operational reporting across your client renewal portfolio.'
     : 'Reports center for templates, schedules, generated reports, governance and exports.';
-  const reportRows = (importedReportCount > 0 ? [['Imported Session Records', 'Sandbox validation', 'Operators', 'Current user', 'Session', importedReportCount + ' records ready']] : []).concat(isInternalIT ? reportsInternalIT : reportsMsp);
+  const reportRows = importedReportCount > 0 ? [['Imported Session Records', 'Sandbox validation', 'Operators', 'Current user', 'Session', importedReportCount + ' records ready']] : (isInternalIT ? reportsInternalIT : reportsMsp);
   const exportButtons = isInternalIT
     ? ['Department renewal exposure CSV', 'CIO renewal brief', 'Governance evidence export']
     : ['Client renewal exposure CSV', 'Executive renewal brief', 'Governance evidence export'];
   const scheduledRows = isInternalIT
     ? [['Monthly renewal budget exposure','Monthly','May 1, 2026','Finance, IT Leadership','Jun 1, 2026','Approved'],['CIO risk brief','Weekly','May 6, 2026','CIO, Executive team','May 13, 2026','Draft ready'],['Audit evidence package','On demand','Apr 28, 2026','Compliance','Not scheduled','Export logged']]
     : [['Monthly client renewal exposure','Monthly','May 1, 2026','Finance, Account management','Jun 1, 2026','Approved'],['Board risk brief','Weekly','May 6, 2026','Executive team','May 13, 2026','Draft ready'],['Audit evidence package','On demand','Apr 28, 2026','Compliance','Not scheduled','Export logged']];
-  return <main className="content"><ScreenHeader active="Reports" subtitle={reportsSubtitle}><button>Schedule report</button><button className="primary">Generate report</button></ScreenHeader><section className="split"><article className="panel wide"><div className="panelTitle"><h2>Report templates</h2><span>Operational, executive and governance-ready templates</span></div><Table columns={['Template','Type','Audience','Owner','Cadence','Status']} rows={reportRows}/></article><aside className="panel"><div className="panelTitle"><h2>Export center</h2><span>Controlled outputs with history</span></div><div className="actionStack">{exportButtons.map(label=><button key={label}>{label}</button>)}<button disabled aria-disabled="true">Export selected rows</button></div><div className="miniState loadingState" role="status"><span className="spinner"/>Report generation queued for executive renewal brief.</div><ErrorState title="Failed report generation" message="The governance export timed out. Retry generation or contact support with the report ID." /></aside></section><section className="panel"><div className="panelTitle"><h2>Scheduled and generated reports</h2><span>Recurring packs and recent outputs</span></div><Table columns={['Report','Schedule','Last generated','Recipients','Next run','Governance status']} rows={scheduledRows}/></section></main>;
+  return <main className="content"><ScreenHeader active="Reports" subtitle={reportsSubtitle}><button>Schedule report</button><button className="primary">Generate report</button></ScreenHeader><section className="split"><article className="panel wide"><div className="panelTitle"><h2>Report templates</h2><span>{importedReportCount > 0 ? 'Showing local sandbox records. Demo data is used only when no local records exist.' : 'Operational, executive and governance-ready templates'}</span></div><Table columns={['Template','Type','Audience','Owner','Cadence','Status']} rows={reportRows}/></article><aside className="panel"><div className="panelTitle"><h2>Export center</h2><span>Controlled outputs with history</span></div><div className="actionStack">{exportButtons.map(label=><button key={label}>{label}</button>)}<button disabled aria-disabled="true">Export selected rows</button></div><div className="miniState loadingState" role="status"><span className="spinner"/>Report generation queued for executive renewal brief.</div><ErrorState title="Failed report generation" message="The governance export timed out. Retry generation or contact support with the report ID." /></aside></section><section className="panel"><div className="panelTitle"><h2>Scheduled and generated reports</h2><span>Recurring packs and recent outputs</span></div><Table columns={['Report','Schedule','Last generated','Recipients','Next run','Governance status']} rows={scheduledRows}/></section></main>;
 }
 
 const IMPORT_CANONICAL_FIELDS = [
@@ -5838,7 +5929,7 @@ function AssetsRenewalsScreen({ workspaceMode = 'MSP / Integrator' }){
     { record: 'HPE Server Warranty', type: 'Warranty', vendor: 'HPE', expiry: 'Jul 18, 2026', days: '65 days', value: '$22,400', owner: 'Maria Chen', status: 'Medium', action: 'Schedule review' },
     { record: 'Veeam Backup Renewal', type: 'License', vendor: 'Veeam', expiry: 'Aug 4, 2026', days: '82 days', value: '$14,900', owner: 'Diego Paredes', status: 'Low', action: 'Monitor' }
   ];
-  const rows = importedRenewalRows.concat(baseRows);
+  const rows = importedRenewalRows.length ? importedRenewalRows : baseRows;
   const tabs = isInternalIT ? ['All','Approval required','Next 30 days','Next 90 days','By department','Consolidation candidates'] : ['All','Critical','30 days','60 days','Missing owner','Expired'];
   const filters = isInternalIT ? ['Type','Department','Provider','Approval','Saved view: CIO forecast'] : ['Type','Owner','Vendor','Status','Saved view: Operational risk'];
   const stats = isInternalIT ? [
@@ -5855,7 +5946,7 @@ function AssetsRenewalsScreen({ workspaceMode = 'MSP / Integrator' }){
       <div className="toolbar assetsFilterRow"><input aria-label="Filter renewal records" placeholder={isInternalIT ? 'Filter renewals by record, provider, department, approval status or risk...' : 'Filter by record, vendor, owner, type or status...'} />{filters.map(filter=><button key={filter}>{filter}</button>)}</div>
     </section>
     {isInternalIT ? <section className="panel aiInsightBar assetsInsightBar"><p><strong>AI Insight</strong> Opriva detected $487K in upcoming IT renewals across 8 departments. Endpoint security shows provider overlap across Kaspersky, Symantec and McAfee. Review consolidation candidates before CIO approval.</p><div className="compactActions"><button>Review approvals</button><button>View consolidation</button><button>Prepare CIO report</button></div></section> : <section className="panel aiInsightBar assetsInsightBar"><p><strong>AI Insight</strong> Opriva found 12 records entering a critical renewal window and 18 records without an assigned owner. Start by assigning owners to high-value records expiring in the next 30 days.</p><div className="compactActions"><button>Assign owners</button><button>Review critical</button><button>Prepare emails</button></div></section>}
-    <section className="panel renewalWorklistPanel"><div className="panelTitle"><h2>{isInternalIT ? 'Renewals forecast' : 'Renewal worklist'}</h2><span>{isInternalIT ? 'Internal IT renewals prioritized by budget impact, department, brand/provider concentration and approval blockers.' : 'All tracked records prioritized by expiry date, financial exposure and ownership gaps.'}</span></div><div className="tableWrap renewalWorklistWrap"><table className="renewalWorklistTable"><thead><tr>{(isInternalIT ? ['Record','Type','Brand','Provider','Department','Renewal date','Forecasted amount','Approval','Risk','Recommended action'] : ['Record','Type','Vendor','Expiry date','Days left','Value','Owner','Status','Recommended action']).map(column=><th key={column}>{column}</th>)}</tr></thead><tbody>{isInternalIT ? rows.map(row=><tr key={row.record}><td className="renewalRecordCell"><strong>{row.record}</strong></td><td>{row.type}</td><td>{row.brand}</td><td>{row.provider}</td><td>{row.department}</td><td className="dateCell">{row.expiry}</td><td className="valueCell">{row.amount}</td><td className="ownerCell">{row.approval}</td><td className="statusCell"><Badge tone={row.risk}>{row.risk}</Badge></td><td className="actionCell"><button type="button" className="rowAction">{row.action}</button></td></tr>) : rows.map(row=><tr key={row.record}><td className="renewalRecordCell"><strong>{row.record}</strong></td><td>{row.type}</td><td>{row.vendor}</td><td className="dateCell">{row.expiry}</td><td className="daysCell">{row.days}</td><td className="valueCell">{row.value}</td><td className="ownerCell">{row.owner==='Unassigned' ? <Badge tone="Warning">Unassigned</Badge> : row.owner}</td><td className="statusCell"><Badge tone={row.status}>{row.status}</Badge></td><td className="actionCell"><button type="button" className="rowAction">{row.action}</button></td></tr>)}</tbody></table></div></section>
+    <section className="panel renewalWorklistPanel"><div className="panelTitle"><h2>{isInternalIT ? 'Renewals forecast' : 'Renewal worklist'}</h2><span>{isInternalIT ? 'Internal IT renewals prioritized by budget impact, department, brand/provider concentration and approval blockers.' : 'All tracked records prioritized by expiry date, financial exposure and ownership gaps.'}</span></div>{importedRenewalRows.length > 0 && <p style={{margin:'-6px 0 10px',color:'#64748B',fontSize:12,lineHeight:1.45}}>Showing local sandbox records. Demo data is used only when no local records exist.</p>}<div className="tableWrap renewalWorklistWrap"><table className="renewalWorklistTable"><thead><tr>{(isInternalIT ? ['Record','Type','Brand','Provider','Department','Renewal date','Forecasted amount','Approval','Risk','Recommended action'] : ['Record','Type','Vendor','Expiry date','Days left','Value','Owner','Status','Recommended action']).map(column=><th key={column}>{column}</th>)}</tr></thead><tbody>{isInternalIT ? rows.map(row=><tr key={row.record}><td className="renewalRecordCell"><strong>{row.record}</strong></td><td>{row.type}</td><td>{row.brand}</td><td>{row.provider}</td><td>{row.department}</td><td className="dateCell">{row.expiry}</td><td className="valueCell">{row.amount}</td><td className="ownerCell">{row.approval}</td><td className="statusCell"><Badge tone={row.risk}>{row.risk}</Badge></td><td className="actionCell"><button type="button" className="rowAction">{row.action}</button></td></tr>) : rows.map(row=><tr key={row.record}><td className="renewalRecordCell"><strong>{row.record}</strong></td><td>{row.type}</td><td>{row.vendor}</td><td className="dateCell">{row.expiry}</td><td className="daysCell">{row.days}</td><td className="valueCell">{row.value}</td><td className="ownerCell">{row.owner==='Unassigned' ? <Badge tone="Warning">Unassigned</Badge> : row.owner}</td><td className="statusCell"><Badge tone={row.status}>{row.status}</Badge></td><td className="actionCell"><button type="button" className="rowAction">{row.action}</button></td></tr>)}</tbody></table></div></section>
   </main>;
 }
 

@@ -3557,8 +3557,8 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
     setSelectedSheet(nextSheetName);
     setHeaders(data.headers);
     setRowObjects(data.rowObjects);
-    setMappings(createImportMappings(data.headers, data.rowObjects));
     setSourceType(detected);
+    setMappings(createImportMappings(data.headers, data.rowObjects, detected));
     var suggestedTarget = suggestImportTargetFromSource(detected);
     setSuggestedImportTarget(suggestedTarget);
     setImportTarget(suggestedTarget);

@@ -1,12 +1,90 @@
 import { IMPORT_SKIP_HEADERS } from './importConstants.js';
 import { normalizeImportText } from './importText.js';
 
-export function suggestImportField(header) {
+function profileRule(target, action, reason, patterns) {
+  return { target: target, action: action, reason: reason, patterns: patterns.map(normalizeImportText) };
+}
+
+const PROFILE_MAPPING_RULES = {
+  'Microsoft CSP': [
+    profileRule('Client / Department', 'Import', 'CSP customer context', ['customer name', 'customer domain']),
+    profileRule('Product / License Name', 'Import', 'CSP offer/product context', ['offer name', 'offer friendly name', 'renewal offer name']),
+    profileRule('Quantity / Seats', 'Import', 'CSP subscription quantity', ['quantity', 'renewal quantity']),
+    profileRule('Start Date', 'Import', 'CSP subscription start date', ['subscription start date']),
+    profileRule('Expiration / Renewal Date', 'Import', 'CSP subscription end date', ['subscription end date']),
+    profileRule('PO / Order Reference', 'Import', 'CSP order reference', ['order id']),
+    profileRule('Billing Cycle', 'Import', 'CSP billing cycle context', ['billing cycle type', 'renewal billing cycle type', 'renewal billingcycletype']),
+    profileRule('License Term', 'Import', 'CSP lifecycle context', ['term duration', 'termduration']),
+    profileRule('Source Status / Vendor Status', 'Import', 'CSP source status', ['subscription status']),
+    profileRule('', 'Skip', 'Calculated by Opriva', ['remaining days']),
+    profileRule('', 'Review', 'Source identifier; review before importing', ['mpn id', 'producttype']),
+  ],
+  'Veeam Renewal Export': [
+    profileRule('Client / Department', 'Import', 'Veeam customer context', ['customer']),
+    profileRule('Product / License Name', 'Import', 'Veeam product context', ['product']),
+    profileRule('Provider / Distributor', 'Import', 'Veeam distributor context', ['distributor']),
+    profileRule('PO / Order Reference', 'Import', 'Veeam PO reference', ['po number']),
+    profileRule('Contract Number', 'Import', 'Veeam contract reference', ['con number', 'contract number']),
+    profileRule('Start Date', 'Import', 'Veeam contract start date', ['con start date']),
+    profileRule('Expiration / Renewal Date', 'Import', 'Veeam contract end date', ['con end date']),
+    profileRule('Support', 'Import', 'Veeam support coverage context', ['support']),
+    profileRule('Source Status / Vendor Status', 'Import', 'Veeam contract status', ['contract status']),
+    profileRule('Quantity / Seats', 'Import', 'Veeam entitlement quantity', ['sockets #', 'vms #', 'servers #', 'workstations #', 'licenses #', 'users #']),
+    profileRule('License Term', 'Import', 'Veeam licensing terms', ['licensing terms']),
+    profileRule('Sale Price / Annual Value', 'Review', 'Commercial amount requires user review', ['incumbent total']),
+    profileRule('', 'Skip', 'Calculated by Opriva', ['days before expiration']),
+    profileRule('', 'Skip', 'Sensitive contact field; do not import blindly', ['lic contact e mail', 'contact e mail', 'email', 'e mail']),
+    profileRule('', 'Review', 'Sensitive contact field; review before importing', ['lic contact', 'contact']),
+  ],
+  'Hardware Sales Export': [
+    profileRule('Client / Department', 'Import', 'Hardware client context', ['cliente', 'client', 'customer']),
+    profileRule('Notes', 'Review', 'Hardware class context; review before importing', ['clase de articulo', 'clase de artículo']),
+    profileRule('Purchase Date', 'Import', 'Hardware transaction date', ['fecha de la transaccion', 'fecha de la transacción', 'transaction date']),
+    profileRule('PO / Order Reference', 'Import', 'Hardware source reference', ['numero', 'número', 'number']),
+    profileRule('Asset Name', 'Import', 'Hardware product/service name', ['nombre completo del producto servicio', 'product service name', 'full product service name']),
+    profileRule('Notes', 'Review', 'Hardware description context', ['nota descripcion', 'nota descripción', 'description']),
+    profileRule('Quantity / Seats', 'Import', 'Hardware quantity', ['cantidad', 'quantity']),
+    profileRule('Serial Number', 'Import', 'Hardware serial number', ['serial', 'serie']),
+    profileRule('Notes', 'Review', 'Received-by value may be owner or evidence context', ['recibido por']),
+    profileRule('Notes', 'Review', 'Hardware lifecycle context; review before importing', ['ano aproximado de lanzamiento', 'año aproximado de lanzamiento', 'launch year']),
+  ],
+  'Commercial Renewal Package': [
+    profileRule('Contract Number', 'Import', 'Commercial registration/reference', ['# registro', 'registro']),
+    profileRule('PO / Order Reference', 'Import', 'Commercial order reference', ['# oc', 'oc partner', 'order reference']),
+    profileRule('Client / Department', 'Import', 'Commercial client context', ['cliente', 'client', 'customer']),
+    profileRule('Invoice / Billing Reference', 'Import', 'Commercial billing reference', ['# legal de fac', 'legal de fac', 'invoice reference']),
+    profileRule('Reseller / Partner', 'Import', 'Commercial reseller context', ['reventa', 'reseller']),
+    profileRule('Provider / Distributor', 'Import', 'Commercial distributor context', ['distribuidor', 'distributor']),
+    profileRule('Product / License Name', 'Review', 'Ambiguous license column; may be product name or quantity', ['licencias', 'license']),
+    profileRule('Expiration / Renewal Date', 'Import', 'License expiration date', ['vencimiento licencia', 'expiration date', 'renewal date']),
+    profileRule('Invoice Date', 'Import', 'Invoice date metadata', ['fecha factura', 'invoice date']),
+    profileRule('Sale Price / Annual Value', 'Review', 'Commercial amount requires user review', ['monto total', 'total amount']),
+  ]
+};
+
+function profileMatch(normalizedHeader, sourceType) {
+  var rules = PROFILE_MAPPING_RULES[sourceType] || [];
+  for (var i = 0; i < rules.length; i += 1) {
+    var rule = rules[i];
+    var matched = rule.patterns.some(function(pattern) {
+      return normalizedHeader === pattern || normalizedHeader.indexOf(pattern) >= 0;
+    });
+    if (matched) return { target: rule.target, action: rule.action, reason: rule.reason };
+  }
+  return null;
+}
+
+export function suggestImportField(header, sourceType) {
   var normalized = normalizeImportText(header);
   if (!normalized) return { target: '', action: 'Skip', reason: 'Empty source column' };
   if (IMPORT_SKIP_HEADERS.indexOf(normalized) >= 0 || normalized.indexOf('days before expiration') >= 0 || normalized.indexOf('remaining days') >= 0) {
     return { target: '', action: 'Skip', reason: 'Calculated by Opriva' };
   }
+  if (normalized.indexOf('email') >= 0 || normalized.indexOf('e mail') >= 0) {
+    return { target: '', action: 'Skip', reason: 'Sensitive contact field; do not import blindly' };
+  }
+  var profileSuggestion = profileMatch(normalized, sourceType);
+  if (profileSuggestion) return profileSuggestion;
   var direct = [
     [['customer','customer name','cliente','client','department','departamento','customer domain'], 'Client / Department'],
     [['product','offer name','offer friendly name','nombre completo del producto servicio','license','licencia','item','description'], 'Product / License Name'],
@@ -41,12 +119,13 @@ export function suggestImportField(header) {
   if (normalized.indexOf('serial') >= 0) return { target: 'Serial Number', action: 'Import', reason: 'Serial keyword match' };
   if (normalized.indexOf('support') >= 0 || normalized.indexOf('soporte') >= 0) return { target: 'Support', action: 'Import', reason: 'Support keyword match' };
   if (normalized.indexOf('margin') >= 0 || normalized.indexOf('margen') >= 0) return { target: '', action: 'Skip', reason: 'Calculated by Opriva' };
+  if (normalized.indexOf('contact') >= 0) return { target: '', action: 'Review', reason: 'Sensitive contact field; review before importing' };
   return { target: '', action: 'Review', reason: 'Needs user review' };
 }
 
-export function createImportMappings(headers, rowObjects) {
+export function createImportMappings(headers, rowObjects, sourceType) {
   return headers.map(function(header, index) {
-    var suggestion = suggestImportField(header);
+    var suggestion = suggestImportField(header, sourceType);
     var sampleRow = (rowObjects || []).find(function(row) { return row[header]; }) || {};
     return {
       sourceColumn: header,

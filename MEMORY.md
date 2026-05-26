@@ -976,7 +976,19 @@ This avoids forcing users to review every imported row manually while keeping th
 
 ---
 
-### 19.7 Columns That Should Be Skipped by Default
+### 19.7 Controlled Catalog Fields
+
+Opriva must use controlled catalogs for repeated and business-critical fields, not unrestricted free text. Controlled catalog fields include Brand / Manufacturer, Product / License Name, Distributor / Provider, Vendor / Provider, Reseller / Partner, Client / Department, Owner, Alert Policy, Document Type, Contract Type, Support Coverage Type, License Term, Currency, Country and reusable business classifications.
+
+Catalog-controlled fields should use select/search/create behavior. New values should be normalized before creation, checked against similar existing values, and created only after the user confirms that no existing value should be reused. AI may suggest catalog matches, but the user approves.
+
+Imports should map incoming values to existing catalog records where possible. Bulk defaults should apply catalog-controlled values instead of arbitrary strings. If a new brand, product, provider, distributor, reseller, client/department, owner or policy appears during import, Opriva should flag possible duplicates and ask whether to use an existing catalog value or create a new one.
+
+The local sandbox may simulate this behavior with local lists and duplicate warnings. Corporate MVP requires backend catalog tables, normalized keys, aliases/synonyms, unique constraints, merge/deactivate flows, workspace-scoped versus global catalog rules, and audit history for catalog changes.
+
+---
+
+### 19.8 Columns That Should Be Skipped by Default
 
 These source column types should be suggested as "skip" by default during mapping, unless the user explicitly chooses to map them:
 
@@ -1263,3 +1275,4 @@ Phase 2 should include:
 - 2026-05-22: OPRIVA_IMPORT_TEMPLATE_SPEC.md created. Defines the Official Opriva Import Template as Path B alongside AI-assisted Path A. Documents 9-sheet workbook structure (Instructions, Clients/Departments, Renewal Packages, Licenses, Hardware, Contracts/Support Coverage, Documents, Tasks, Custom Fields), reference system (Package Reference, Linked Record Reference, Covered Record Reference), all column definitions with required/optional status, controlled vocabulary, validation rules, import preview requirement, and Phase 2 template generation roadmap. MEMORY.md §20 added. USER_GUIDE.md §11 and §12 updated. AI_KNOWLEDGE_BASE.md updated. No application code modified.
 - 2026-05-25: BACKEND_READINESS_AUDIT.md committed in `a05ce1d`. The audit documents current local/sandbox functionality and defines backend/database/storage/auth/permissions requirements for corporate MVP readiness. Key conclusion: local/session state is acceptable for UX and product logic testing, but corporate MVP requires backend support for persistence, users, workspaces, roles, permissions, documents, imports, alerts, audit trail, AI knowledge, storage and enterprise testing.
 - 2026-05-25: Local Excel Import Sandbox committed in `745585a`. Data Import now supports local `.xlsx` / `.xls` upload, sheet parsing, sheet selection, source detection, header mapping, canonical field mapping, skipped/calculated column handling, row normalization, target module detection, normalized record preview and confirmed local/session creation into `RECORD_STORE`. Imported session records are preserved during mock refresh when `meta.source === 'importSandbox'`. The `xlsx` dependency was added in `package.json` / `package-lock.json`. Build and `git diff --check` passed, and the working tree was clean after the commit. This remains a local sandbox validation feature, not the future backend import engine.
+- 2026-05-26: Controlled catalog product decision documented. Brand / Manufacturer, Product / License Name, Distributor / Provider, Vendor / Provider, Reseller / Partner, Client / Department, Owner, Alert Policy, Document Type, Contract Type, Support Coverage Type, License Term, Currency, Country and reusable business classifications should use select/search/create catalog behavior instead of unrestricted free text. Imports and bulk defaults should map to existing catalog values where possible, AI suggestions require user approval, and corporate MVP requires backend catalog tables, normalized keys, aliases/synonyms, duplicate prevention, merge/deactivate flows and audit history.

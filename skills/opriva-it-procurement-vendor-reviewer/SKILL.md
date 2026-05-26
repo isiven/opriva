@@ -18,10 +18,15 @@ Use this skill when reviewing procurement, purchasing, vendor management, commer
 - Quote, PO, invoice, license certificate, entitlement document, and warranty evidence belong as linked documents/records, not overloaded form text.
 - Margin is calculated from sale value and vendor cost, not manually entered.
 - Import must map procurement columns into canonical fields, not blindly copy spreadsheet columns.
+- Brand / Manufacturer, Product / License Name, Distributor / Provider, Vendor / Provider, Reseller / Partner, Client / Department, Currency, Country, Contract Type, Support Coverage Type, and License Term should be controlled catalogs, not unrestricted free text.
+- New procurement catalog values should be normalized, checked for duplicate-like matches, and created only after user approval.
 
 ## Review Checklist
 
 - Brand/manufacturer vs distributor/provider vs reseller/partner clarity.
+- Whether brand, product, provider, distributor, reseller/partner, client/department, currency, country, contract type, support coverage type, and license term fields use select/search/create catalog behavior.
+- Catalog normalization, aliases/synonyms, duplicate detection, merge/deactivate needs, and auditability.
+- Whether imports or bulk defaults can create duplicate procurement catalog values.
 - Quote, PO, invoice, license certificate, entitlement, and warranty evidence relationships.
 - Vendor cost vs sale price/annual value vs annual cost.
 - Renewal package and co-term logic.
@@ -41,4 +46,3 @@ Use this skill when reviewing procurement, purchasing, vendor management, commer
 6. MSP / Integrator implications
 7. Internal IT implications
 8. Suggested Codex implementation prompt, if action is needed
-

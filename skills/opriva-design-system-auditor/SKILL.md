@@ -19,6 +19,7 @@ Use this skill when reviewing or planning Opriva design-system work: shared visu
 - Tables, drawers, toolbars, tabs, badges, buttons, inputs, and status messages should have consistent treatment.
 - Internal IT and MSP / Integrator may use different terminology, but should share the same design-system foundation.
 - Calculated fields, warnings, review states, missing evidence, approvals, margin, risk, and renewal status need consistent semantic styling.
+- Catalog-controlled fields need consistent select/search/create UI, duplicate-match prompts, normalization review, and create-new affordances across forms and imports.
 
 ## Review Checklist
 
@@ -26,12 +27,14 @@ Use this skill when reviewing or planning Opriva design-system work: shared visu
 - Color tokens, status tones, warning/error/success/info patterns, and teal accent usage.
 - Button hierarchy: primary, secondary, row action, icon/action, disabled.
 - Form controls: inputs, selects, toggles, file pickers, validation messages.
+- Catalog controls: searchable select, create-new state, duplicate/similar match warning, normalized display value, aliases/synonyms, and disabled/read-only calculated values.
 - Tables: header styling, cell density, action cells, badges, numeric/value cells, scroll behavior.
 - Drawer components: header, tabs, overview sections, relationship/doc/task/activity layouts.
 - Dashboard components: KPI cards, insight bars, priority queues, forecast/renewal tables.
 - Import components: path cards, mapping table, defaults panel, preview table, warnings, result summary.
 - Empty states and loading/error/success states.
 - Workspace terminology rules and label consistency.
+- Whether catalog-controlled fields are visually distinguishable from plain free text without making forms heavy.
 - Opportunities to extract repeated inline styles into reusable classes/components later.
 
 ## Risks / Gaps To Look For

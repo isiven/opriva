@@ -18,12 +18,17 @@ Use this skill when assessing whether a feature can remain local for design vali
 - Activity must become persistent audit trail.
 - Documents require secure storage, metadata, links, permissions, retention, and secure access.
 - Imported records must become first-class records; future implementation requires import jobs/history and permissions.
+- Controlled catalogs are backend-required for repeated/business-critical entities and policies: brand, product, provider, distributor, reseller/partner, client/department, owner, alert policy, document type, contract type, support coverage type, license term, currency, country, and reusable classifications.
+- Catalog backend must support normalized keys, unique constraints, aliases/synonyms, duplicate prevention, merge/deactivate flows, workspace-scoped versus global catalogs, and audit history.
 
 ## Review Checklist
 
 - Database tables/entities required.
 - Auth, users, workspaces, tenants, roles, and permissions.
 - Persistent canonical records for clients/departments, licenses, hardware, contracts, support coverage, documents, tasks, relationships, activities, imports, alerts, and settings.
+- Catalog tables for controlled fields and whether current local forms/imports still treat them as free text.
+- Select/search/create flows, normalization rules, duplicate checks, aliases/synonyms, merge/deactivate workflows, and catalog change audit events.
+- MSP / Integrator versus Internal IT differences in catalog meaning and workspace scope.
 - File storage, document links, document policies, and Missing Evidence.
 - Import jobs, import files, mappings, rows, preview, confirmation, and history.
 - Alerts/background jobs and notification delivery.
@@ -42,4 +47,3 @@ Use this skill when assessing whether a feature can remain local for design vali
 6. MSP / Integrator implications
 7. Internal IT implications
 8. Suggested Codex implementation prompt, if action is needed
-

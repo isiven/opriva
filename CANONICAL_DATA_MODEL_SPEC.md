@@ -21,6 +21,8 @@ The current local/sandbox app validates product behavior through `RECORD_STORE`,
 - Relationships are first-class, typed and navigable.
 - MSP / Integrator and Internal IT must both be supported without mixing terminology.
 - Custom fields may extend the model but must not replace canonical fields.
+- Repeated and business-critical fields must be controlled catalogs, not unrestricted free text.
+- Controlled catalog values require normalization, duplicate prevention, aliases/synonyms, merge/deactivate flows, and audit history.
 - AI can suggest mappings and actions, but users approve.
 - Backend persistence, auth, permissions and audit are required before corporate MVP.
 
@@ -237,6 +239,24 @@ Internal IT represents an organization managing its own internal technology esta
 **Import mapping notes:** Source columns may include Product, Offer Name, Offer Friendly Name, License, Licencia or product/service names.
 
 **Backend requirements:** Catalog-backed forms, import normalization and product autofill.
+
+### Controlled Catalog / Reference Value
+
+**Purpose:** Normalize reusable business-critical values so records, imports, dashboards, reports and AI context do not fragment around free-text variants.
+
+**Required fields:** Catalog type, display name, normalized key, scope.
+
+**Optional fields:** Description, aliases/synonyms, status, default values, workspace id if workspace-scoped, global source if shared, merged_into reference, deactivated_at, notes.
+
+**Calculated fields:** Usage count, duplicate-like match score, merge candidate count, stale/inactive signal.
+
+**Relationships:** Referenced by records, import mappings, bulk defaults, saved views, document policies, alert policies, reports and activity events.
+
+**Workspace-mode notes:** Some catalogs are global or shared across modes (Brand / Manufacturer, Country, Currency). Others may be workspace-scoped or mode-specific in meaning (Client / Department, Provider / Distributor, Owner, Support Coverage Type, reusable classifications).
+
+**Import mapping notes:** Incoming values should match existing catalog records where possible. New values should be normalized, checked for similar matches and created only after user approval. AI may suggest catalog matches, but users approve.
+
+**Backend requirements:** Backend MVP requires catalog tables or specialized catalog-backed entities, normalized keys, uniqueness constraints, aliases/synonyms, duplicate prevention, merge/deactivate workflows, and audit events for create/update/merge/deactivate actions.
 
 ### License
 
@@ -601,6 +621,8 @@ These fields are directly entered or selected by users:
 - Priority
 - Notes
 
+Catalog-controlled user-entered fields should be selected, searched or created through controlled catalog UI rather than typed as unrestricted text. This applies to Brand / Manufacturer, Product / License Name, Distributor / Provider, Vendor / Provider, Reseller / Partner, Client / Department, Owner, Alert Policy, Document Type, Contract Type, Support Coverage Type, License Term, Currency, Country and reusable business classifications.
+
 ### Imported fields
 
 These fields may arrive from Excel or another source and are mapped into canonical fields:
@@ -720,6 +742,8 @@ Mappings are not final until the user approves them. Users can import, skip, rev
 
 Users should be able to apply common values such as Brand, Product, Owner, Alert Policy and Provider / Distributor to many records at once. Defaults should not overwrite row-specific values unless the user explicitly chooses to overwrite.
 
+Bulk defaults should apply approved catalog-controlled values, not arbitrary strings. If the default value does not exist yet, Opriva should normalize it, show similar matches and ask the user whether to use an existing value or create a new catalog value.
+
 ### Review/enrich records
 
 Before creation, users should review the records Opriva will create. Preview should show business-friendly records, not only technical row data.
@@ -739,6 +763,8 @@ Duplicate detection should compare a reasonable key such as:
 ### Creation of canonical records
 
 After confirmation, imported rows become canonical records. They may create related client/department, brand, product, vendor/provider or package records only when approved or allowed by policy.
+
+Catalog-controlled values created during import must preserve the user's approval decision, duplicate match context and normalized key. Imports should not create duplicate catalog values silently.
 
 ### Activity event creation
 
@@ -960,6 +986,8 @@ Later phases can include:
 - Billing
 - Deep integrations
 - Advanced catalog enrichment
+- Catalog merge/deactivate workflows
+- Catalog aliases/synonyms governance
 - Full renewal package automation
 - Document versioning
 - Virus scanning/DLP
@@ -976,6 +1004,9 @@ Later phases can include:
 - What fields are required for MSP license creation in backend MVP?
 - What document types are canonical versus UI aliases?
 - What duplicate detection rules should block creation versus warn only?
+- Which catalogs are global, workspace-scoped or mixed?
+- What normalized-key rules should apply for brands, products, providers, clients/departments and owners?
+- What catalog alias/synonym and merge workflows are required for MVP?
 - How should Opriva handle imported owner names that do not match users?
 - Should AI-generated suggestions be stored as separate recommendation records?
 - What is the retention policy for import files?

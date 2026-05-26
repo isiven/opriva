@@ -44,6 +44,12 @@ Imports must map uploaded data into Opriva canonical records. Opriva should not 
 
 Every record must belong to a workspace. Every query must enforce workspace scope. Custom fields may extend the model, but they must not replace canonical fields.
 
+### Repeated business values must be controlled catalogs
+
+Brand / Manufacturer, Product / License Name, Distributor / Provider, Vendor / Provider, Reseller / Partner, Client / Department, Owner, Alert Policy, Document Type, Contract Type, Support Coverage Type, License Term, Currency, Country and reusable business classifications should be backed by controlled catalogs. Forms and imports should use select/search/create behavior, normalize new values, detect similar existing values, and require user approval before creating new catalog records.
+
+Backend catalogs must support normalized keys, unique constraints, aliases/synonyms, duplicate prevention, merge/deactivate flows, audit history, and explicit workspace-scoped versus global catalog rules.
+
 ### Every enterprise action must be permission-aware
 
 Viewing, creating, editing, importing, exporting, attaching documents, assigning tasks, changing settings, and using AI must be governed by server-side permissions.
@@ -250,6 +256,20 @@ Final selection should consider team skills, hosting, auth needs, storage, impor
 **Relationships:** licenses and hardware reference products.
 
 **Backend requirements:** catalog-backed forms, autofill, normalization, and import mapping support.
+
+**MVP priority:** High.
+
+### Controlled Catalogs
+
+**Purpose:** Provide normalized, reusable values for business-critical fields so Opriva does not fragment reporting, imports, dashboards or AI context through free-text variants.
+
+**Main entities:** catalog values may be implemented through specialized tables such as `brands`, `products`, `vendors_providers`, `clients_departments`, `document_types`, `contract_types`, `support_coverage_types`, `alert_policies`, `currencies`, `countries`, and optional reusable classification tables.
+
+**Key fields:** workspace id when workspace-scoped, global flag when shared, display name, normalized key, type/category, aliases/synonyms, status, created_by, merged_into_id, deactivated_at.
+
+**Relationships:** referenced by licenses, hardware, contracts, support coverage, documents, tasks, imports, reports, saved views and AI context.
+
+**Backend requirements:** select/search/create APIs, duplicate-like match detection, normalization rules, uniqueness constraints, alias/synonym resolution, merge/deactivate workflows, and audit events for catalog changes.
 
 **MVP priority:** High.
 
@@ -490,8 +510,10 @@ This is a first draft. Names may change during final backend design.
 | `permissions` | Permission grants | id, role_id, resource, action, scope | Enforced by API |
 | `clients_departments` | MSP clients or Internal IT departments | id, workspace_id, record_type, name, owner_id, contact fields, notes | Linked to records/packages |
 | `vendors_providers` | Providers, distributors, resellers, suppliers | id, workspace_id, type, name, normalized_name, contact fields | Linked to records/imports |
-| `brands` | Technology brands/manufacturers | id, name, normalized_name, category | Linked to products/records |
-| `products` | Product/catalog records | id, brand_id, name, product_type, default_term, entitlement_metric | Used by licenses/hardware |
+| `brands` | Technology brands/manufacturers | id, workspace_id/global_scope, name, normalized_key, category, status | Linked to products/records |
+| `products` | Product/catalog records | id, workspace_id, brand_id, name, normalized_key, product_type, default_term, entitlement_metric | Used by licenses/hardware |
+| `catalog_aliases` | Alias/synonym values for catalogs | id, workspace_id, catalog_type, catalog_record_id, alias_value, normalized_alias | Resolves import/free-text variants |
+| `catalog_change_events` | Catalog audit history | id, workspace_id, catalog_type, catalog_record_id, actor_id, event_type, metadata, created_at | Tracks create/merge/deactivate/alias changes |
 | `licenses` | Software/subscription records | id, workspace_id, client_department_id, product_id, brand_id, provider_id, quantity, expiration_date, owner_id, values, alert_policy_id, notes | Linked to docs/tasks/contracts/packages |
 | `hardware_assets` | Physical assets | id, workspace_id, client_department_id, brand_id, product_id, serial_number, warranty_end_date, owner_id, notes | Linked to docs/tasks/contracts/packages |
 | `contracts` | Agreements and obligations | id, workspace_id, contract_type, counterparty_id, start_date, end_date, renewal_date, value, owner_id, approval_status | Linked to records/docs/tasks |
@@ -656,6 +678,9 @@ Backend import requirements:
 - Preserve errors and skipped rows.
 - Track who approved the import.
 - Support duplicate detection.
+- Map controlled catalog fields to existing catalog records where possible.
+- Flag similar catalog matches before creating new clients/departments, brands, products, providers, distributors, resellers/partners, owners, policies, document types, contract types, support coverage types, currencies or countries.
+- Preserve catalog match decisions, aliases/synonyms and created catalog ids in import history.
 - Support rollback strategy or correction workflow later.
 - Never import every spreadsheet column blindly.
 - Allow unmapped columns to be skipped, mapped to Notes, or mapped to a canonical/custom field.

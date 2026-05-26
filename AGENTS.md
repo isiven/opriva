@@ -37,6 +37,9 @@ Activity must become a true audit trail.
 Relationships must be navigable.
 Status, Days to Expiration, Risk, Margin, Renewal Stage, and Missing Evidence are calculated or derived, not manual fields.
 Custom fields extend the model but do not replace canonical fields.
+Repeated and business-critical values must be controlled catalogs, not unrestricted free text. This includes Brand / Manufacturer, Product / License Name, Distributor / Provider, Vendor / Provider, Reseller / Partner, Client / Department, Owner, Alert Policy, Document Type, Contract Type, Support Coverage Type, License Term, Currency, Country, and reusable business classifications.
+Catalog-controlled fields should use select/search/create behavior, normalize new values, detect duplicate-like entries, prompt users to use existing matches, and require user approval for AI-suggested matches.
+Sandbox implementations may simulate catalog behavior locally, but corporate MVP requires backend catalog tables, normalized keys, aliases/synonyms, unique constraints, merge/deactivate flows, and audit history.
 
 ## 6. Workspace Mode Rule
 

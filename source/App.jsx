@@ -3380,10 +3380,17 @@ function buildImportPreview(rowObjects, mappings, sourceType, workspaceMode, imp
     var warnings = [];
     if (target.warning) warnings.push(target.warning);
     if (target.moduleKey === 'package') {
-      if (generalWarnings.indexOf('Renewal Package import is partially supported in this sandbox. Opriva will preview the records and create linked license/contract-style records where possible. Full Renewal Package modeling will require backend support.') < 0) {
-        generalWarnings.push('Renewal Package import is partially supported in this sandbox. Opriva will preview the records and create linked license/contract-style records where possible. Full Renewal Package modeling will require backend support.');
+      if (generalWarnings.indexOf('Renewal Package / Bundle import is partially supported in this sandbox. Opriva will create the best available underlying license, hardware or contract records where possible. Full package modeling will require backend support.') < 0) {
+        generalWarnings.push('Renewal Package / Bundle import is partially supported in this sandbox. Opriva will create the best available underlying license, hardware or contract records where possible. Full package modeling will require backend support.');
       }
-      target = getMappedImportValue(rowObj, mappings, 'Contract Number') && getMappedImportValue(rowObj, mappings, 'Expiration / Renewal Date')
+      var packageHasHardware = getMappedImportValue(rowObj, mappings, 'Serial Number') || getMappedImportValue(rowObj, mappings, 'Warranty End Date');
+      var packageHasProduct = getMappedImportValueAny(rowObj, mappings, ['Product / License Name','License / Product']);
+      var packageHasContract = getMappedImportValue(rowObj, mappings, 'Contract Number') && getMappedImportValue(rowObj, mappings, 'Expiration / Renewal Date');
+      target = packageHasHardware
+        ? { moduleKey: 'hardware', label: 'Hardware / Warranty' }
+        : packageHasProduct
+        ? { moduleKey: 'licenses', label: 'License' }
+        : packageHasContract
         ? { moduleKey: 'contracts', label: 'Contract / Support Coverage' }
         : { moduleKey: 'licenses', label: 'License' };
     }
@@ -3434,7 +3441,7 @@ function buildImportPreview(rowObjects, mappings, sourceType, workspaceMode, imp
         clientDepartment: previewClient || '-',
         brandProduct: [previewBrand && previewBrand !== '-' ? previewBrand : '', previewProduct].filter(Boolean).join(' / ') || '-',
         expiration: previewRenewal || '-',
-        createdRecords: ['License'].concat(previewContract ? ['Contract reference'] : []).concat(importTarget === 'Renewal Package' ? ['Renewal Package preview'] : []),
+        createdRecords: ['License'].concat(previewContract ? ['Contract reference'] : []).concat(importTarget === 'Renewal Package' || importTarget === 'Renewal Package / Bundle' ? ['Renewal Package / Bundle context'] : []),
         canonical: {
           brandManufacturer: previewBrand && previewBrand !== '-' ? previewBrand : '',
           productLicenseName: previewProduct || '',
@@ -3510,7 +3517,7 @@ function buildImportPreview(rowObjects, mappings, sourceType, workspaceMode, imp
 function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
   const isInternalIT = workspaceMode === 'Internal IT';
   const templateHref = '/templates/OPRIVA_IMPORT_TEMPLATE.xlsx';
-  const steps = ['Upload file','Select module','Map columns','Validate fields','Detect duplicates','Fix errors','AI suggestions','Confirm','Summary'];
+  const steps = ['Upload file','Choose records','Map columns','Validate fields','Detect duplicates','Fix errors','AI suggestions','Confirm','Summary'];
   const historyRows = isInternalIT ? importRows.internalIT : importRows.mspIntegrator;
   const validationRows = isInternalIT ? [
     ['Provider mapping', '6 provider names resemble existing supplier records', 'Use Nextcom / Oracle Direct normalized provider records', 'Review provider matches'],
@@ -3529,8 +3536,8 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
   const [rowObjects, setRowObjects] = React.useState([]);
   const [mappings, setMappings] = React.useState([]);
   const [sourceType, setSourceType] = React.useState('No file loaded');
-  const [suggestedImportTarget, setSuggestedImportTarget] = React.useState('Mixed / Multiple record types');
-  const [importTarget, setImportTarget] = React.useState('Mixed / Multiple record types');
+  const [suggestedImportTarget, setSuggestedImportTarget] = React.useState('Mixed / Let Opriva classify rows');
+  const [importTarget, setImportTarget] = React.useState('Mixed / Let Opriva classify rows');
   const [importError, setImportError] = React.useState('');
   const [importResult, setImportResult] = React.useState(null);
   const [recordEdits, setRecordEdits] = React.useState({});
@@ -3766,7 +3773,7 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
           ['Workbook', fileName || 'No file selected'],
           ['Sheet', selectedSheet || '-'],
           ['Detected source', sourceType],
-          ['Suggested target', suggestedImportTarget],
+          ['Suggested records', suggestedImportTarget],
           ['Rows parsed', String(rowObjects.length)]
         ].map(function(item) {
           return <div key={item[0]} style={{border:'1px solid #EEF2F7',borderRadius:10,padding:'10px 12px',background:'#FAFCFF'}}>
@@ -3778,17 +3785,18 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
       {headers.length > 0 && <div style={{border:'1px solid #DDEFEA',borderRadius:12,background:'#F6FEFC',padding:'12px 14px',display:'grid',gap:10}}>
         <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}>
           <div style={{minWidth:220,flex:'1 1 320px'}}>
-            <strong style={{display:'block',fontSize:14,color:'#0B1F3A',marginBottom:4}}>Import target</strong>
-            <span style={{display:'block',fontSize:12,color:'#64748B',lineHeight:1.45}}>Mappings are suggested based on workspace mode, detected source, and selected import target. You can adjust them before creating records.</span>
+            <strong style={{display:'block',fontSize:14,color:'#0B1F3A',marginBottom:4}}>Records to create</strong>
+            <span style={{display:'block',fontSize:12,color:'#64748B',lineHeight:1.45}}>Opriva detected the file type, but you choose what records will be created. Assets & Renewals will include any created record with a renewal, expiration, warranty, support, certificate or contract date.</span>
           </div>
           <div style={{display:'grid',gap:5,flex:'0 1 320px'}}>
-            <label style={{fontSize:11,fontWeight:800,color:'#64748B',textTransform:'uppercase',letterSpacing:'.06em'}}>Confirm or override target</label>
+            <label style={{fontSize:11,fontWeight:800,color:'#64748B',textTransform:'uppercase',letterSpacing:'.06em'}}>Records to create</label>
             <select value={importTarget} onChange={function(e) { setImportTarget(e.target.value); setImportResult(null); }} style={{border:'1px solid #CDEDE5',borderRadius:10,padding:'9px 10px',fontWeight:750,color:'#132033',background:'#fff'}}>
               {IMPORT_TARGET_OPTIONS.map(function(target) { return <option key={target} value={target}>{target}</option>; })}
             </select>
-            <span style={{fontSize:11,color:'#64748B'}}>Suggested from source: {suggestedImportTarget}. Workspace mode: {workspaceMode}.</span>
+            <span style={{fontSize:11,color:'#64748B'}}>Detected source is informational: {sourceType}. Suggested records: {suggestedImportTarget}. Workspace mode: {workspaceMode}.</span>
           </div>
         </div>
+        <span style={{fontSize:12,color:'#0F766E',lineHeight:1.45}}>Mappings are suggested based on workspace mode, detected source, and selected record type. You can adjust them before creating records.</span>
       </div>}
       {sheetNames.length > 1 && <div style={{display:'flex',alignItems:'center',gap:10}}>
         <label style={{fontSize:12,fontWeight:800,color:'#64748B'}}>Choose sheet</label>
@@ -3848,7 +3856,7 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
               <span style={{display:'block',fontSize:12,color:'#64748B',lineHeight:1.45}}>Use defaults to enrich many imported records at once. You can still review individual rows when something needs correction.</span>
             </div>
             <div style={{border:'1px solid #CDEDE5',borderRadius:999,padding:'5px 9px',fontSize:11,fontWeight:800,color:'#0F766E',background:'#fff'}}>
-              Target: {importTarget}
+              Records: {importTarget}
             </div>
           </div>
           <div style={{display:'grid',gridTemplateColumns:'repeat(5,minmax(0,1fr))',gap:10}}>

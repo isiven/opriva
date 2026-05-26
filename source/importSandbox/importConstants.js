@@ -40,13 +40,10 @@ export const IMPORT_SKIP_HEADERS = [
 ];
 
 export const IMPORT_TARGET_OPTIONS = [
-  'Renewal Package',
   'Licenses',
-  'Hardware',
+  'Hardware / Warranty',
   'Contracts / Support Coverage',
-  'Clients / Departments',
-  'Vendors / Providers',
-  'Documents Metadata',
-  'Tasks',
-  'Mixed / Multiple record types'
+  'Certificates / SSL',
+  'Renewal Package / Bundle',
+  'Mixed / Let Opriva classify rows'
 ];

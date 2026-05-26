@@ -1021,9 +1021,25 @@ function getDetailField(record, ...names) {
   return '';
 }
 
-function buildEditForm(record, fieldSpecs) {
+function normalizeEditDateInput(value) {
+  if (!value || value === '-') return '';
+  var normalized = normalizeImportDate(value);
+  return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : '';
+}
+
+function resolveEditSelectValue(value, fieldSpec, workspaceMode) {
+  if (!value || value === '-') return '';
+  var options = fieldSpec.source ? resolveFieldOptions(fieldSpec.source, workspaceMode) : (fieldSpec.options || []);
+  var match = options.find(function(option) {
+    return String(option).toLowerCase() === String(value).toLowerCase();
+  });
+  return match || value;
+}
+
+function buildEditForm(record, fieldSpecs, workspaceMode) {
   const cols = record.columns || [];
   const row  = record.row || [];
+  const meta = record.meta || {};
   const get = (...names) => {
     for (const n of names) {
       const idx = cols.findIndex(c => c.toLowerCase() === n.toLowerCase());
@@ -1031,21 +1047,27 @@ function buildEditForm(record, fieldSpecs) {
     }
     return '';
   };
-  const stripDollar = v => v ? v.replace(/[$,]/g, '') : '';
+  const getMeta = (...names) => {
+    for (const n of names) {
+      if (meta[n] !== undefined && meta[n] !== null && meta[n] !== '' && meta[n] !== '-') return String(meta[n]);
+    }
+    return '';
+  };
+  const stripDollar = v => v ? importMoney(v) : '';
   const stripPct    = v => v ? v.replace(/%/g, '').trim() : '';
   const stripRisk   = v => v ? v.replace(/ risk$/i, '').trim() : '';
   const prefill = {};
   fieldSpecs.forEach(f => {
     switch (f.key) {
-      case 'name':           prefill[f.key] = get('License / Product','Asset','Contract','Contract Name','Document Name','Name','Product'); break;
-      case 'client':         prefill[f.key] = get('Client','Department','Client / Department'); break;
-      case 'brand':          prefill[f.key] = get('Brand','Vendor'); break;
-      case 'provider':       prefill[f.key] = get('Provider','Provider / Distributor'); break;
-      case 'distributor':    prefill[f.key] = get('Distributor'); break;
+      case 'name':           prefill[f.key] = getMeta('productLicenseName','displayName') || get('License / Product','Asset','Contract','Contract Name','Document Name','Name','Product'); break;
+      case 'client':         prefill[f.key] = getMeta('clientDepartment') || get('Client','Department','Client / Department'); break;
+      case 'brand':          prefill[f.key] = getMeta('brandManufacturer') || get('Brand','Vendor'); break;
+      case 'provider':       prefill[f.key] = getMeta('providerDistributor') || get('Provider','Provider / Distributor','Distributor'); break;
+      case 'distributor':    prefill[f.key] = getMeta('providerDistributor') || get('Distributor','Provider / Distributor','Provider'); break;
       case 'type':           prefill[f.key] = get('Type'); break;
       case 'model':          prefill[f.key] = get('Model'); break;
       case 'serial':         prefill[f.key] = get('Serial'); break;
-      case 'owner':          prefill[f.key] = get('Owner','Renewal Owner'); break;
+      case 'owner':          prefill[f.key] = getMeta('owner') || get('Owner','Renewal Owner'); break;
       case 'uploadedBy':     prefill[f.key] = get('Uploaded by'); break;
       case 'version':        prefill[f.key] = get('Version'); break;
       case 'access':         prefill[f.key] = get('Access'); break;
@@ -1053,14 +1075,15 @@ function buildEditForm(record, fieldSpecs) {
       case 'relatedRecord':  prefill[f.key] = get('Linked record'); break;
       case 'warrantyEnd':    prefill[f.key] = get('Warranty end'); break;
       case 'support':        prefill[f.key] = get('Support'); break;
-      case 'seats':          prefill[f.key] = get('Quantity','Users / Seats'); break;
-      case 'renewalDate':    prefill[f.key] = get('Expiration / Renewal Date','Expiration','Renewal','Renewal Type'); break;
+      case 'seats':          prefill[f.key] = getMeta('quantitySeats') || get('Quantity','Users / Seats','Quantity / Seats'); break;
+      case 'renewalDate':    prefill[f.key] = normalizeEditDateInput(getMeta('expirationRenewalDate') || get('Expiration / Renewal Date','Expiration','Renewal','Renewal Type')); break;
       case 'noticePeriod':   prefill[f.key] = get('Notice'); break;
-      case 'contractValue':  prefill[f.key] = stripDollar(get('Value','Annual Value')); break;
+      case 'contractValue':  prefill[f.key] = stripDollar(getMeta('commercialValue') || get('Value','Annual Value','Sale Price / Annual Value')); break;
+      case 'annualCost':     prefill[f.key] = stripDollar(getMeta('commercialValue') || get('Annual Cost','Value')); break;
       case 'margin':         prefill[f.key] = stripPct(get('Margin')); break;
-      case 'systemStatus':   prefill[f.key] = calcExpirationState(get('Expiration / Renewal Date','Expiration','Renewal','Renewal Type'), get('Alert Policy'), get('Custom Reminder Days')).systemStatus; break;
-      case 'daysToExpiration': prefill[f.key] = calcExpirationState(get('Expiration / Renewal Date','Expiration','Renewal','Renewal Type'), get('Alert Policy'), get('Custom Reminder Days')).daysToExpiration; break;
-      case 'alertPolicy':    prefill[f.key] = get('Alert Policy') || 'Workspace default'; break;
+      case 'systemStatus':   prefill[f.key] = calcExpirationState(getMeta('expirationRenewalDate') || get('Expiration / Renewal Date','Expiration','Renewal','Renewal Type'), getMeta('alertPolicy') || get('Alert Policy'), get('Custom Reminder Days')).systemStatus; break;
+      case 'daysToExpiration': prefill[f.key] = calcExpirationState(getMeta('expirationRenewalDate') || get('Expiration / Renewal Date','Expiration','Renewal','Renewal Type'), getMeta('alertPolicy') || get('Alert Policy'), get('Custom Reminder Days')).daysToExpiration; break;
+      case 'alertPolicy':    prefill[f.key] = getMeta('alertPolicy') || get('Alert Policy') || 'Workspace default'; break;
       case 'customReminderDays': prefill[f.key] = get('Custom Reminder Days'); break;
       case 'renewalStage':   prefill[f.key] = get('Renewal Stage'); break;
       case 'approvalStatus': prefill[f.key] = get('Legal status','Approval Status','Approval status'); break;
@@ -1068,14 +1091,15 @@ function buildEditForm(record, fieldSpecs) {
       case 'documentStatus': prefill[f.key] = get('Document','Legal status'); break;
       case 'status':         prefill[f.key] = get('Status'); break;
       case 'riskLevel':      prefill[f.key] = stripRisk(get('Risk')); break;
-      case 'startDate':      prefill[f.key] = get('Start Date'); break;
-      case 'licenseTerm':    prefill[f.key] = get('License Term'); break;
-      case 'cost':           prefill[f.key] = stripDollar(get('Cost')); break;
+      case 'startDate':      prefill[f.key] = normalizeEditDateInput(getMeta('startDate') || get('Start Date')); break;
+      case 'licenseTerm':    prefill[f.key] = getMeta('licenseTerm') || get('License Term'); break;
+      case 'cost':           prefill[f.key] = stripDollar(getMeta('vendorCost') || get('Cost','Vendor Cost')); break;
       case 'marginDollar':   prefill[f.key] = stripDollar(get('Margin $')); break;
       case 'relatedLicense': prefill[f.key] = get('Related License / Product'); break;
       case 'relatedContract':prefill[f.key] = get('Related Contract'); break;
       default:               prefill[f.key] = ''; break;
     }
+    if (f.type === 'select') prefill[f.key] = resolveEditSelectValue(prefill[f.key], f, workspaceMode);
   });
   return prefill;
 }
@@ -2095,10 +2119,17 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
                     : f.type === 'computed'
                       ? <input type="text" value={formatComputedField(f.key, editForm[f.key])} readOnly placeholder="Calculated" style={{...fieldStyle,background:'#F0F4F8',color:editForm[f.key]?'#0F766E':'#94A3B8',cursor:'default'}}/>
                     : f.type === 'select'
-                      ? <select value={editForm[f.key]||''} onChange={e => handleEditField(f.key, e.target.value)} style={{...fieldStyle,cursor:'pointer',color:editForm[f.key]?'#132033':'#94A3B8'}}>
-                          <option value="">Select...</option>
-                          {(f.source ? resolveFieldOptions(f.source, workspaceMode) : (f.options||[])).map(o => <option key={o} value={o}>{o}</option>)}
-                        </select>
+                      ? (() => {
+                          const currentValue = editForm[f.key] || '';
+                          const baseOptions = f.source ? resolveFieldOptions(f.source, workspaceMode) : (f.options || []);
+                          const selectOptions = currentValue && !baseOptions.some(o => String(o) === String(currentValue))
+                            ? [currentValue].concat(baseOptions)
+                            : baseOptions;
+                          return <select value={currentValue} onChange={e => handleEditField(f.key, e.target.value)} style={{...fieldStyle,cursor:'pointer',color:currentValue?'#132033':'#94A3B8'}}>
+                            <option value="">Select...</option>
+                            {selectOptions.map(o => <option key={o} value={o}>{o}</option>)}
+                          </select>;
+                        })()
                       : <input type={f.type||'text'} value={editForm[f.key]||''} onChange={e => handleEditField(f.key, e.target.value)} style={fieldStyle}/>
                   }
                   {editErrors[f.key] && <span style={errStyle}>{editErrors[f.key]}</span>}
@@ -2471,7 +2502,7 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
               </>
             : <>
                 {selectedRecord.moduleKey === moduleKey && (
-                  <button style={{...detailActionBtn,borderColor:'#0D9488',color:'#0D9488'}} onClick={() => { setEditForm(buildEditForm(selectedRecord, fieldSpecs)); setEditErrors({}); setEditMode(true); }}>Edit record</button>
+                  <button style={{...detailActionBtn,borderColor:'#0D9488',color:'#0D9488'}} onClick={() => { setEditForm(buildEditForm(selectedRecord, fieldSpecs, workspaceMode)); setEditErrors({}); setEditMode(true); }}>Edit record</button>
                 )}
                 <button style={detailActionBtn} title="Assign owner - coming next">Assign owner</button>
               </>
@@ -3162,7 +3193,9 @@ function buildImportLicenseRecord(rowObj, mappings, workspaceMode, sourceType, r
   var provider = edit.providerDistributor || getMappedImportValue(rowObj, mappings, 'Provider / Distributor') || '-';
   var resellerPartner = edit.resellerPartner || getMappedImportValue(rowObj, mappings, 'Reseller / Partner');
   var quantity = edit.quantitySeats || getMappedImportValueAny(rowObj, mappings, ['Quantity / Seats','Quantity']) || '-';
+  var startDate = normalizeImportDate(edit.startDate || getMappedImportValue(rowObj, mappings, 'Start Date'));
   var renewalDate = normalizeImportDate(edit.expirationRenewalDate || getMappedImportValue(rowObj, mappings, 'Expiration / Renewal Date'));
+  var licenseTerm = edit.licenseTerm || getMappedImportValue(rowObj, mappings, 'License Term');
   var contractNumber = edit.contractNumber || getMappedImportValue(rowObj, mappings, 'Contract Number');
   var orderReference = edit.orderReference || getMappedImportValue(rowObj, mappings, 'PO / Order Reference');
   var invoiceDate = normalizeImportDate(edit.invoiceDate || getMappedImportValue(rowObj, mappings, 'Invoice Date'));
@@ -3221,7 +3254,9 @@ function buildImportLicenseRecord(rowObj, mappings, workspaceMode, sourceType, r
       orderReference: orderReference,
       invoiceDate: invoiceDate,
       invoiceReference: invoiceReference,
-      resellerPartner: resellerPartner
+      resellerPartner: resellerPartner,
+      startDate: startDate,
+      licenseTerm: licenseTerm
     }
   };
   return withImportRecordMeta(record, 'licenses', {
@@ -3236,6 +3271,8 @@ function buildImportLicenseRecord(rowObj, mappings, workspaceMode, sourceType, r
     vendorCost: vendorCost,
     owner: owner,
     alertPolicy: alertPolicy,
+    startDate: startDate,
+    licenseTerm: licenseTerm,
     contractNumber: contractNumber,
     orderReference: orderReference
   }, importContext || {});

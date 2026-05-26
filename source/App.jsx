@@ -1,4 +1,18 @@
 import * as XLSX from 'xlsx';
+import {
+  DOC_TYPE_OPTIONS,
+  LICENSE_ALERT_POLICY_OPTIONS,
+  LICENSE_TERM_OPTIONS,
+  SUPPORT_ALERT_POLICY_OPTIONS,
+  SUPPORT_COVERAGE_NAME_OPTIONS,
+  SUPPORT_COVERAGE_TYPE_OPTIONS,
+  TASK_PRIORITY_OPTIONS,
+  TASK_STATUS_OPTIONS,
+} from './constants/formOptions.js';
+import { calcExpirationState, suggestRenewalDate } from './utils/dates.js';
+import { autoFillDocName, extractFileMetadata, fmtFileSize, fmtUploadedAt } from './utils/files.js';
+import { calcMargin } from './utils/money.js';
+import { asArray, cx, riskClass, safeText } from './utils/text.js';
 
 function useViewport(){
   const [vp, setVp] = React.useState('desktop');
@@ -271,11 +285,6 @@ const AI_CONTEXTS = {
 };
 
 const AI_WORKFLOWS = ['90-day renewal review','Missing owner cleanup','Missing documents cleanup','Client meeting brief','Executive report generator','Contract review','Import mapping assistant','Renewal follow-up drafts'];
-function cx(...values){ return values.filter(Boolean).join(' '); }
-function asArray(data){ return Array.isArray(data) ? data : []; }
-function safeText(value, fallback='Not specified'){ return value || fallback; }
-function riskClass(value){ const v = String(value || '').toLowerCase(); return v.includes('critical') || v.includes('urgent') ? 'critical' : v.includes('high') || v.includes('approval') || v.includes('blocked') || v.includes('failed') || v.includes('unassigned') || v.includes('needs assignment') ? 'high' : v.includes('review') ? 'review' : v.includes('medium') || v.includes('warning') ? 'medium' : 'low'; }
-function initials(name){ return String(name || 'Opriva').split(/\s+/).filter(Boolean).slice(0,2).map(x => x[0] || '').join('').toUpperCase() || 'OP'; }
 
 function Badge({ children, tone }){ const badgeTone = riskClass(tone || children); return <span className={cx('badge', badgeTone)}>{safeText(children)}</span>; }
 function EmptyState({ title, message, action }){ return <div className="stateBox emptyState" role="status"><strong>{title || 'No records found'}</strong><span>{message || 'Adjust filters or create a new record to continue.'}</span>{action && <button>{action}</button>}</div>; }
@@ -601,41 +610,6 @@ function getProductByName(name) {
   return MASTER_DATA.products.find(function(p) { return p.name === name; }) || null;
 }
 
-function calcMargin(annualValue, cost) {
-  var val = parseFloat(annualValue);
-  var cst = parseFloat(cost);
-  if (!annualValue || !cost || isNaN(val) || isNaN(cst) || val === 0) return { marginDollar: '', margin: '' };
-  var dollar = val - cst;
-  var pct = ((dollar / val) * 100).toFixed(1);
-  return { marginDollar: dollar.toFixed(2), margin: pct };
-}
-
-function getAlertThresholdDays(alertPolicy, customReminderDays) {
-  if (alertPolicy === '90 / 60 / 30 days') return 90;
-  if (alertPolicy === '60 / 30 / 7 days') return 60;
-  if (alertPolicy === '30 / 7 / 1 days') return 30;
-  if (alertPolicy === 'Custom') {
-    var values = String(customReminderDays || '').split(',').map(function(part) {
-      return parseInt(part.trim(), 10);
-    }).filter(function(n) { return !isNaN(n) && n >= 0; });
-    return values.length ? Math.max.apply(null, values) : 30;
-  }
-  return 30;
-}
-
-function calcExpirationState(expirationDate, alertPolicy, customReminderDays) {
-  if (!expirationDate) return { systemStatus: 'Pending date', daysToExpiration: '' };
-  var exp = new Date(expirationDate + 'T00:00:00');
-  if (isNaN(exp.getTime())) return { systemStatus: 'Pending date', daysToExpiration: '' };
-  var today = new Date();
-  today.setHours(0, 0, 0, 0);
-  var days = Math.ceil((exp.getTime() - today.getTime()) / 86400000);
-  var threshold = getAlertThresholdDays(alertPolicy, customReminderDays);
-  var systemStatus = days < 0 ? 'Expired' : days <= threshold ? 'Expiring soon' : 'Active';
-  var daysLabel = days < 0 ? (Math.abs(days) + ' days overdue') : (days + (days === 1 ? ' day' : ' days'));
-  return { systemStatus: systemStatus, daysToExpiration: daysLabel };
-}
-
 function applyLicenseComputedFields(next) {
   var calc = calcMargin(next.contractValue, next.cost);
   next.marginDollar = calc.marginDollar;
@@ -644,17 +618,6 @@ function applyLicenseComputedFields(next) {
   next.systemStatus = expirationState.systemStatus;
   next.daysToExpiration = expirationState.daysToExpiration;
   return next;
-}
-
-function suggestRenewalDate(startDate, licenseTerm) {
-  if (!startDate || !licenseTerm || licenseTerm === 'Custom') return '';
-  var termYears = { '1 year': 1, '2 years': 2, '3 years': 3, '5 years': 5 };
-  var yrs = termYears[licenseTerm];
-  if (!yrs) return '';
-  var d = new Date(startDate);
-  if (isNaN(d.getTime())) return '';
-  d.setFullYear(d.getFullYear() + yrs);
-  return d.toISOString().slice(0, 10);
 }
 
 const RECORD_STORE = {
@@ -1014,15 +977,6 @@ function getImportedDashboardPriorityRows(workspaceMode) {
   return licenses.concat(hardware).concat(contracts).slice(0, 5);
 }
 
-const DOC_TYPE_OPTIONS = [
-  'Vendor Quote','Client Proposal','Purchase Order','Invoice',
-  'License Entitlement','Signed Contract','Warranty Document',
-  'Support Evidence','Compliance Evidence','Legal Document','Other',
-];
-const LICENSE_ALERT_POLICY_OPTIONS = ['Workspace default','90 / 60 / 30 days','60 / 30 / 7 days','30 / 7 / 1 days','Custom'];
-const LICENSE_TERM_OPTIONS = ['1 year','2 years','3 years','5 years','Custom'];
-const LICENSE_RENEWAL_STAGE_OPTIONS = ['Not started','In review','Quote requested','Proposal sent','Waiting for client','Approved','Renewed','Cancelled'];
-
 const NEW_RECORD_FIELDS = {
   Licenses: [
     { key: 'name',          label: 'License / Product',      required: true,  type: 'select', source: 'products' },
@@ -1281,37 +1235,6 @@ function buildNewRow(form, safeColumns) {
   return safeColumns.map(col => (map[col] !== undefined && map[col] !== '') ? map[col] : '-');
 }
 
-function fmtFileSize(bytes) {
-  if (!bytes || bytes === 0) return '';
-  if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
-  return (bytes / 1048576).toFixed(1) + ' MB';
-}
-
-function fmtUploadedAt(isoStr) {
-  if (!isoStr) return '';
-  try { return new Date(isoStr).toLocaleDateString('en-US', {year:'numeric',month:'long',day:'numeric'}); }
-  catch(e) { return isoStr.slice(0,10); }
-}
-
-function autoFillDocName(rawFileName) {
-  return rawFileName
-    .replace(/\.[^.]+$/, '')    // strip extension
-    .replace(/[_-]+/g, ' ')    // underscores / hyphens → spaces
-    .trim();
-}
-
-function extractFileMetadata(file) {
-  return {
-    filePick:         file.name,
-    fileName:         file.name,
-    fileType:         file.type || '',
-    fileSize:         file.size || 0,
-    fileLastModified: file.lastModified || 0,
-    uploadedAt:       new Date().toISOString(),
-  };
-}
-
 const ATTACH_DOC_FIELDS = [
   { key: 'filePick',   label: 'Attach file',    required: true, type: 'file' },
   { key: 'name',       label: 'Document Name',  required: true },
@@ -1319,22 +1242,6 @@ const ATTACH_DOC_FIELDS = [
   { key: 'uploadedBy', label: 'Uploaded By',    required: true, type: 'select', source: 'users' },
   { key: 'notes',      label: 'Notes',          multi: true },
 ];
-
-const SUPPORT_COVERAGE_TYPE_OPTIONS = [
-  'Vendor Support','Manufacturer Warranty','Extended Warranty',
-  'Managed Support','SLA','Maintenance Agreement','Other',
-];
-const SUPPORT_ALERT_POLICY_OPTIONS = [
-  'Workspace default','90 / 60 / 30 days','60 / 30 / 7 days','30 / 7 / 1 days','Custom',
-];
-const SUPPORT_COVERAGE_NAME_OPTIONS = [
-  'Nextcom Gold Support','Nextcom Silver Support','Nextcom Bronze Support',
-  'Vendor Support','Manufacturer Warranty','Extended Warranty',
-  'Managed Support','SLA Coverage','Other / Custom',
-];
-
-const TASK_PRIORITY_OPTIONS = ['Low','Medium','High','Critical'];
-const TASK_STATUS_OPTIONS   = ['Open','In progress','Waiting','Done'];
 
 function getTaskTypeOptions(workspaceMode) {
   return workspaceMode === 'Internal IT'

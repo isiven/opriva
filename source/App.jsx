@@ -15,6 +15,7 @@ import { calcMargin } from './utils/money.js';
 import { asArray, cx, riskClass, safeText } from './utils/text.js';
 import { getImportSandboxRecords, getLocalStoreRecords, getModuleClientDeptIndex, getModuleColumns, getRecordCell, isLocalStoreRecord } from './store/recordSelectors.js';
 import { createRecordId, RECORD_STORE, toRecords } from './store/recordStore.js';
+import { addActivityEvent } from './store/activityStore.js';
 
 function useViewport(){
   const [vp, setVp] = React.useState('desktop');
@@ -639,25 +640,6 @@ function ensureModuleRecordsLoaded(moduleKey, workspaceMode) {
   if (Array.isArray(RECORD_STORE[moduleKey]) && RECORD_STORE[moduleKey].length > 0) return;
   var rows = getModuleMockRows(moduleKey, workspaceMode);
   if (rows.length > 0) RECORD_STORE[moduleKey] = toRecords(rows, moduleKey, { workspaceMode: workspaceMode });
-}
-
-// ---------------------------------------------------------------------------
-// Activity log — local/session only. No backend, no persistence.
-// ---------------------------------------------------------------------------
-// Pushes one structured event to RECORD_STORE.activity.
-// All handlers that represent auditable user actions should call this.
-// The Activity tab in each record drawer reads RECORD_STORE.activity and
-// filters by sourceRecordId or relatedRecordId at render time.
-// ---------------------------------------------------------------------------
-function addActivityEvent(event) {
-  if (!Array.isArray(RECORD_STORE.activity)) RECORD_STORE.activity = [];
-  var ev = Object.assign({}, event, {
-    id:        'act-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
-    actor:     event.actor || 'Current user',
-    createdAt: event.createdAt || new Date().toISOString(),
-  });
-  RECORD_STORE.activity.push(ev);
-  return ev;
 }
 
 function summarizeImportedRecordValue(records) {

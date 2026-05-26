@@ -26,6 +26,10 @@ import {
   tasksInternalIT,
   tasksMsp,
 } from './data/demoSeedData.js';
+import { IMPORT_CANONICAL_FIELDS, IMPORT_TARGET_OPTIONS } from './importSandbox/importConstants.js';
+import { createImportMappings, getMappedImportValue, getMappedImportValueAny } from './importSandbox/importMapping.js';
+import { detectImportTarget, suggestImportTargetFromSource } from './importSandbox/importTargets.js';
+import { detectImportSourceType, normalizeImportText } from './importSandbox/importText.js';
 import { calcExpirationState, suggestRenewalDate } from './utils/dates.js';
 import { autoFillDocName, extractFileMetadata, fmtFileSize, fmtUploadedAt } from './utils/files.js';
 import { calcMargin } from './utils/money.js';
@@ -3136,124 +3140,6 @@ function ReportsScreen({ workspaceMode = 'MSP / Integrator' }){
   return <main className="content"><ScreenHeader active="Reports" subtitle={reportsSubtitle}><button>Schedule report</button><button className="primary">Generate report</button></ScreenHeader><section className="split"><article className="panel wide"><div className="panelTitle"><h2>Report templates</h2><span>{importedReportCount > 0 ? 'Showing local sandbox records. Demo data is used only when no local records exist.' : 'Operational, executive and governance-ready templates'}</span></div><Table columns={['Template','Type','Audience','Owner','Cadence','Status']} rows={reportRows}/></article><aside className="panel"><div className="panelTitle"><h2>Export center</h2><span>Controlled outputs with history</span></div><div className="actionStack">{exportButtons.map(label=><button key={label}>{label}</button>)}<button disabled aria-disabled="true">Export selected rows</button></div><div className="miniState loadingState" role="status"><span className="spinner"/>Report generation queued for executive renewal brief.</div><ErrorState title="Failed report generation" message="The governance export timed out. Retry generation or contact support with the report ID." /></aside></section><section className="panel"><div className="panelTitle"><h2>Scheduled and generated reports</h2><span>Recurring packs and recent outputs</span></div><Table columns={['Report','Schedule','Last generated','Recipients','Next run','Governance status']} rows={scheduledRows}/></section></main>;
 }
 
-const IMPORT_CANONICAL_FIELDS = [
-  'Client / Department',
-  'License / Product',
-  'Product / License Name',
-  'Asset Name',
-  'Brand',
-  'Brand / Manufacturer',
-  'Provider / Distributor',
-  'Reseller / Partner',
-  'Quantity',
-  'Quantity / Seats',
-  'Entitlement Metric',
-  'Start Date',
-  'Expiration / Renewal Date',
-  'Contract Number',
-  'PO / Order Reference',
-  'Source Status / Vendor Status',
-  'Support',
-  'Billing Cycle',
-  'License Term',
-  'Annual Value / Annual Cost',
-  'Sale Price / Annual Value',
-  'Vendor Cost',
-  'Invoice Date',
-  'Invoice / Billing Reference',
-  'Serial Number',
-  'Warranty End Date',
-  'Purchase Date',
-  'Notes'
-];
-
-const IMPORT_SKIP_HEADERS = [
-  'days before expiration',
-  'remaining days',
-  'system status',
-  'risk',
-  'margin',
-  'margin $',
-  'margin %'
-];
-
-const IMPORT_TARGET_OPTIONS = [
-  'Renewal Package',
-  'Licenses',
-  'Hardware',
-  'Contracts / Support Coverage',
-  'Clients / Departments',
-  'Vendors / Providers',
-  'Documents Metadata',
-  'Tasks',
-  'Mixed / Multiple record types'
-];
-
-function normalizeImportText(value) {
-  return String(value || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9#]+/g, ' ')
-    .trim();
-}
-
-function normalizedIncludes(headers, expected) {
-  var set = headers.map(normalizeImportText);
-  return set.indexOf(normalizeImportText(expected)) >= 0;
-}
-
-function detectImportSourceType(headers) {
-  if (normalizedIncludes(headers, 'Subscription End Date') && normalizedIncludes(headers, 'Offer Name') && normalizedIncludes(headers, 'Customer Domain')) return 'Microsoft CSP';
-  if (normalizedIncludes(headers, 'Con. End Date') && normalizedIncludes(headers, 'Support') && normalizedIncludes(headers, 'Contract status')) return 'Veeam Renewal Export';
-  if (normalizedIncludes(headers, 'Clase de artículo') && normalizedIncludes(headers, 'Serial') && normalizedIncludes(headers, 'Fecha de la transacción')) return 'Hardware Sales Export';
-  if (normalizedIncludes(headers, 'OC Partner') && normalizedIncludes(headers, 'Vencimiento Licencia') && normalizedIncludes(headers, 'Monto Total')) return 'Commercial Renewal Package';
-  return 'Unknown source';
-}
-
-function suggestImportField(header) {
-  var normalized = normalizeImportText(header);
-  if (!normalized) return { target: '', action: 'Skip', reason: 'Empty source column' };
-  if (IMPORT_SKIP_HEADERS.indexOf(normalized) >= 0 || normalized.indexOf('days before expiration') >= 0 || normalized.indexOf('remaining days') >= 0) {
-    return { target: '', action: 'Skip', reason: 'Calculated by Opriva' };
-  }
-  var direct = [
-    [['customer','customer name','cliente','client','department','departamento','customer domain'], 'Client / Department'],
-    [['product','offer name','offer friendly name','nombre completo del producto servicio','license','licencia','item','description'], 'Product / License Name'],
-    [['asset','asset name','equipo','hardware','nombre equipo'], 'Asset Name'],
-    [['brand','marca','manufacturer','fabricante'], 'Brand / Manufacturer'],
-    [['distributor','distribuidor','provider','partner','supplier','proveedor'], 'Provider / Distributor'],
-    [['reseller','reventa','reseller partner','partner reseller','partner name'], 'Reseller / Partner'],
-    [['quantity','cantidad','licenses #','users #','sockets #','vms #','servers #','workstations #','volume','qty','seats'], 'Quantity / Seats'],
-    [['entitlement metric','metric','metrica'], 'Entitlement Metric'],
-    [['con start date','subscription start date','start date','fecha inicio'], 'Start Date'],
-    [['con end date','subscription end date','end date','vencimiento licencia','expiration date','renewal date','fecha vencimiento'], 'Expiration / Renewal Date'],
-    [['con number','contract number','contrato'], 'Contract Number'],
-    [['po number','order id','# oc','oc partner','numero','número','order reference'], 'PO / Order Reference'],
-    [['contract status','subscription status','status','estado'], 'Source Status / Vendor Status'],
-    [['support','soporte'], 'Support'],
-    [['billing cycle','ciclo facturacion','billing'], 'Billing Cycle'],
-    [['license term','term','periodo','termino'], 'License Term'],
-    [['annual value','annual cost','monto total','value','amount','importe','sale price','precio venta'], 'Sale Price / Annual Value'],
-    [['vendor cost','cost','costo','purchase cost'], 'Vendor Cost'],
-    [['invoice date','fecha factura','billing date','fecha facturacion','fecha facturación'], 'Invoice Date'],
-    [['invoice','invoice number','billing reference','billing ref','referencia factura','factura'], 'Invoice / Billing Reference'],
-    [['serial','serial number','serie'], 'Serial Number'],
-    [['warranty end','warranty end date','fecha fin garantia','fecha fin garantía'], 'Warranty End Date'],
-    [['purchase date','fecha de la transaccion','fecha de la transacción','transaction date'], 'Purchase Date'],
-    [['notes','note','observaciones','comments','comentarios'], 'Notes']
-  ];
-  for (var i = 0; i < direct.length; i += 1) {
-    if (direct[i][0].indexOf(normalized) >= 0) return { target: direct[i][1], action: 'Import', reason: 'Header match' };
-  }
-  if (normalized.indexOf('end date') >= 0 || normalized.indexOf('vencimiento') >= 0) return { target: 'Expiration / Renewal Date', action: 'Import', reason: 'Date keyword match' };
-  if (normalized.indexOf('start date') >= 0 || normalized.indexOf('inicio') >= 0) return { target: 'Start Date', action: 'Import', reason: 'Date keyword match' };
-  if (normalized.indexOf('serial') >= 0) return { target: 'Serial Number', action: 'Import', reason: 'Serial keyword match' };
-  if (normalized.indexOf('support') >= 0 || normalized.indexOf('soporte') >= 0) return { target: 'Support', action: 'Import', reason: 'Support keyword match' };
-  if (normalized.indexOf('margin') >= 0 || normalized.indexOf('margen') >= 0) return { target: '', action: 'Skip', reason: 'Calculated by Opriva' };
-  return { target: '', action: 'Review', reason: 'Needs user review' };
-}
-
 function getImportSheetData(workbook, sheetName) {
   var sheet = workbook && workbook.Sheets ? workbook.Sheets[sheetName] : null;
   if (!sheet) return { headers: [], rows: [], rowObjects: [] };
@@ -3275,36 +3161,6 @@ function getImportSheetData(workbook, sheetName) {
     return obj;
   });
   return { headers: headers, rows: rows, rowObjects: rowObjects };
-}
-
-function createImportMappings(headers, rowObjects) {
-  return headers.map(function(header, index) {
-    var suggestion = suggestImportField(header);
-    var sampleRow = (rowObjects || []).find(function(row) { return row[header]; }) || {};
-    return {
-      sourceColumn: header,
-      suggestedField: suggestion.target,
-      action: suggestion.action,
-      sampleValue: sampleRow[header] || '',
-      reason: suggestion.reason,
-      index: index
-    };
-  });
-}
-
-function getMappedImportValue(rowObj, mappings, targetField) {
-  var match = (mappings || []).find(function(mapping) {
-    return mapping.action === 'Import' && mapping.suggestedField === targetField;
-  });
-  return match ? (rowObj[match.sourceColumn] || '') : '';
-}
-
-function getMappedImportValueAny(rowObj, mappings, targetFields) {
-  for (var i = 0; i < targetFields.length; i += 1) {
-    var value = getMappedImportValue(rowObj, mappings, targetFields[i]);
-    if (value) return value;
-  }
-  return '';
 }
 
 function buildImportLicenseDisplayName(brand, product, client) {
@@ -3390,48 +3246,6 @@ function formatImportMoney(value) {
   var n = parseFloat(importMoney(value));
   if (isNaN(n)) return '-';
   return '$' + n.toLocaleString();
-}
-
-function suggestImportTargetFromSource(sourceType) {
-  if (sourceType === 'Microsoft CSP') return 'Licenses';
-  if (sourceType === 'Veeam Renewal Export') return 'Licenses';
-  if (sourceType === 'Hardware Sales Export') return 'Hardware';
-  if (sourceType === 'Commercial Renewal Package') return 'Renewal Package';
-  return 'Mixed / Multiple record types';
-}
-
-function importTargetToModule(importTarget) {
-  if (importTarget === 'Licenses') return { moduleKey: 'licenses', label: 'License' };
-  if (importTarget === 'Hardware') return { moduleKey: 'hardware', label: 'Hardware' };
-  if (importTarget === 'Contracts / Support Coverage') return { moduleKey: 'contracts', label: 'Contract / Support Coverage' };
-  if (importTarget === 'Renewal Package') return { moduleKey: 'package', label: 'Renewal Package', review: true, warning: 'Renewal Package import is preview-only in this MVP.' };
-  if (importTarget === 'Clients / Departments') return { moduleKey: 'clients', label: 'Clients / Departments', review: true, warning: 'Clients / Departments import is preview-only in this MVP.' };
-  if (importTarget === 'Vendors / Providers') return { moduleKey: 'vendors', label: 'Vendors / Providers', review: true, warning: 'Vendors / Providers import is preview-only in this MVP.' };
-  if (importTarget === 'Documents Metadata') return { moduleKey: 'documents', label: 'Documents Metadata', review: true, warning: 'Documents Metadata import is preview-only in this MVP.' };
-  if (importTarget === 'Tasks') return { moduleKey: 'tasks', label: 'Tasks', review: true, warning: 'Tasks import is preview-only in this MVP.' };
-  return null;
-}
-
-function detectImportTarget(rowObj, mappings, sourceType, importTarget) {
-  var selectedTarget = importTargetToModule(importTarget);
-  if (selectedTarget) return selectedTarget;
-  if (sourceType === 'Microsoft CSP') return { moduleKey: 'licenses', label: 'License' };
-  if (sourceType === 'Veeam Renewal Export') return { moduleKey: 'licenses', label: 'License' };
-  if (sourceType === 'Commercial Renewal Package') return { moduleKey: 'package', label: 'Renewal Package', review: true, warning: 'Package import is preview-only in this MVP.' };
-  if (sourceType === 'Hardware Sales Export') {
-    var itemClass = Object.keys(rowObj).reduce(function(found, key) {
-      return found || (normalizeImportText(key).indexOf('clase de articulo') >= 0 ? rowObj[key] : '');
-    }, '');
-    var normalizedClass = normalizeImportText(itemClass);
-    if (/(equipos|hardware|qnap|nas)/.test(normalizedClass)) return { moduleKey: 'hardware', label: 'Hardware' };
-    if (/(discos|riel|accessory|component|componente)/.test(normalizedClass)) {
-      return { moduleKey: 'review', label: 'Related Component', review: true, warning: 'Component/accessory rows need review before linking.' };
-    }
-  }
-  if (getMappedImportValue(rowObj, mappings, 'Serial Number') || getMappedImportValue(rowObj, mappings, 'Warranty End Date')) return { moduleKey: 'hardware', label: 'Hardware' };
-  if (getMappedImportValue(rowObj, mappings, 'Contract Number') && getMappedImportValue(rowObj, mappings, 'Expiration / Renewal Date')) return { moduleKey: 'contracts', label: 'Contract / Support Coverage' };
-  if (getMappedImportValue(rowObj, mappings, 'License / Product') || getMappedImportValue(rowObj, mappings, 'Expiration / Renewal Date')) return { moduleKey: 'licenses', label: 'License' };
-  return { moduleKey: 'review', label: 'Review needed', review: true, warning: 'Opriva could not identify a target module.' };
 }
 
 function buildImportLicenseRecord(rowObj, mappings, workspaceMode, sourceType, rowIndex, importContext) {

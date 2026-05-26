@@ -31,6 +31,7 @@ import { buildImportLicenseDisplayName, formatImportMoney, importMoney, normaliz
 import { createImportMappings, getMappedImportValue, getMappedImportValueAny } from './importSandbox/importMapping.js';
 import { detectImportTarget, suggestImportTargetFromSource } from './importSandbox/importTargets.js';
 import { detectImportSourceType, normalizeImportText } from './importSandbox/importText.js';
+import { getImportSheetData } from './importSandbox/workbookParsing.js';
 import { calcExpirationState, suggestRenewalDate } from './utils/dates.js';
 import { autoFillDocName, extractFileMetadata, fmtFileSize, fmtUploadedAt } from './utils/files.js';
 import { calcMargin } from './utils/money.js';
@@ -3139,29 +3140,6 @@ function ReportsScreen({ workspaceMode = 'MSP / Integrator' }){
     ? [['Monthly renewal budget exposure','Monthly','May 1, 2026','Finance, IT Leadership','Jun 1, 2026','Approved'],['CIO risk brief','Weekly','May 6, 2026','CIO, Executive team','May 13, 2026','Draft ready'],['Audit evidence package','On demand','Apr 28, 2026','Compliance','Not scheduled','Export logged']]
     : [['Monthly client renewal exposure','Monthly','May 1, 2026','Finance, Account management','Jun 1, 2026','Approved'],['Board risk brief','Weekly','May 6, 2026','Executive team','May 13, 2026','Draft ready'],['Audit evidence package','On demand','Apr 28, 2026','Compliance','Not scheduled','Export logged']];
   return <main className="content"><ScreenHeader active="Reports" subtitle={reportsSubtitle}><button>Schedule report</button><button className="primary">Generate report</button></ScreenHeader><section className="split"><article className="panel wide"><div className="panelTitle"><h2>Report templates</h2><span>{importedReportCount > 0 ? 'Showing local sandbox records. Demo data is used only when no local records exist.' : 'Operational, executive and governance-ready templates'}</span></div><Table columns={['Template','Type','Audience','Owner','Cadence','Status']} rows={reportRows}/></article><aside className="panel"><div className="panelTitle"><h2>Export center</h2><span>Controlled outputs with history</span></div><div className="actionStack">{exportButtons.map(label=><button key={label}>{label}</button>)}<button disabled aria-disabled="true">Export selected rows</button></div><div className="miniState loadingState" role="status"><span className="spinner"/>Report generation queued for executive renewal brief.</div><ErrorState title="Failed report generation" message="The governance export timed out. Retry generation or contact support with the report ID." /></aside></section><section className="panel"><div className="panelTitle"><h2>Scheduled and generated reports</h2><span>Recurring packs and recent outputs</span></div><Table columns={['Report','Schedule','Last generated','Recipients','Next run','Governance status']} rows={scheduledRows}/></section></main>;
-}
-
-function getImportSheetData(workbook, sheetName) {
-  var sheet = workbook && workbook.Sheets ? workbook.Sheets[sheetName] : null;
-  if (!sheet) return { headers: [], rows: [], rowObjects: [] };
-  var rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
-  var firstDataRow = rawRows.findIndex(function(row) {
-    return Array.isArray(row) && row.some(function(cell) { return String(cell || '').trim(); });
-  });
-  if (firstDataRow < 0) return { headers: [], rows: [], rowObjects: [] };
-  var headers = (rawRows[firstDataRow] || []).map(function(cell, index) {
-    var header = String(cell || '').trim();
-    return header || ('Column ' + (index + 1));
-  });
-  var rows = rawRows.slice(firstDataRow + 1).filter(function(row) {
-    return Array.isArray(row) && row.some(function(cell) { return String(cell || '').trim(); });
-  });
-  var rowObjects = rows.map(function(row) {
-    var obj = {};
-    headers.forEach(function(header, index) { obj[header] = row[index] !== undefined ? String(row[index]).trim() : ''; });
-    return obj;
-  });
-  return { headers: headers, rows: rows, rowObjects: rowObjects };
 }
 
 function inferBrandFromProduct(product, fallbackBrand) {

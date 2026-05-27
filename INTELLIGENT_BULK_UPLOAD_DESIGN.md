@@ -473,6 +473,10 @@ Duplicate detection should identify risks before import and avoid blindly creati
 
 Confirmed imports should create first-class canonical records.
 
+Before record creation, Opriva should detect and stage all meaningful entities found in the file. This includes Client / Company, Department, Contact, Contact Email, Brand / Manufacturer, Product / SKU, Vendor / Provider, Distributor, Reseller / Partner, License, Hardware Asset, Contract, Support Coverage, Renewal Package / Bundle, Document Metadata, Task, Relationship and Activity Event.
+
+Detected entities should be matched against existing canonical records or controlled catalogs using normalized matching: case-insensitive comparison, trimmed/collapsed spaces, safe punctuation tolerance and duplicate-risk warnings. New entities should be staged as candidates such as New Client, New Contact, New Brand, New Product, New Provider, New Contract or New Support Coverage. The user approves these creations before final import.
+
 Possible created entities:
 
 - Clients / Departments
@@ -492,6 +496,10 @@ Possible created entities:
 Sandbox mode:
 
 - Records are created in the central local store.
+- Entity detection may be represented through preview counts, local metadata and relationship staging.
+- Clients/departments may be simulated through local `RECORD_STORE` records.
+- Brands, products, providers, distributors and resellers may be staged as controlled catalog values until backend catalogs exist.
+- Contacts must remain review-only sensitive relationship context unless explicit contact creation is implemented later.
 - Records should appear in relevant modules.
 - Imported records should open in the same drawer as manual records.
 - Activity events can be local session events.
@@ -501,6 +509,8 @@ Backend mode:
 - Record creation must be transactional.
 - Import history must persist.
 - Relationships and activity must persist.
+- Entity match/create decisions must persist.
+- Contacts, brands, products, providers, distributors, resellers, support coverage and package links must be permission-aware and auditable.
 - Failed rows must be auditable and recoverable.
 - Permissions must be enforced.
 

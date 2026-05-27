@@ -739,6 +739,14 @@ Opriva may suggest an import target, but the user confirms or overrides it befor
 
 Opriva suggests source-column-to-canonical-field mappings using rules and eventually AI. Suggestions consider workspace mode, detected source and selected import target.
 
+### Entity detection and matching
+
+Bulk import should detect every meaningful business entity present in the uploaded data, including Client / Company, Department, Contact, Contact Email, Brand / Manufacturer, Product / SKU, Vendor / Provider, Distributor, Reseller / Partner, License, Hardware Asset, Contract, Support Coverage, Renewal Package / Bundle, Document Metadata, Task, Relationship and Activity Event.
+
+Each detected entity should be normalized and matched against existing canonical records or controlled catalogs before creation. Matching should be case-insensitive, trim/collapse spaces, tolerate punctuation differences where safe, and flag likely duplicates for user review.
+
+New entities should be staged as candidate canonical records or catalog values such as New Client, New Contact, New Brand, New Product, New Provider, New Contract or New Support Coverage. Users approve creation before final import.
+
 ### User approval
 
 Mappings are not final until the user approves them. Users can import, skip, review or remap columns.
@@ -772,6 +780,8 @@ Duplicate detection should compare a reasonable key such as:
 After confirmation, imported rows become canonical records. They may create related client/department, brand, product, vendor/provider or package records only when approved or allowed by policy.
 
 Catalog-controlled values created during import must preserve the user's approval decision, duplicate match context and normalized key. Imports should not create duplicate catalog values silently.
+
+Confirmed imports should create or link related canonical entities in the right place where supported: licenses linked to clients, brands/products and providers/distributors; contracts linked to support coverage; support coverage linked to covered licenses or hardware; contacts linked to clients and optionally records; renewal packages grouping licenses, contracts, documents and tasks; and activity events recording the import.
 
 ### Activity event creation
 

@@ -960,6 +960,18 @@ In sandbox/local mode this can be simulated through `RECORD_STORE`, but corporat
 
 ---
 
+### 19.4A Import Entity Detection and Canonical Creation
+
+Bulk import must detect all meaningful business entities in uploaded files, not only the selected asset type. Detected entities include Client / Company, Department, Contact, Contact Email, Brand / Manufacturer, Product / SKU, Vendor / Provider, Distributor, Reseller / Partner, License, Hardware Asset, Contract, Support Coverage, Renewal Package / Bundle, Document Metadata, Task, Relationship and Activity Event.
+
+For every detected entity, Opriva should normalize and match against existing canonical records or controlled catalogs using case-insensitive matching, trimmed/collapsed spaces and safe punctuation tolerance. Existing matches should be reused. New values should be staged as new canonical records or catalog values and require user approval before creation.
+
+Sensitive contact names, emails, addresses, phone numbers and similar fields must be treated as sensitive relationship data. They should be marked for review and eventually create or link Contact records with explicit approval, permissions and audit history. They must not be imported blindly as license, contract or package free text.
+
+In local sandbox mode, Opriva can simulate this through `RECORD_STORE`, metadata, entity counts, duplicate warnings and relationship staging. Corporate MVP requires backend tables, transactions, permissions, import jobs, contact handling, relationship creation and audit trail.
+
+---
+
 ### 19.5 Import Preview and Enrichment
 
 Import preview must show final Opriva records before creation, not only technical row/mapping data. Users must be able to review, enrich and correct imported records before confirming. Warnings should be grouped and actionable instead of repeated as long text per row.
@@ -1276,3 +1288,4 @@ Phase 2 should include:
 - 2026-05-25: BACKEND_READINESS_AUDIT.md committed in `a05ce1d`. The audit documents current local/sandbox functionality and defines backend/database/storage/auth/permissions requirements for corporate MVP readiness. Key conclusion: local/session state is acceptable for UX and product logic testing, but corporate MVP requires backend support for persistence, users, workspaces, roles, permissions, documents, imports, alerts, audit trail, AI knowledge, storage and enterprise testing.
 - 2026-05-25: Local Excel Import Sandbox committed in `745585a`. Data Import now supports local `.xlsx` / `.xls` upload, sheet parsing, sheet selection, source detection, header mapping, canonical field mapping, skipped/calculated column handling, row normalization, target module detection, normalized record preview and confirmed local/session creation into `RECORD_STORE`. Imported session records are preserved during mock refresh when `meta.source === 'importSandbox'`. The `xlsx` dependency was added in `package.json` / `package-lock.json`. Build and `git diff --check` passed, and the working tree was clean after the commit. This remains a local sandbox validation feature, not the future backend import engine.
 - 2026-05-26: Controlled catalog product decision documented. Brand / Manufacturer, Product / License Name, Distributor / Provider, Vendor / Provider, Reseller / Partner, Client / Department, Owner, Alert Policy, Document Type, Contract Type, Support Coverage Type, License Term, Currency, Country and reusable business classifications should use select/search/create catalog behavior instead of unrestricted free text. Imports and bulk defaults should map to existing catalog values where possible, AI suggestions require user approval, and corporate MVP requires backend catalog tables, normalized keys, aliases/synonyms, duplicate prevention, merge/deactivate flows and audit history.
+- 2026-05-27: Import entity detection product decision documented. Bulk upload should detect clients/departments, contacts, brands, products, providers/distributors/resellers, licenses, hardware, contracts/support coverage, renewal packages, documents, tasks, relationships and activity events, then match or stage canonical entities before import confirmation. Local sandbox may simulate entity counts, metadata and relationship staging; corporate MVP requires backend persistence, permissions, contact handling, relationship creation and audit trail.

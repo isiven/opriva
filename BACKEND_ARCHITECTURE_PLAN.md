@@ -652,14 +652,17 @@ Backend import flow:
 8. User approves mappings.
 9. User reviews and enriches normalized records.
 10. User applies bulk defaults where appropriate.
-11. Backend detects duplicates and required-field gaps.
-12. Backend generates a preview.
-13. User confirms import.
-14. Backend creates canonical records.
-15. Backend creates clients, vendors/providers, brands, and products if approved by the user or policy.
-16. Backend creates relationships and package links where supported.
-17. Backend writes activity/audit events.
-18. Backend stores import results, warnings, errors, and created record ids.
+11. Backend detects meaningful entities in the file: clients/departments, contacts, brands, products, providers/distributors/resellers, licenses, hardware, contracts, support coverage, renewal packages, documents, tasks, relationships and activity events.
+12. Backend matches detected entities to existing canonical records/catalogs using normalized matching and duplicate detection.
+13. Backend stages missing entities as candidate records/catalog values requiring user approval.
+14. Backend detects duplicates and required-field gaps.
+15. Backend generates a preview.
+16. User confirms import.
+17. Backend creates canonical records.
+18. Backend creates clients, contacts, vendors/providers, distributors, resellers/partners, brands, products, contracts, support coverage, package records or document metadata if approved by the user or policy.
+19. Backend creates relationships and package links where supported.
+20. Backend writes activity/audit events.
+21. Backend stores import results, warnings, errors and created record ids.
 
 Both import paths must be supported:
 
@@ -678,8 +681,12 @@ Backend import requirements:
 - Preserve errors and skipped rows.
 - Track who approved the import.
 - Support duplicate detection.
+- Detect all meaningful business entities, not only the selected asset type.
+- Stage new entities as candidate canonical records/catalog values before confirmation.
 - Map controlled catalog fields to existing catalog records where possible.
 - Flag similar catalog matches before creating new clients/departments, brands, products, providers, distributors, resellers/partners, owners, policies, document types, contract types, support coverage types, currencies or countries.
+- Treat contact names, emails, addresses and phone numbers as sensitive relationship data requiring explicit review before contact creation/linking.
+- Create or link relationships such as license-client, license-brand/product, license-provider/distributor, license-contract, contract-support coverage, support coverage-covered asset, contact-client, contact-record and package-item links.
 - Preserve catalog match decisions, aliases/synonyms and created catalog ids in import history.
 - Support rollback strategy or correction workflow later.
 - Never import every spreadsheet column blindly.

@@ -20,6 +20,7 @@ Use this skill when assessing whether a feature can remain local for design vali
 - Imported records must become first-class records; future implementation requires import jobs/history and permissions.
 - Controlled catalogs are backend-required for repeated/business-critical entities and policies: brand, product, provider, distributor, reseller/partner, client/department, owner, alert policy, document type, contract type, support coverage type, license term, currency, country, and reusable classifications.
 - Catalog backend must support normalized keys, unique constraints, aliases/synonyms, duplicate prevention, merge/deactivate flows, workspace-scoped versus global catalogs, and audit history.
+- Backend import must support entity detection, matching, staged creation, relationship creation and audit for all meaningful entities found in uploaded files.
 
 ## Review Checklist
 
@@ -31,6 +32,8 @@ Use this skill when assessing whether a feature can remain local for design vali
 - MSP / Integrator versus Internal IT differences in catalog meaning and workspace scope.
 - File storage, document links, document policies, and Missing Evidence.
 - Import jobs, import files, mappings, rows, preview, confirmation, and history.
+- Entity detection/matching tables or services for clients/departments, contacts, brands, products, providers/distributors/resellers, contracts, support coverage, renewal packages, document metadata, tasks and relationships.
+- Approval and audit trail for creating or linking detected entities during import.
 - Alerts/background jobs and notification delivery.
 - Audit trail event model.
 - AI retrieval, knowledge permissions, and workspace isolation.

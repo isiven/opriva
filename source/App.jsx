@@ -28,6 +28,7 @@ import {
 } from './data/demoSeedData.js';
 import { IMPORT_CANONICAL_FIELDS, IMPORT_TARGET_OPTIONS } from './importSandbox/importConstants.js';
 import { buildImportLicenseDisplayName, formatImportMoney, importMoney, normalizeImportDate, withImportRecordMeta } from './importSandbox/importFormatting.js';
+import { addKeysToSet, isDuplicateByKeys, matchesExistingRecord } from './importSandbox/importDuplicates.js';
 import { createImportMappings, getMappedImportValue, getMappedImportValueAny } from './importSandbox/importMapping.js';
 import { detectImportTarget, suggestImportTargetFromSource } from './importSandbox/importTargets.js';
 import { detectImportSourceType, normalizeImportText } from './importSandbox/importText.js';
@@ -3413,6 +3414,8 @@ function buildImportHardwareRecord(rowObj, mappings, workspaceMode, sourceType, 
       source: 'importSandbox',
       sourceType: sourceType,
       rowNumber: rowIndex + 2,
+      serialNumber: serial !== '-' ? serial : '',
+      orderReference: getMappedImportValue(rowObj, mappings, 'PO / Order Reference'),
       purchaseDate: normalizeImportDate(getMappedImportValue(rowObj, mappings, 'Purchase Date')),
       notes: getMappedImportValue(rowObj, mappings, 'Notes') || ('Imported from ' + sourceType + ' row ' + (rowIndex + 2) + '.')
     }
@@ -3550,15 +3553,14 @@ function buildImportPreview(rowObjects, mappings, sourceType, workspaceMode, imp
       if (!previewOwner || previewOwner === 'Unassigned') warnings.push('Missing owner');
       if (previewContactContext) warnings.push('Sensitive contact field. Review before creating or linking contact.');
       record = buildImportLicenseRecord(rowObj, mappings, workspaceMode, sourceType, index, importContext || {});
-      var duplicateRisk = record.meta && record.meta.importKey && (
-        seenImportKeys.has(record.meta.importKey)
-        || (Array.isArray(RECORD_STORE.licenses) && RECORD_STORE.licenses.some(function(existing) { return existing && existing.meta && existing.meta.importKey === record.meta.importKey; }))
-      );
+      var licenseDuplicateKeys = (record.meta && record.meta.duplicateKeys) || [];
+      var duplicateRisk = isDuplicateByKeys(licenseDuplicateKeys, seenImportKeys)
+        || (Array.isArray(RECORD_STORE.licenses) && RECORD_STORE.licenses.some(function(existing) { return matchesExistingRecord(record.meta, existing); }));
       if (duplicateRisk) {
         warnings.push('Duplicate risk');
         stats.duplicates += 1;
       }
-      if (record.meta && record.meta.importKey) seenImportKeys.add(record.meta.importKey);
+      addKeysToSet(licenseDuplicateKeys, seenImportKeys);
       records.licenses.push(record);
       stats.licenses += 1;
       if (warnings.length) stats.review += 1; else stats.ready += 1;
@@ -3596,30 +3598,28 @@ function buildImportPreview(rowObjects, mappings, sourceType, workspaceMode, imp
     } else if (target.moduleKey === 'hardware') {
       if (!getMappedImportValue(rowObj, mappings, 'Serial Number')) warnings.push('Missing serial');
       record = buildImportHardwareRecord(rowObj, mappings, workspaceMode, sourceType, index, importContext || {});
-      var hardwareDuplicate = record.meta && record.meta.importKey && (
-        seenImportKeys.has(record.meta.importKey)
-        || (Array.isArray(RECORD_STORE.hardware) && RECORD_STORE.hardware.some(function(existing) { return existing && existing.meta && existing.meta.importKey === record.meta.importKey; }))
-      );
+      var hardwareDuplicateKeys = (record.meta && record.meta.duplicateKeys) || [];
+      var hardwareDuplicate = isDuplicateByKeys(hardwareDuplicateKeys, seenImportKeys)
+        || (Array.isArray(RECORD_STORE.hardware) && RECORD_STORE.hardware.some(function(existing) { return matchesExistingRecord(record.meta, existing); }));
       if (hardwareDuplicate) {
         warnings.push('Duplicate risk');
         stats.duplicates += 1;
       }
-      if (record.meta && record.meta.importKey) seenImportKeys.add(record.meta.importKey);
+      addKeysToSet(hardwareDuplicateKeys, seenImportKeys);
       records.hardware.push(record);
       stats.hardware += 1;
     } else if (target.moduleKey === 'contracts') {
       record = buildImportContractRecord(rowObj, mappings, workspaceMode, sourceType, index, importContext || {});
       if (record) {
         if (record.meta && record.meta.importContactContext) warnings.push('Sensitive contact field. Review before creating or linking contact.');
-        var contractDuplicate = record.meta && record.meta.importKey && (
-          seenImportKeys.has(record.meta.importKey)
-          || (Array.isArray(RECORD_STORE.contracts) && RECORD_STORE.contracts.some(function(existing) { return existing && existing.meta && existing.meta.importKey === record.meta.importKey; }))
-        );
+        var contractDuplicateKeys = (record.meta && record.meta.duplicateKeys) || [];
+        var contractDuplicate = isDuplicateByKeys(contractDuplicateKeys, seenImportKeys)
+          || (Array.isArray(RECORD_STORE.contracts) && RECORD_STORE.contracts.some(function(existing) { return matchesExistingRecord(record.meta, existing); }));
         if (contractDuplicate) {
           warnings.push('Duplicate risk');
           stats.duplicates += 1;
         }
-        if (record.meta && record.meta.importKey) seenImportKeys.add(record.meta.importKey);
+        addKeysToSet(contractDuplicateKeys, seenImportKeys);
         records.contracts.push(record);
         stats.contracts += 1;
       } else {
@@ -3792,18 +3792,31 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
 
   function insertImportedRecords(moduleKey, records) {
     var existing = Array.isArray(RECORD_STORE[moduleKey]) ? RECORD_STORE[moduleKey] : [];
-    var knownKeys = new Set(existing.map(function(record) {
-      return record && record.meta && record.meta.importKey ? record.meta.importKey : '';
-    }).filter(Boolean));
+    var knownKeys = new Set();
+    var knownImportKeys = new Set();
+    existing.forEach(function(record) {
+      if (!record || !record.meta) return;
+      if (record.meta.duplicateKeys && record.meta.duplicateKeys.length) {
+        addKeysToSet(record.meta.duplicateKeys, knownKeys);
+      } else if (record.meta.importKey) {
+        knownImportKeys.add(record.meta.importKey);
+      }
+    });
     var created = [];
     var duplicates = 0;
     records.forEach(function(record) {
+      var dupKeys = (record && record.meta && record.meta.duplicateKeys) || [];
       var importKey = record && record.meta && record.meta.importKey ? record.meta.importKey : '';
-      if (importKey && knownKeys.has(importKey)) {
+      var isDup = isDuplicateByKeys(dupKeys, knownKeys) || (importKey && knownImportKeys.has(importKey));
+      if (isDup) {
         duplicates += 1;
         return;
       }
-      if (importKey) knownKeys.add(importKey);
+      if (dupKeys.length) {
+        addKeysToSet(dupKeys, knownKeys);
+      } else if (importKey) {
+        knownImportKeys.add(importKey);
+      }
       created.push(record);
     });
     if (created.length) RECORD_STORE[moduleKey] = created.concat(existing);

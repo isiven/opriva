@@ -1,4 +1,5 @@
 import { normalizeImportText } from './importText.js';
+import { buildDuplicateKeys } from './importDuplicates.js';
 
 export function normalizeImportDate(value) {
   if (!value) return '';
@@ -64,6 +65,7 @@ export function withImportRecordMeta(record, moduleKey, canonical, importContext
     contractNumber: canonical.contractNumber,
     orderReference: canonical.orderReference,
     importKey: canonical.importKey || buildImportRecordKey(Object.assign({}, canonical, { moduleKey: moduleKey })),
+    duplicateKeys: buildDuplicateKeys(moduleKey, Object.assign({}, record.meta || {}, canonical, { moduleKey: moduleKey })),
     importFileName: importContext.fileName || '',
     importSheetName: importContext.sheetName || '',
     importTarget: importContext.importTarget || '',

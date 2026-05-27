@@ -97,3 +97,9 @@ Use these review lenses when a task calls for deeper Opriva judgment:
 - Import & Canonical Data Model Auditor: model-driven import, target selection, mapping quality, unmapped columns, enrichment, duplicate prevention, and promotion into the central local store.
 
 These lenses are advisory. They do not override explicit user instructions, file safety rules, or validation requirements.
+
+## 12. AI Development Team Operating Model
+
+Use `OPRIVA_AI_DEVELOPMENT_TEAM.md` as the operating model for major Opriva work. Before significant product, architecture, backend, import, security, UX, data model, catalog, dashboard, or workflow changes, select the appropriate Opriva skills or expert-role lenses from that document to inspect, plan, implement, validate, and document the change.
+
+Do not treat a single generic coding pass as enough for strategic Opriva changes. Use the specialized review model to catch product, MSP / Integrator, Internal IT, security, backend-readiness, import, procurement, UX, and data-model risks before implementation.

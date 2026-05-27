@@ -82,6 +82,68 @@ const PROFILE_MAPPING_RULES = {
   ]
 };
 
+const TARGET_MAPPING_RULES = {
+  licenses: [
+    profileRule('Product / License Name', 'Import', 'License target: product/license context', ['product', 'offer name', 'offer friendly name', 'nombre completo del producto/servicio', 'nombre completo del producto servicio', 'license', 'licencia', 'licencias']),
+    profileRule('Client / Department', 'Import', 'License target: client or department context', ['customer', 'customer name', 'customer domain', 'cliente', 'client', 'department', 'departamento']),
+    profileRule('Quantity / Seats', 'Import', 'License target: entitlement quantity', ['quantity', 'cantidad', 'licenses #', 'users #', 'sockets #', 'vms #', 'servers #', 'workstations #', 'volume', 'qty', 'seats']),
+    profileRule('Expiration / Renewal Date', 'Import', 'License target: renewal or expiration date', ['subscription end date', 'con end date', 'end date', 'vencimiento licencia', 'expiration date', 'renewal date', 'fecha vencimiento']),
+    profileRule('Start Date', 'Import', 'License target: license or subscription start date', ['subscription start date', 'con start date', 'start date', 'fecha inicio']),
+    profileRule('Brand / Manufacturer', 'Import', 'License target: brand/manufacturer context', ['brand', 'marca', 'manufacturer', 'fabricante']),
+    profileRule('Provider / Distributor', 'Import', 'License target: provider/distributor context', ['distributor', 'distribuidor', 'provider', 'vendor', 'supplier', 'proveedor', 'partner']),
+    profileRule('Reseller / Partner', 'Import', 'License target: reseller/partner context', ['reseller', 'reventa', 'reseller partner', 'partner reseller', 'partner name']),
+    profileRule('PO / Order Reference', 'Import', 'License target: order or PO reference', ['po number', 'order id', '# oc', 'oc partner', 'numero', 'número', 'order reference']),
+    profileRule('Contract Number', 'Import', 'License target: contract/reference context', ['con number', 'contract number', 'contrato', '# registro', 'registro']),
+    profileRule('Support', 'Review', 'Support coverage may need a related contract/coverage record', ['support', 'soporte']),
+    profileRule('Sale Price / Annual Value', 'Review', 'Commercial value requires user review', ['annual value', 'monto total', 'value', 'amount', 'importe', 'sale price', 'precio venta', 'incumbent total']),
+    profileRule('Vendor Cost', 'Review', 'Vendor cost requires user review', ['vendor cost', 'cost', 'costo', 'purchase cost']),
+  ],
+  contracts: [
+    profileRule('Contract Number', 'Import', 'Contract target: contract or registration reference', ['con number', 'contract number', 'contrato', '# registro', 'registro']),
+    profileRule('Start Date', 'Import', 'Contract target: contract start date', ['con start date', 'contract start date', 'start date', 'fecha inicio']),
+    profileRule('Expiration / Renewal Date', 'Import', 'Contract target: contract end or renewal date', ['con end date', 'contract end date', 'end date', 'expiration date', 'renewal date', 'vencimiento licencia', 'fecha vencimiento']),
+    profileRule('Support', 'Import', 'Contract target: support coverage context', ['support', 'soporte', 'support coverage']),
+    profileRule('Client / Department', 'Import', 'Contract target: covered client or department', ['customer', 'customer name', 'cliente', 'client', 'department', 'departamento']),
+    profileRule('Provider / Distributor', 'Import', 'Contract target: provider/distributor context', ['distributor', 'distribuidor', 'provider', 'vendor', 'supplier', 'proveedor', 'partner']),
+    profileRule('Product / License Name', 'Review', 'Covered product context; review before treating as primary contract data', ['product', 'offer name', 'offer friendly name', 'nombre completo del producto/servicio', 'nombre completo del producto servicio', 'license', 'licencia', 'licencias']),
+    profileRule('PO / Order Reference', 'Import', 'Contract target: PO/order reference', ['po number', 'order id', '# oc', 'oc partner', 'numero', 'número', 'order reference']),
+    profileRule('Source Status / Vendor Status', 'Import', 'Contract target: source contract status', ['contract status', 'status', 'estado']),
+    profileRule('Sale Price / Annual Value', 'Review', 'Contract commercial amount requires user review', ['annual value', 'monto total', 'value', 'amount', 'importe', 'sale price', 'precio venta', 'incumbent total']),
+  ],
+  hardware: [
+    profileRule('Asset Name', 'Import', 'Hardware target: asset or hardware name', ['asset', 'asset name', 'equipo', 'hardware', 'nombre equipo', 'product', 'nombre completo del producto/servicio', 'nombre completo del producto servicio', 'full product service name']),
+    profileRule('Serial Number', 'Import', 'Hardware target: serial number', ['serial', 'serial number', 'serie']),
+    profileRule('Client / Department', 'Import', 'Hardware target: client or department context', ['customer', 'customer name', 'cliente', 'client', 'department', 'departamento']),
+    profileRule('Quantity / Seats', 'Import', 'Hardware target: asset quantity', ['quantity', 'cantidad', 'qty']),
+    profileRule('Purchase Date', 'Import', 'Hardware target: purchase or transaction date', ['purchase date', 'fecha de la transaccion', 'fecha de la transacción', 'transaction date']),
+    profileRule('Warranty End Date', 'Import', 'Hardware target: warranty end date', ['warranty end', 'warranty end date', 'fecha fin garantia', 'fecha fin garantía']),
+    profileRule('Expiration / Renewal Date', 'Review', 'Hardware target: review whether this is warranty, support or renewal date', ['end date', 'expiration date', 'renewal date', 'vencimiento licencia', 'fecha vencimiento']),
+    profileRule('Provider / Distributor', 'Import', 'Hardware target: provider/distributor context', ['distributor', 'distribuidor', 'provider', 'vendor', 'supplier', 'proveedor', 'partner']),
+    profileRule('Brand / Manufacturer', 'Import', 'Hardware target: brand/manufacturer context', ['brand', 'marca', 'manufacturer', 'fabricante']),
+    profileRule('Notes', 'Review', 'Hardware classification context; review before importing', ['clase de articulo', 'clase de artículo', 'description', 'nota descripcion', 'nota descripción']),
+  ],
+  certificates: [
+    profileRule('Product / License Name', 'Import', 'Certificate target: certificate/domain/common-name context', ['certificate', 'certificado', 'ssl', 'domain', 'dominio', 'common name', 'cn', 'subject']),
+    profileRule('Expiration / Renewal Date', 'Import', 'Certificate target: certificate expiration date', ['expiration date', 'expiry date', 'expires', 'end date', 'renewal date', 'vencimiento', 'fecha vencimiento']),
+    profileRule('Client / Department', 'Import', 'Certificate target: client or department context', ['customer', 'customer name', 'cliente', 'client', 'department', 'departamento']),
+    profileRule('Provider / Distributor', 'Import', 'Certificate target: certificate authority/provider context', ['ca', 'certificate authority', 'issuer', 'provider', 'vendor', 'supplier', 'proveedor']),
+    profileRule('Quantity / Seats', 'Review', 'Certificate quantity is optional context', ['quantity', 'cantidad', 'qty']),
+    profileRule('PO / Order Reference', 'Import', 'Certificate target: order or PO reference', ['po number', 'order id', '# oc', 'oc partner', 'numero', 'número', 'order reference']),
+  ],
+  package: [
+    profileRule('Client / Department', 'Import', 'Package target: package client or department context', ['customer', 'customer name', 'cliente', 'client', 'department', 'departamento']),
+    profileRule('PO / Order Reference', 'Import', 'Package target: PO/order reference', ['po number', 'order id', '# oc', 'oc partner', 'numero', 'número', 'order reference']),
+    profileRule('Contract Number', 'Import', 'Package target: contract/registration/reference context', ['con number', 'contract number', 'contrato', '# registro', 'registro']),
+    profileRule('Product / License Name', 'Import', 'Package target: covered product/license context for underlying records', ['product', 'offer name', 'offer friendly name', 'nombre completo del producto/servicio', 'nombre completo del producto servicio', 'license', 'licencia', 'licencias']),
+    profileRule('Expiration / Renewal Date', 'Import', 'Package target: renewal/expiration date', ['subscription end date', 'con end date', 'end date', 'vencimiento licencia', 'expiration date', 'renewal date', 'fecha vencimiento']),
+    profileRule('Sale Price / Annual Value', 'Review', 'Package commercial amount requires user review', ['annual value', 'monto total', 'value', 'amount', 'importe', 'sale price', 'precio venta', 'incumbent total']),
+    profileRule('Provider / Distributor', 'Import', 'Package target: provider/distributor context', ['distributor', 'distribuidor', 'provider', 'vendor', 'supplier', 'proveedor', 'partner']),
+    profileRule('Reseller / Partner', 'Import', 'Package target: reseller/partner context', ['reseller', 'reventa', 'reseller partner', 'partner reseller', 'partner name']),
+    profileRule('Support', 'Review', 'Package target: support coverage may create an underlying contract record', ['support', 'soporte']),
+    profileRule('Serial Number', 'Import', 'Package target: hardware serial may create an underlying hardware record', ['serial', 'serial number', 'serie']),
+  ]
+};
+
 function profileMatch(normalizedHeader, sourceType) {
   var rules = PROFILE_MAPPING_RULES[sourceType] || [];
   for (var i = 0; i < rules.length; i += 1) {
@@ -94,16 +156,74 @@ function profileMatch(normalizedHeader, sourceType) {
   return null;
 }
 
-export function suggestImportField(header, sourceType) {
+function importTargetKey(importTarget) {
+  if (importTarget === 'Licenses') return 'licenses';
+  if (importTarget === 'Hardware' || importTarget === 'Hardware / Warranty') return 'hardware';
+  if (importTarget === 'Contracts / Support Coverage') return 'contracts';
+  if (importTarget === 'Certificates / SSL') return 'certificates';
+  if (importTarget === 'Renewal Package' || importTarget === 'Renewal Package / Bundle') return 'package';
+  return 'mixed';
+}
+
+function ruleMatch(normalizedHeader, rules) {
+  for (var i = 0; i < rules.length; i += 1) {
+    var rule = rules[i];
+    var matched = rule.patterns.some(function(pattern) {
+      return normalizedHeader === pattern || normalizedHeader.indexOf(pattern) >= 0;
+    });
+    if (matched) return { target: rule.target, action: rule.action, reason: rule.reason };
+  }
+  return null;
+}
+
+function targetProfileMatch(normalizedHeader, importTarget) {
+  var targetKey = importTargetKey(importTarget);
+  if (targetKey === 'mixed') return null;
+  return ruleMatch(normalizedHeader, TARGET_MAPPING_RULES[targetKey] || []);
+}
+
+function workspaceContextSuggestion(suggestion, normalizedHeader, workspaceMode) {
+  var next = Object.assign({}, suggestion);
+  var isInternalIT = workspaceMode === 'Internal IT';
+  var isCommercialAmount = normalizedHeader.indexOf('amount') >= 0
+    || normalizedHeader.indexOf('monto') >= 0
+    || normalizedHeader.indexOf('value') >= 0
+    || normalizedHeader.indexOf('importe') >= 0
+    || normalizedHeader.indexOf('sale price') >= 0
+    || normalizedHeader.indexOf('precio venta') >= 0
+    || normalizedHeader.indexOf('annual cost') >= 0;
+  if (isInternalIT && next.target === 'Sale Price / Annual Value' && isCommercialAmount) {
+    next.target = 'Annual Value / Annual Cost';
+    next.action = next.action === 'Skip' ? 'Review' : next.action;
+    next.reason = 'Internal IT workspace: treat amount as budget/cost exposure';
+  }
+  if (isInternalIT && next.target === 'Reseller / Partner') {
+    next.action = 'Review';
+    next.reason = 'Internal IT workspace: reseller/partner context is optional and should be reviewed';
+  }
+  if (!isInternalIT && next.target === 'Annual Value / Annual Cost') {
+    next.target = 'Sale Price / Annual Value';
+    next.reason = 'MSP / Integrator workspace: commercial value context';
+  }
+  return next;
+}
+
+function withConfidence(suggestion, confidence) {
+  return Object.assign({ confidence: confidence || 'Medium' }, suggestion);
+}
+
+export function suggestImportField(header, sourceType, importTarget, workspaceMode) {
   var normalized = normalizeImportText(header);
-  if (!normalized) return { target: '', action: 'Skip', reason: 'Empty source column' };
+  if (!normalized) return withConfidence({ target: '', action: 'Skip', reason: 'Empty source column' }, 'Low');
   if (IMPORT_SKIP_HEADERS.indexOf(normalized) >= 0 || normalized.indexOf('days before expiration') >= 0 || normalized.indexOf('remaining days') >= 0) {
-    return { target: '', action: 'Skip', reason: 'Calculated by Opriva' };
+    return withConfidence({ target: '', action: 'Skip', reason: 'Calculated by Opriva' }, 'High');
   }
   var contact = contactSuggestion(normalized);
-  if (contact) return contact;
+  if (contact) return withConfidence(contact, 'High');
+  var targetSuggestion = targetProfileMatch(normalized, importTarget);
+  if (targetSuggestion) return withConfidence(workspaceContextSuggestion(targetSuggestion, normalized, workspaceMode), 'High');
   var profileSuggestion = profileMatch(normalized, sourceType);
-  if (profileSuggestion) return profileSuggestion;
+  if (profileSuggestion) return withConfidence(workspaceContextSuggestion(profileSuggestion, normalized, workspaceMode), 'High');
   var direct = [
     [['customer','customer name','cliente','client','department','departamento','customer domain'], 'Client / Department'],
     [['product','offer name','offer friendly name','nombre completo del producto servicio','license','licencia','item','description'], 'Product / License Name'],
@@ -131,19 +251,21 @@ export function suggestImportField(header, sourceType) {
     [['notes','note','observaciones','comments','comentarios'], 'Notes']
   ];
   for (var i = 0; i < direct.length; i += 1) {
-    if (direct[i][0].indexOf(normalized) >= 0) return { target: direct[i][1], action: 'Import', reason: 'Header match' };
+    if (direct[i][0].indexOf(normalized) >= 0) {
+      return withConfidence(workspaceContextSuggestion({ target: direct[i][1], action: 'Import', reason: 'Header match' }, normalized, workspaceMode), 'Medium');
+    }
   }
-  if (normalized.indexOf('end date') >= 0 || normalized.indexOf('vencimiento') >= 0) return { target: 'Expiration / Renewal Date', action: 'Import', reason: 'Date keyword match' };
-  if (normalized.indexOf('start date') >= 0 || normalized.indexOf('inicio') >= 0) return { target: 'Start Date', action: 'Import', reason: 'Date keyword match' };
-  if (normalized.indexOf('serial') >= 0) return { target: 'Serial Number', action: 'Import', reason: 'Serial keyword match' };
-  if (normalized.indexOf('support') >= 0 || normalized.indexOf('soporte') >= 0) return { target: 'Support', action: 'Import', reason: 'Support keyword match' };
-  if (normalized.indexOf('margin') >= 0 || normalized.indexOf('margen') >= 0) return { target: '', action: 'Skip', reason: 'Calculated by Opriva' };
-  return { target: '', action: 'Review', reason: 'Needs user review' };
+  if (normalized.indexOf('end date') >= 0 || normalized.indexOf('vencimiento') >= 0) return withConfidence({ target: 'Expiration / Renewal Date', action: 'Import', reason: 'Date keyword match' }, 'Medium');
+  if (normalized.indexOf('start date') >= 0 || normalized.indexOf('inicio') >= 0) return withConfidence({ target: 'Start Date', action: 'Import', reason: 'Date keyword match' }, 'Medium');
+  if (normalized.indexOf('serial') >= 0) return withConfidence({ target: 'Serial Number', action: 'Import', reason: 'Serial keyword match' }, 'Medium');
+  if (normalized.indexOf('support') >= 0 || normalized.indexOf('soporte') >= 0) return withConfidence({ target: 'Support', action: 'Import', reason: 'Support keyword match' }, 'Medium');
+  if (normalized.indexOf('margin') >= 0 || normalized.indexOf('margen') >= 0) return withConfidence({ target: '', action: 'Skip', reason: 'Calculated by Opriva' }, 'High');
+  return withConfidence({ target: '', action: 'Review', reason: 'Needs user review' }, 'Low');
 }
 
-export function createImportMappings(headers, rowObjects, sourceType) {
+export function createImportMappings(headers, rowObjects, sourceType, importTarget, workspaceMode) {
   return headers.map(function(header, index) {
-    var suggestion = suggestImportField(header, sourceType);
+    var suggestion = suggestImportField(header, sourceType, importTarget, workspaceMode);
     var sampleRow = (rowObjects || []).find(function(row) { return row[header]; }) || {};
     return {
       sourceColumn: header,
@@ -151,6 +273,7 @@ export function createImportMappings(headers, rowObjects, sourceType) {
       action: suggestion.action,
       sampleValue: sampleRow[header] || '',
       reason: suggestion.reason,
+      confidence: suggestion.confidence || 'Medium',
       index: index
     };
   });

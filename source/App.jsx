@@ -3683,15 +3683,30 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
   const [reviewRowNumber, setReviewRowNumber] = React.useState(null);
   const [rawDetailsOpen, setRawDetailsOpen] = React.useState(false);
 
+  function mergeImportMappingSuggestions(existingMappings, nextMappings) {
+    return nextMappings.map(function(mapping, index) {
+      var existing = (existingMappings || []).find(function(item) {
+        return item.sourceColumn === mapping.sourceColumn;
+      }) || (existingMappings || [])[index];
+      if (existing && existing.userEdited) {
+        return Object.assign({}, existing, {
+          index: mapping.index,
+          sampleValue: mapping.sampleValue
+        });
+      }
+      return mapping;
+    });
+  }
+
   function applySheet(nextWorkbook, nextSheetName) {
     var data = getImportSheetData(nextWorkbook, nextSheetName);
     var detected = detectImportSourceType(data.headers);
+    var suggestedTarget = suggestImportTargetFromSource(detected);
     setSelectedSheet(nextSheetName);
     setHeaders(data.headers);
     setRowObjects(data.rowObjects);
     setSourceType(detected);
-    setMappings(createImportMappings(data.headers, data.rowObjects, detected));
-    var suggestedTarget = suggestImportTargetFromSource(detected);
+    setMappings(createImportMappings(data.headers, data.rowObjects, detected, suggestedTarget, workspaceMode));
     setSuggestedImportTarget(suggestedTarget);
     setImportTarget(suggestedTarget);
     setRecordEdits({});
@@ -3732,11 +3747,32 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
   function updateMapping(index, key, value) {
     setMappings(function(prev) {
       return prev.map(function(mapping, i) {
-        return i === index ? Object.assign({}, mapping, { [key]: value }) : mapping;
+        return i === index ? Object.assign({}, mapping, { [key]: value, userEdited: true }) : mapping;
       });
     });
     setImportResult(null);
   }
+
+  function handleImportTargetChange(event) {
+    var nextTarget = event.target.value;
+    setImportTarget(nextTarget);
+    if (headers.length > 0) {
+      var nextMappings = createImportMappings(headers, rowObjects, sourceType, nextTarget, workspaceMode);
+      setMappings(function(prev) {
+        return mergeImportMappingSuggestions(prev, nextMappings);
+      });
+    }
+    setImportResult(null);
+  }
+
+  React.useEffect(function() {
+    if (headers.length === 0) return;
+    var nextMappings = createImportMappings(headers, rowObjects, sourceType, importTarget, workspaceMode);
+    setMappings(function(prev) {
+      return mergeImportMappingSuggestions(prev, nextMappings);
+    });
+    setImportResult(null);
+  }, [workspaceMode]);
 
   function updateRecordEdit(rowNumber, key, value) {
     setRecordEdits(function(prev) {
@@ -3923,7 +3959,7 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
           </div>
           <div style={{display:'grid',gap:5,flex:'0 1 320px'}}>
             <label style={{fontSize:11,fontWeight:800,color:'#64748B',textTransform:'uppercase',letterSpacing:'.06em'}}>Records to create</label>
-            <select value={importTarget} onChange={function(e) { setImportTarget(e.target.value); setImportResult(null); }} style={{border:'1px solid #CDEDE5',borderRadius:10,padding:'9px 10px',fontWeight:750,color:'#132033',background:'#fff'}}>
+            <select value={importTarget} onChange={handleImportTargetChange} style={{border:'1px solid #CDEDE5',borderRadius:10,padding:'9px 10px',fontWeight:750,color:'#132033',background:'#fff'}}>
               {IMPORT_TARGET_OPTIONS.map(function(target) { return <option key={target} value={target}>{target}</option>; })}
             </select>
             <span style={{fontSize:11,color:'#64748B'}}>Detected source is informational: {sourceType}. Suggested records: {suggestedImportTarget}. Workspace mode: {workspaceMode}.</span>
@@ -3943,7 +3979,7 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
           <tbody>
             {mappings.map(function(mapping, index) {
               return <tr key={mapping.sourceColumn + index}>
-                <td className="recordCell">{mapping.sourceColumn}<br/><span style={{fontSize:11,color:'#94A3B8',fontWeight:500}}>{mapping.reason}</span></td>
+                  <td className="recordCell">{mapping.sourceColumn}<br/><span style={{fontSize:11,color:'#94A3B8',fontWeight:500}}>{mapping.reason}{mapping.confidence ? ' · ' + mapping.confidence + ' confidence' : ''}</span></td>
                 <td>
                   <select value={mapping.suggestedField} onChange={function(e) { updateMapping(index, 'suggestedField', e.target.value); }} style={{width:'100%',border:'1px solid #DDE5EF',borderRadius:8,padding:'7px 8px',background:'#fff',fontWeight:650,color:'#132033'}}>
                     <option value="">No target</option>

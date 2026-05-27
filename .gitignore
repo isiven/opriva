@@ -2,7 +2,13 @@ node_modules/
 dist/
 .env
 .DS_Store
-.claude/
+# Claude Code: ignore .claude by default, but version-control project-scoped skills.
+.claude/*
+!.claude/skills/
+!.claude/skills/**
+# Keep local-only Claude config ignored (machine-specific; not shared).
+.claude/settings.local.json
+.claude/launch.json
 
 # ── Real client import files ─────────────────────────────────────────────────
 # Never commit real customer data. Store locally under private-samples/ only.

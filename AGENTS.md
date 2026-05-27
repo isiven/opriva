@@ -103,3 +103,9 @@ These lenses are advisory. They do not override explicit user instructions, file
 Use `OPRIVA_AI_DEVELOPMENT_TEAM.md` as the operating model for major Opriva work. Before significant product, architecture, backend, import, security, UX, data model, catalog, dashboard, or workflow changes, select the appropriate Opriva skills or expert-role lenses from that document to inspect, plan, implement, validate, and document the change.
 
 Do not treat a single generic coding pass as enough for strategic Opriva changes. Use the specialized review model to catch product, MSP / Integrator, Internal IT, security, backend-readiness, import, procurement, UX, and data-model risks before implementation.
+
+## 13. Development Methodology
+
+Use `OPRIVA_DEVELOPMENT_METHODOLOGY.md` as the project methodology for Codex and Claude Code work. It defines Opriva's inspect-before-implement, plan-before-coding, minimal-change, systematic-debugging, verification-before-completion, code-review, and finish-task discipline.
+
+External agent methodologies may be researched as references, but do not install, clone, run scripts, configure hooks, add dependencies, or import external skill behavior without explicit user approval. Adapt useful patterns into Opriva-specific guidance instead.

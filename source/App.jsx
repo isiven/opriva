@@ -3823,6 +3823,40 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
   const unmappedColumns = mappings.filter(function(mapping) {
     return mapping.action === 'Skip' || !mapping.suggestedField;
   });
+  const importSummaryEntity = importPreview.entitySummary || {};
+  const importSummarySensitiveFields = (importPreview.preview || []).filter(function(item) {
+    return (item.issues || []).some(function(issue) { return String(issue).indexOf('Sensitive contact field') >= 0; });
+  }).length;
+  const importSummaryMissingRequired = (importPreview.preview || []).reduce(function(total, item) {
+    return total + (item.issues || []).filter(function(issue) {
+      return String(issue).indexOf('Missing ') === 0 || issue === 'Review required';
+    }).length;
+  }, 0);
+  const formatEntitySummaryMetric = function(entityKey) {
+    if (!rowObjects.length || !importSummaryEntity[entityKey]) return 'Not detected yet';
+    var entity = importSummaryEntity[entityKey];
+    return String(entity.matched || 0) + ' matched / ' + String(entity.toCreate || entity.review || 0) + ' new or review';
+  };
+  const importSummaryMetrics = [
+    ['Detected source', sourceType === 'No file loaded' ? 'Not detected yet' : sourceType],
+    ['Records to create', importTarget || 'Not selected yet'],
+    ['Workspace mode', workspaceMode],
+    ['Selected sheet', selectedSheet || 'Not selected yet'],
+    ['Rows found', String(rowObjects.length)],
+    ['Ready rows', String(importPreview.stats.ready || 0)],
+    ['Rows needing review', String(importPreview.stats.review || 0)],
+    ['Sensitive fields', String(importSummarySensitiveFields)],
+    ['Duplicate risks', String(importPreview.stats.duplicates || 0)],
+    ['Missing required fields', String(importSummaryMissingRequired)]
+  ];
+  const importSummaryEntities = [
+    ['Clients', formatEntitySummaryMetric('clients')],
+    ['Contacts', rowObjects.length && importSummaryEntity.contacts ? String(importSummaryEntity.contacts.review || 0) + ' review required' : 'Not detected yet'],
+    ['Brands', formatEntitySummaryMetric('brands')],
+    ['Products', formatEntitySummaryMetric('products')],
+    ['Providers', formatEntitySummaryMetric('providers')],
+    ['Relationships', rowObjects.length ? String(importSummaryEntity.relationshipsToCreate || 0) + ' staged' : 'Not detected yet']
+  ];
 
   function applyImportDefaults(overwrite) {
     var defaultFields = ['brandManufacturer','productLicenseName','owner','alertPolicy','providerDistributor'];
@@ -3950,6 +3984,31 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
             <strong style={{display:'block',fontSize:13,color:'#132033',lineHeight:1.35,wordBreak:'break-word'}}>{item[1]}</strong>
           </div>;
         })}
+      </div>
+      <div style={{position:'sticky',top:12,zIndex:3,border:'1px solid #CDEDE5',borderRadius:14,background:'#F8FFFD',boxShadow:'0 10px 24px rgba(15, 118, 110, .08)',padding:'14px',display:'grid',gap:12}}>
+        <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}>
+          <div>
+            <strong style={{display:'block',fontSize:15,color:'#0B1F3A',marginBottom:3}}>Import Summary</strong>
+            <span style={{display:'block',fontSize:12,color:'#64748B',lineHeight:1.45}}>This summary updates as Opriva detects source, mappings, entities and review needs.</span>
+          </div>
+          <span style={{border:'1px solid #CDEDE5',borderRadius:999,padding:'5px 9px',background:'#fff',fontSize:11,fontWeight:800,color:'#0F766E'}}>Local sandbox</span>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(5,minmax(0,1fr))',gap:8}}>
+          {importSummaryMetrics.map(function(item) {
+            return <div key={'summary-' + item[0]} style={{border:'1px solid #E2E8F0',borderRadius:10,background:'#fff',padding:'8px 10px',minWidth:0}}>
+              <span style={{display:'block',fontSize:10,fontWeight:850,color:'#94A3B8',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:3}}>{item[0]}</span>
+              <strong style={{display:'block',fontSize:12,color:'#132033',lineHeight:1.25,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={item[1]}>{item[1]}</strong>
+            </div>;
+          })}
+        </div>
+        <div style={{borderTop:'1px solid #DDEFEA',paddingTop:10,display:'grid',gap:8}}>
+          <span style={{fontSize:11,fontWeight:850,color:'#64748B',textTransform:'uppercase',letterSpacing:'.06em'}}>Entities detected</span>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+            {importSummaryEntities.map(function(item) {
+              return <span key={'summary-entity-' + item[0]} style={{fontSize:12,fontWeight:750,color:'#475569',border:'1px solid #E2E8F0',background:'#fff',borderRadius:999,padding:'5px 9px'}}>{item[0]}: {item[1]}</span>;
+            })}
+          </div>
+        </div>
       </div>
       {headers.length > 0 && <div style={{border:'1px solid #DDEFEA',borderRadius:12,background:'#F6FEFC',padding:'12px 14px',display:'grid',gap:10}}>
         <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}>

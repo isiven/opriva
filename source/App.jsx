@@ -655,6 +655,70 @@ function ensureImportedClientRecords(records, workspaceMode) {
   return { created: created, matched: matched };
 }
 
+function normalizeEntityMatchKey(value) {
+  return normalizeImportText(value).replace(/\s+/g, ' ');
+}
+
+function addEntityKey(set, value) {
+  var key = normalizeEntityMatchKey(value);
+  if (!key || key.indexOf('unassigned') === 0 || key === '-') return;
+  set.add(key);
+}
+
+function countEntityMatches(values, existingValues) {
+  var existing = new Set();
+  (existingValues || []).forEach(function(value) { addEntityKey(existing, value); });
+  var total = values.size;
+  var matched = 0;
+  values.forEach(function(key) { if (existing.has(key)) matched += 1; });
+  return { total: total, matched: matched, toCreate: Math.max(total - matched, 0) };
+}
+
+function buildImportEntitySummary(records, workspaceMode) {
+  var allRecords = []
+    .concat(records.licenses || [])
+    .concat(records.hardware || [])
+    .concat(records.contracts || []);
+  var clients = new Set();
+  var contacts = new Set();
+  var brands = new Set();
+  var products = new Set();
+  var providers = new Set();
+  var relationships = 0;
+
+  allRecords.forEach(function(record) {
+    var meta = record.meta || {};
+    addEntityKey(clients, meta.clientDepartment);
+    addEntityKey(brands, meta.brandManufacturer);
+    addEntityKey(products, meta.productLicenseName || meta.displayName);
+    addEntityKey(providers, meta.providerDistributor);
+    if (meta.importContactContext) {
+      addEntityKey(contacts, meta.importContactContext.contactEmail || meta.importContactContext.contactName || meta.importContactContext.contactRole);
+    }
+    if (meta.clientDepartment) relationships += 1;
+    if (meta.brandManufacturer || meta.productLicenseName) relationships += 1;
+    if (meta.providerDistributor) relationships += 1;
+    if (meta.contractNumber && meta.moduleKey !== 'contracts') relationships += 1;
+    if (meta.importContactContext) relationships += 1;
+    if (meta.importTarget === 'Renewal Package / Bundle') relationships += 1;
+  });
+
+  var clientSeed = workspaceMode === 'Internal IT' ? MASTER_DATA.departments : MASTER_DATA.companies;
+  var localClients = (RECORD_STORE.clients || []).map(function(record) {
+    return record && record.meta ? record.meta.name : (record && record.row ? record.row[0] : '');
+  });
+
+  return {
+    clients: countEntityMatches(clients, clientSeed.concat(localClients)),
+    contacts: { total: contacts.size, review: contacts.size },
+    brands: countEntityMatches(brands, MASTER_DATA.vendors),
+    products: countEntityMatches(products, MASTER_DATA.products.map(function(product) { return product.name; })),
+    providers: countEntityMatches(providers, MASTER_DATA.providers.concat(MASTER_DATA.vendors)),
+    recordsToCreate: allRecords.length,
+    relationshipsToCreate: relationships
+  };
+}
+
 const NEW_RECORD_FIELDS = {
   Licenses: [
     { key: 'name',          label: 'License / Product',      required: true,  type: 'select', source: 'products' },
@@ -3579,7 +3643,7 @@ function buildImportPreview(rowObjects, mappings, sourceType, workspaceMode, imp
     });
   });
   stats.skipped += preview.filter(function(item) { return item.moduleLabel === 'Renewal Package' || item.moduleLabel === 'Related Component' || item.moduleLabel === 'Review needed'; }).length;
-  return { preview: preview, records: records, stats: stats, generalWarnings: generalWarnings };
+  return { preview: preview, records: records, stats: stats, generalWarnings: generalWarnings, entitySummary: buildImportEntitySummary(records, workspaceMode) };
 }
 
 function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
@@ -3791,6 +3855,7 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
       contracts: contractInsert.created.length,
       clientsCreated: clientSync.created,
       clientsMatched: clientSync.matched,
+      entitySummary: importPreview.entitySummary,
       skipped: importPreview.stats.skipped + duplicateCount,
       review: importPreview.stats.review,
       duplicates: duplicateCount,
@@ -3970,6 +4035,25 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
             return <span key={item[0]} style={{fontSize:12,fontWeight:800,color:'#475569',border:'1px solid #E2E8F0',background:'#fff',borderRadius:999,padding:'5px 9px'}}>{item[0]}: {item[1]}</span>;
           })}
         </div>
+        {importPreview.entitySummary && <div style={{border:'1px solid #DDE5EF',borderRadius:12,background:'#F8FAFC',padding:'12px 14px',display:'grid',gap:10}}>
+          <div>
+            <strong style={{display:'block',fontSize:14,color:'#0B1F3A',marginBottom:4}}>Entities detected</strong>
+            <span style={{display:'block',fontSize:12,color:'#64748B',lineHeight:1.45}}>Opriva stages related entities for matching or creation before final import. Sensitive contacts require review and are not created automatically in this sandbox.</span>
+          </div>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
+            {[
+              ['Clients to create/match', (importPreview.entitySummary.clients.toCreate || 0) + '/' + (importPreview.entitySummary.clients.matched || 0)],
+              ['Contacts to review', importPreview.entitySummary.contacts.review || 0],
+              ['Brands to create/match', (importPreview.entitySummary.brands.toCreate || 0) + '/' + (importPreview.entitySummary.brands.matched || 0)],
+              ['Products to create/match', (importPreview.entitySummary.products.toCreate || 0) + '/' + (importPreview.entitySummary.products.matched || 0)],
+              ['Providers to create/match', (importPreview.entitySummary.providers.toCreate || 0) + '/' + (importPreview.entitySummary.providers.matched || 0)],
+              ['Records to create', importPreview.entitySummary.recordsToCreate || 0],
+              ['Relationships to create', importPreview.entitySummary.relationshipsToCreate || 0]
+            ].map(function(item) {
+              return <span key={item[0]} style={{fontSize:12,fontWeight:800,color:'#475569',border:'1px solid #E2E8F0',background:'#fff',borderRadius:999,padding:'5px 9px'}}>{item[0]}: {item[1]}</span>;
+            })}
+          </div>
+        </div>}
         <div className="tableWrap">
           <table>
             <thead><tr>{['Status','Record preview','Client / Department','Brand / Product','Expiration','Target module','Issues','Action'].map(function(col) { return <th key={col}>{col}</th>; })}</tr></thead>
@@ -4050,7 +4134,7 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
         </div>}
         <button className="primary" type="button" onClick={confirmImport} style={{justifySelf:'start'}}>Confirm import to local session</button>
         {importResult && <div className="miniState successState" role="status">
-          {importResult.message} Records created: {(importResult.licenses || 0) + (importResult.hardware || 0) + (importResult.contracts || 0)}; clients created/matched: {importResult.clientsCreated || 0}/{importResult.clientsMatched || 0}; licenses created: {importResult.licenses}; contracts/support coverage created: {importResult.contracts}; records needing review: {importResult.review}; duplicates skipped: {importResult.duplicates || 0}.
+          {importResult.message} Records created: {(importResult.licenses || 0) + (importResult.hardware || 0) + (importResult.contracts || 0)}; clients created/matched: {importResult.clientsCreated || 0}/{importResult.clientsMatched || 0}; licenses created: {importResult.licenses}; contracts/support coverage created: {importResult.contracts}; contacts reviewed/not auto-created: {importResult.entitySummary && importResult.entitySummary.contacts ? importResult.entitySummary.contacts.review : 0}; relationships staged: {importResult.entitySummary ? importResult.entitySummary.relationshipsToCreate : 0}; records needing review: {importResult.review}; duplicates skipped: {importResult.duplicates || 0}.
         </div>}
       </div>}
     </section>

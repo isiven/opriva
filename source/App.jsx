@@ -3184,6 +3184,28 @@ function inferBrandFromProduct(product, fallbackBrand) {
   return known || '-';
 }
 
+function getMappedReviewImportValue(rowObj, mappings, targetFields) {
+  var fields = Array.isArray(targetFields) ? targetFields : [targetFields];
+  for (var i = 0; i < fields.length; i += 1) {
+    var match = (mappings || []).find(function(mapping) {
+      return mapping.action === 'Review' && mapping.suggestedField === fields[i] && rowObj[mapping.sourceColumn];
+    });
+    if (match) return rowObj[match.sourceColumn] || '';
+  }
+  return '';
+}
+
+function getImportContactContext(rowObj, mappings, edit) {
+  var next = {
+    contactName: edit && edit.contactName ? edit.contactName : getMappedReviewImportValue(rowObj, mappings, ['License Contact','Related Contact','Contact Name']),
+    contactEmail: edit && edit.contactEmail ? edit.contactEmail : getMappedReviewImportValue(rowObj, mappings, 'Contact Email'),
+    contactRole: edit && edit.contactRole ? edit.contactRole : ''
+  };
+  if (!next.contactRole && next.contactName) next.contactRole = 'License Contact';
+  if (!next.contactRole && next.contactEmail) next.contactRole = 'Related Contact';
+  return next.contactName || next.contactEmail || next.contactRole ? next : null;
+}
+
 function buildImportLicenseRecord(rowObj, mappings, workspaceMode, sourceType, rowIndex, importContext) {
   var isIT = workspaceMode === 'Internal IT';
   var edit = (importContext && importContext.recordEdits && importContext.recordEdits[rowIndex + 2]) || {};
@@ -3202,6 +3224,7 @@ function buildImportLicenseRecord(rowObj, mappings, workspaceMode, sourceType, r
   var invoiceReference = edit.invoiceReference || getMappedImportValue(rowObj, mappings, 'Invoice / Billing Reference');
   var annualValue = importMoney(edit.commercialValue || getMappedImportValueAny(rowObj, mappings, ['Sale Price / Annual Value','Annual Value / Annual Cost']));
   var vendorCost = importMoney(edit.vendorCost || getMappedImportValue(rowObj, mappings, 'Vendor Cost'));
+  var importContactContext = getImportContactContext(rowObj, mappings, edit);
   var owner = edit.owner || 'Unassigned';
   var alertPolicy = edit.alertPolicy || 'Workspace default';
   var calc = calcMargin(annualValue, vendorCost);
@@ -3256,7 +3279,8 @@ function buildImportLicenseRecord(rowObj, mappings, workspaceMode, sourceType, r
       invoiceReference: invoiceReference,
       resellerPartner: resellerPartner,
       startDate: startDate,
-      licenseTerm: licenseTerm
+      licenseTerm: licenseTerm,
+      importContactContext: importContactContext
     }
   };
   return withImportRecordMeta(record, 'licenses', {
@@ -3347,6 +3371,7 @@ function buildImportHardwareRecord(rowObj, mappings, workspaceMode, sourceType, 
 }
 
 function buildImportContractRecord(rowObj, mappings, workspaceMode, sourceType, rowIndex, importContext) {
+  var edit = (importContext && importContext.recordEdits && importContext.recordEdits[rowIndex + 2]) || {};
   var contractNumber = getMappedImportValue(rowObj, mappings, 'Contract Number');
   var renewalDate = normalizeImportDate(getMappedImportValue(rowObj, mappings, 'Expiration / Renewal Date'));
   if (!contractNumber || !renewalDate) return null;
@@ -3386,7 +3411,7 @@ function buildImportContractRecord(rowObj, mappings, workspaceMode, sourceType, 
   var record = {
     id: createRecordId('contracts'),
     row: columns.map(function(col) { return map[col] !== undefined && map[col] !== '' ? map[col] : '-'; }),
-    meta: { source: 'importSandbox', sourceType: sourceType, rowNumber: rowIndex + 2 }
+    meta: { source: 'importSandbox', sourceType: sourceType, rowNumber: rowIndex + 2, importContactContext: getImportContactContext(rowObj, mappings, edit) }
   };
   return withImportRecordMeta(record, 'contracts', {
     displayName: contractNumber,
@@ -3449,6 +3474,7 @@ function buildImportPreview(rowObjects, mappings, sourceType, workspaceMode, imp
       var previewOrderRef = edit.orderReference || getMappedImportValue(rowObj, mappings, 'PO / Order Reference');
       var previewValue = edit.commercialValue || getMappedImportValueAny(rowObj, mappings, ['Sale Price / Annual Value','Annual Value / Annual Cost']);
       var previewCost = edit.vendorCost || getMappedImportValue(rowObj, mappings, 'Vendor Cost');
+      var previewContactContext = getImportContactContext(rowObj, mappings, edit);
       var previewOwner = edit.owner || 'Unassigned';
       var previewAlertPolicy = edit.alertPolicy || 'Workspace default';
       var previewInvoice = edit.invoiceReference || getMappedImportValue(rowObj, mappings, 'Invoice / Billing Reference') || edit.invoiceDate || getMappedImportValue(rowObj, mappings, 'Invoice Date');
@@ -3458,6 +3484,7 @@ function buildImportPreview(rowObjects, mappings, sourceType, workspaceMode, imp
       if (!previewClient) warnings.push('Missing client/department');
       if (!previewRenewal) warnings.push('Missing expiration date');
       if (!previewOwner || previewOwner === 'Unassigned') warnings.push('Missing owner');
+      if (previewContactContext) warnings.push('Sensitive contact field. Review before creating or linking contact.');
       record = buildImportLicenseRecord(rowObj, mappings, workspaceMode, sourceType, index, importContext || {});
       var duplicateRisk = record.meta && record.meta.importKey && (
         seenImportKeys.has(record.meta.importKey)
@@ -3493,7 +3520,10 @@ function buildImportPreview(rowObjects, mappings, sourceType, workspaceMode, imp
           vendorCost: previewCost || '',
           owner: previewOwner || 'Unassigned',
           alertPolicy: previewAlertPolicy,
-          invoiceReference: previewInvoice || ''
+          invoiceReference: previewInvoice || '',
+          contactName: previewContactContext ? previewContactContext.contactName : '',
+          contactEmail: previewContactContext ? previewContactContext.contactEmail : '',
+          contactRole: previewContactContext ? previewContactContext.contactRole : ''
         },
         issues: warnings,
         status: warnings.length ? 'Needs review' : 'Ready'
@@ -3516,6 +3546,7 @@ function buildImportPreview(rowObjects, mappings, sourceType, workspaceMode, imp
     } else if (target.moduleKey === 'contracts') {
       record = buildImportContractRecord(rowObj, mappings, workspaceMode, sourceType, index, importContext || {});
       if (record) {
+        if (record.meta && record.meta.importContactContext) warnings.push('Sensitive contact field. Review before creating or linking contact.');
         var contractDuplicate = record.meta && record.meta.importKey && (
           seenImportKeys.has(record.meta.importKey)
           || (Array.isArray(RECORD_STORE.contracts) && RECORD_STORE.contracts.some(function(existing) { return existing && existing.meta && existing.meta.importKey === record.meta.importKey; }))
@@ -3974,6 +4005,9 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
             ['orderReference','PO / Order Reference'],
             ['commercialValue','Sale Price / Annual Value'],
             ['vendorCost','Vendor Cost'],
+            ['contactName','Related Contact'],
+            ['contactEmail','Contact Email'],
+            ['contactRole','Contact Role'],
             ['owner','Owner'],
             ['alertPolicy','Alert Policy']
           ];
@@ -3981,7 +4015,7 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
             <div style={{display:'flex',justifyContent:'space-between',gap:10,alignItems:'flex-start'}}>
               <div>
                 <strong style={{display:'block',fontSize:14,color:'#0B1F3A',marginBottom:3}}>Review row {reviewRowNumber}</strong>
-                <span style={{fontSize:12,color:'#64748B'}}>Use this exception editor for row-specific corrections before creating this local Opriva record.</span>
+                <span style={{fontSize:12,color:'#64748B'}}>Use this exception editor for row-specific corrections before creating this local Opriva record. Contact fields are sensitive relationship context and are not created automatically.</span>
               </div>
               <button type="button" onClick={function() { setReviewRowNumber(null); }}>Close</button>
             </div>

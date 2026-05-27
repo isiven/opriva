@@ -146,9 +146,9 @@ Internal IT represents an organization managing its own internal technology esta
 
 **Workspace-mode notes:** MSP contacts may be client stakeholders; Internal IT contacts may be department approvers or provider contacts.
 
-**Import mapping notes:** Contact fields may appear in client/department sheets or vendor files.
+**Import mapping notes:** Contact fields may appear in client/department sheets or vendor files. License Contact, Technical Contact, Billing Contact, Renewal Contact, Legal Contact, Contact Email and similar columns are sensitive relationship data. They should be marked for review, preserved as contact context during local import, and eventually create or link Contact records only after user approval.
 
-**Backend requirements:** Permissioned contact storage and future CRM-style linking.
+**Backend requirements:** Permissioned contact storage, contact roles, record links, duplicate detection, audit events and future CRM-style linking.
 
 ### Vendor / Provider
 
@@ -643,7 +643,12 @@ These fields may arrive from Excel or another source and are mapped into canonic
 - Annual Value / Annual Cost
 - Vendor Cost
 - Invoice Date / Billing Reference
+- Contact Name / Related Contact / License Contact
+- Contact Email
+- Contact Role
 - Notes
+
+Contact fields are imported only as sensitive relationship context until the user explicitly approves contact creation or linking. They must not be copied blindly into license, contract or package free-text fields.
 
 ### Derived/calculated fields
 
@@ -737,6 +742,8 @@ Opriva suggests source-column-to-canonical-field mappings using rules and eventu
 ### User approval
 
 Mappings are not final until the user approves them. Users can import, skip, review or remap columns.
+
+Contact-related mappings default to Review. Opriva should treat contact names and emails as candidate related-contact data, not ordinary license text and not internal Owner assignment.
 
 ### Bulk defaults
 

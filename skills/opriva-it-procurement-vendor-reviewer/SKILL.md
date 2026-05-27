@@ -20,6 +20,8 @@ Use this skill when reviewing procurement, purchasing, vendor management, commer
 - Import must map procurement columns into canonical fields, not blindly copy spreadsheet columns.
 - Brand / Manufacturer, Product / License Name, Distributor / Provider, Vendor / Provider, Reseller / Partner, Client / Department, Currency, Country, Contract Type, Support Coverage Type, and License Term should be controlled catalogs, not unrestricted free text.
 - New procurement catalog values should be normalized, checked for duplicate-like matches, and created only after user approval.
+- License Contact, Technical Contact, Billing Contact, Renewal Contact, Legal Contact and contact email fields are relationship data. They should be reviewed for Contact creation/linking, not stored as ordinary procurement text.
+- Procurement imports should detect related clients, contacts, brands, products, providers, distributors, resellers, contracts, support coverage and package relationships, not only license or hardware rows.
 
 ## Review Checklist
 
@@ -34,6 +36,8 @@ Use this skill when reviewing procurement, purchasing, vendor management, commer
 - Document evidence policies and missing evidence signals.
 - Vendor/provider catalogs and normalization needs.
 - Import mappings for procurement exports and commercial renewal packages.
+- Contact-role handling in renewal exports, including preserving contact context while avoiding blind import of emails or personal data.
+- Whether import preview stages new procurement entities and relationship links for approval before creation.
 - MSP commercial terminology vs Internal IT procurement terminology.
 
 ## Required Output Format

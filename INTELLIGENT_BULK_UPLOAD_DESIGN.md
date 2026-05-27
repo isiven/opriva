@@ -350,7 +350,11 @@ Common mappings:
 - `Contract` / `Registro` / `Con. Number` -> Contract Number / Registration Reference
 - `Invoice Date` / `Fecha factura` -> Invoice Date
 - `Amount` / `Total` -> Sale Price / Annual Value or Vendor Cost depending on context
+- `Lic. Contact` / `License Contact` / `Technical Contact` / `Billing Contact` / `Renewal Contact` / `Legal Contact` -> Related Contact / License Contact, action Review
+- `Lic. Contact e-mail` / `Contact email` / `Email` -> Contact Email, action Review
 - `Days before expiration` / `Remaining days` -> calculated, skip
+
+Contact mappings are sensitive relationship context. They should be reviewed before creating or linking a Contact record and should not be imported as unrestricted free text on a License, Contract or Renewal Package.
 
 MSP / Integrator interpretation:
 
@@ -414,6 +418,7 @@ Issues should be concise and actionable:
 - Missing warranty term
 - Ambiguous quantity
 - Duplicate risk
+- Sensitive contact field. Review before creating or linking contact.
 - Sensitive field skipped
 - Review required
 
@@ -604,6 +609,7 @@ Rules:
 - Secure storage is required later.
 - AI permission boundaries are required later.
 - Sensitive values should not be exposed in logs, docs, screenshots or public sample files.
+- Contact names and emails from imports are sensitive relationship data. Local sandbox may preserve them as `importContactContext`, but corporate MVP requires permissioned Contact records, contact roles, audit history and explicit user approval before linking or creating contacts.
 
 The local sandbox is acceptable for product validation, but it is not enterprise-safe storage.
 
@@ -662,6 +668,7 @@ Corporate MVP requires backend support for:
 - Rollback and error handling
 - Permissions
 - Audit trail
+- Contact tables, contact roles, record/contact links and permissioned contact access
 - Notifications
 - AI retrieval with permissions
 - Search/indexing

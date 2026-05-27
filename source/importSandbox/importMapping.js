@@ -5,6 +5,25 @@ function profileRule(target, action, reason, patterns) {
   return { target: target, action: action, reason: reason, patterns: patterns.map(normalizeImportText) };
 }
 
+function contactSuggestion(normalizedHeader) {
+  var hasEmail = normalizedHeader.indexOf('email') >= 0
+    || normalizedHeader.indexOf('e mail') >= 0
+    || normalizedHeader.indexOf('correo') >= 0
+    || normalizedHeader === 'mail';
+  var hasContact = normalizedHeader.indexOf('contact') >= 0
+    || normalizedHeader.indexOf('contacto') >= 0;
+  if (hasEmail) {
+    return { target: 'Contact Email', action: 'Review', reason: 'Sensitive contact data; candidate related contact' };
+  }
+  if (hasContact) {
+    if (normalizedHeader.indexOf('lic') >= 0 || normalizedHeader.indexOf('license') >= 0 || normalizedHeader.indexOf('licencia') >= 0) {
+      return { target: 'License Contact', action: 'Review', reason: 'Sensitive contact data; candidate license contact' };
+    }
+    return { target: 'Related Contact', action: 'Review', reason: 'Sensitive contact data; candidate related contact' };
+  }
+  return null;
+}
+
 const PROFILE_MAPPING_RULES = {
   'Microsoft CSP': [
     profileRule('Client / Department', 'Import', 'CSP customer context', ['customer name', 'customer domain']),
@@ -33,8 +52,9 @@ const PROFILE_MAPPING_RULES = {
     profileRule('License Term', 'Import', 'Veeam licensing terms', ['licensing terms']),
     profileRule('Sale Price / Annual Value', 'Review', 'Commercial amount requires user review', ['incumbent total']),
     profileRule('', 'Skip', 'Calculated by Opriva', ['days before expiration']),
-    profileRule('', 'Skip', 'Sensitive contact field; do not import blindly', ['lic contact e mail', 'contact e mail', 'email', 'e mail']),
-    profileRule('', 'Review', 'Sensitive contact field; review before importing', ['lic contact', 'contact']),
+    profileRule('Contact Email', 'Review', 'Sensitive contact data; candidate related contact', ['lic contact e mail', 'contact e mail', 'email', 'e mail']),
+    profileRule('License Contact', 'Review', 'Sensitive contact data; candidate license contact', ['lic contact', 'license contact']),
+    profileRule('Related Contact', 'Review', 'Sensitive contact data; candidate related contact', ['contact']),
   ],
   'Hardware Sales Export': [
     profileRule('Client / Department', 'Import', 'Hardware client context', ['cliente', 'client', 'customer']),
@@ -80,9 +100,8 @@ export function suggestImportField(header, sourceType) {
   if (IMPORT_SKIP_HEADERS.indexOf(normalized) >= 0 || normalized.indexOf('days before expiration') >= 0 || normalized.indexOf('remaining days') >= 0) {
     return { target: '', action: 'Skip', reason: 'Calculated by Opriva' };
   }
-  if (normalized.indexOf('email') >= 0 || normalized.indexOf('e mail') >= 0) {
-    return { target: '', action: 'Skip', reason: 'Sensitive contact field; do not import blindly' };
-  }
+  var contact = contactSuggestion(normalized);
+  if (contact) return contact;
   var profileSuggestion = profileMatch(normalized, sourceType);
   if (profileSuggestion) return profileSuggestion;
   var direct = [
@@ -119,7 +138,6 @@ export function suggestImportField(header, sourceType) {
   if (normalized.indexOf('serial') >= 0) return { target: 'Serial Number', action: 'Import', reason: 'Serial keyword match' };
   if (normalized.indexOf('support') >= 0 || normalized.indexOf('soporte') >= 0) return { target: 'Support', action: 'Import', reason: 'Support keyword match' };
   if (normalized.indexOf('margin') >= 0 || normalized.indexOf('margen') >= 0) return { target: '', action: 'Skip', reason: 'Calculated by Opriva' };
-  if (normalized.indexOf('contact') >= 0) return { target: '', action: 'Review', reason: 'Sensitive contact field; review before importing' };
   return { target: '', action: 'Review', reason: 'Needs user review' };
 }
 

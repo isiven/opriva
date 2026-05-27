@@ -19,6 +19,8 @@ Use this skill when reviewing security, compliance, permissions, document handli
 - Activity must become a persistent audit trail.
 - Missing Evidence must be derived from document policy and linked records, not manually maintained.
 - AI assistant behavior must respect permissions and workspace boundaries in corporate MVP.
+- Imported contact names and emails are sensitive relationship data. They must not be imported blindly, logged, documented, or exposed to AI without permission boundaries.
+- Bulk import entity creation must be approval-based, permission-aware and auditable, especially for contacts and external organizations.
 
 ## Review Checklist
 
@@ -29,6 +31,8 @@ Use this skill when reviewing security, compliance, permissions, document handli
 - Evidence requirements and Missing Evidence derivation.
 - Audit trail coverage for create/edit/import/link/upload/task/status events.
 - Data exposure through local files, logs, browser state, or AI context.
+- Import handling for contact names, contact emails, billing/legal/technical contacts, and whether they require review before Contact creation/linking.
+- Entity creation/linking during import and whether clients, contacts, providers, brands, products, relationships and activity events are created with audit trail and permissions.
 - Alerting for critical expirations and compliance deadlines.
 - Security implications of import uploads and mapping previews.
 - Corporate pilot blockers.

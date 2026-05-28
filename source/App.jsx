@@ -33,7 +33,7 @@ import { createImportMappings, getMappedImportValue, getMappedImportValueAny } f
 import { detectImportTarget, suggestImportTargetFromSource } from './importSandbox/importTargets.js';
 import { detectImportSourceType, normalizeImportText } from './importSandbox/importText.js';
 import { getImportSheetData } from './importSandbox/workbookParsing.js';
-import { calcExpirationState, suggestRenewalDate } from './utils/dates.js';
+import { calcExpirationState, inferLicenseTerm, suggestRenewalDate } from './utils/dates.js';
 import { autoFillDocName, extractFileMetadata, fmtFileSize, fmtUploadedAt } from './utils/files.js';
 import { calcMargin } from './utils/money.js';
 import { asArray, cx, riskClass, safeText } from './utils/text.js';
@@ -3282,7 +3282,9 @@ function buildImportLicenseRecord(rowObj, mappings, workspaceMode, sourceType, r
   var quantity = edit.quantitySeats || getMappedImportValueAny(rowObj, mappings, ['Quantity / Seats','Quantity']) || '-';
   var startDate = normalizeImportDate(edit.startDate || getMappedImportValue(rowObj, mappings, 'Start Date'));
   var renewalDate = normalizeImportDate(edit.expirationRenewalDate || getMappedImportValue(rowObj, mappings, 'Expiration / Renewal Date'));
-  var licenseTerm = edit.licenseTerm || getMappedImportValue(rowObj, mappings, 'License Term');
+  var licenseTerm = edit.licenseTerm
+    || getMappedImportValue(rowObj, mappings, 'License Term')
+    || (startDate && renewalDate ? inferLicenseTerm(startDate, renewalDate) : '');
   var contractNumber = edit.contractNumber || getMappedImportValue(rowObj, mappings, 'Contract Number');
   var orderReference = edit.orderReference || getMappedImportValue(rowObj, mappings, 'PO / Order Reference');
   var invoiceDate = normalizeImportDate(edit.invoiceDate || getMappedImportValue(rowObj, mappings, 'Invoice Date'));
@@ -3542,6 +3544,10 @@ function buildImportPreview(rowObjects, mappings, sourceType, workspaceMode, imp
       var previewReseller = edit.resellerPartner || getMappedImportValue(rowObj, mappings, 'Reseller / Partner');
       var previewQuantity = edit.quantitySeats || getMappedImportValueAny(rowObj, mappings, ['Quantity / Seats','Quantity']);
       var previewRenewal = normalizeImportDate(edit.expirationRenewalDate || getMappedImportValue(rowObj, mappings, 'Expiration / Renewal Date'));
+      var previewStart = normalizeImportDate(edit.startDate || getMappedImportValue(rowObj, mappings, 'Start Date'));
+      var previewLicenseTerm = edit.licenseTerm
+        || getMappedImportValue(rowObj, mappings, 'License Term')
+        || (previewStart && previewRenewal ? inferLicenseTerm(previewStart, previewRenewal) : '');
       var previewContract = edit.contractNumber || getMappedImportValue(rowObj, mappings, 'Contract Number');
       var previewOrderRef = edit.orderReference || getMappedImportValue(rowObj, mappings, 'PO / Order Reference');
       var previewValue = edit.commercialValue || getMappedImportValueAny(rowObj, mappings, ['Sale Price / Annual Value','Annual Value / Annual Cost']);
@@ -3592,6 +3598,8 @@ function buildImportPreview(rowObjects, mappings, sourceType, workspaceMode, imp
           owner: previewOwner || 'Unassigned',
           alertPolicy: previewAlertPolicy,
           invoiceReference: previewInvoice || '',
+          startDate: previewStart || '',
+          licenseTerm: previewLicenseTerm || '',
           contactName: previewContactContext ? previewContactContext.contactName : '',
           contactEmail: previewContactContext ? previewContactContext.contactEmail : '',
           contactRole: previewContactContext ? previewContactContext.contactRole : ''

@@ -34,3 +34,24 @@ export function suggestRenewalDate(startDate, licenseTerm) {
   d.setFullYear(d.getFullYear() + yrs);
   return d.toISOString().slice(0, 10);
 }
+
+// Inverse of suggestRenewalDate: given a Start Date and an Expiration /
+// Renewal Date, return the matching canonical License Term ('1 year',
+// '2 years', '3 years', '5 years') when the span is within ±1 month of
+// 12 / 24 / 36 / 60 months; 'Custom' when the span is a positive but
+// non-standard duration; '' when either date is missing/invalid or the
+// expiration is not after the start.
+export function inferLicenseTerm(startDate, expirationDate) {
+  if (!startDate || !expirationDate) return '';
+  var s = new Date(startDate + 'T00:00:00');
+  var e = new Date(expirationDate + 'T00:00:00');
+  if (isNaN(s.getTime()) || isNaN(e.getTime())) return '';
+  if (e.getTime() <= s.getTime()) return '';
+  var months = (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth());
+  if (e.getDate() < s.getDate()) months -= 1;
+  if (Math.abs(months - 12) <= 1) return '1 year';
+  if (Math.abs(months - 24) <= 1) return '2 years';
+  if (Math.abs(months - 36) <= 1) return '3 years';
+  if (Math.abs(months - 60) <= 1) return '5 years';
+  return 'Custom';
+}

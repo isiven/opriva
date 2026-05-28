@@ -260,12 +260,12 @@ function ToastStack({ notices = [] }){
   if (!safeNotices.length) return null;
   return <div className="toastStack" aria-live="polite">{safeNotices.slice(0,3).map((notice, index) => <div className={cx('toast', notice.tone === 'error' && 'errorToast')} key={notice.id || notice.message || index}>{notice.message || notice}</div>)}</div>;
 }
-function ValidationPanel({ workspaceMode = 'MSP / Integrator' }){
+function ValidationPanel({ workspaceMode = 'MSP / Integrator', issueCounts = { critical: 0, warning: 0, suggestion: 0 }, confirmBlocked = false }){
   const isInternalIT = workspaceMode === 'Internal IT';
   const duplicateMessage = isInternalIT
     ? 'Duplicate prevention is checking brands, providers and departments before import confirmation.'
     : 'Duplicate prevention is checking clients, products and distributors before import confirmation.';
-  return <div className="validationPanel" role="group" aria-label="Import validation states"><div><strong>Required field missing</strong><span>Owner is required for 7 license rows.</span></div><div><strong>Invalid date</strong><span>Three rows use 31/31/2026.</span></div><div><strong>Duplicate record warning</strong><span>{duplicateMessage}</span></div><div><strong>Invalid file format</strong><span>Upload CSV or XLSX files only.</span></div><button disabled title="Fix validation errors before confirming">Confirm import</button></div>;
+  return <div className="validationPanel" role="group" aria-label="Import validation severity states"><div><strong>Critical errors: {issueCounts.critical || 0}</strong><span>Must be fixed before Confirm Import is enabled.</span></div><div><strong>Warnings: {issueCounts.warning || 0}</strong><span>Can be imported, but should be reviewed first.</span></div><div><strong>Suggestions: {issueCounts.suggestion || 0}</strong><span>Optional cleanup recommendations that do not block import.</span></div><div><strong>Duplicate prevention</strong><span>{duplicateMessage}</span></div><button disabled title={confirmBlocked ? 'Critical errors must be fixed before confirming.' : 'Confirm remains available when only warnings or suggestions exist.'}>{confirmBlocked ? 'Confirm blocked by critical errors' : 'Warnings do not block confirm'}</button></div>;
 }
 
 function ScreenHeader({ active, subtitle, eyebrow, title, children }){
@@ -3288,6 +3288,72 @@ function resolveImportClientDepartment(rowObj, mappings, edit, workspaceMode, im
   return getImportContextClientDepartment(importContext, workspaceMode) || (isIT ? 'Unassigned department' : 'Unassigned client');
 }
 
+// TODO backend: move severity validation rules into the import job validation engine before corporate MVP.
+function createImportIssue(severity, code, message, field) {
+  return {
+    severity: severity || 'warning',
+    code: code || 'import_issue',
+    message: message || 'Review import row.',
+    field: field || ''
+  };
+}
+
+function normalizeImportIssue(issue) {
+  if (!issue) return null;
+  if (typeof issue === 'string') return createImportIssue('warning', 'legacy_warning', issue);
+  return createImportIssue(issue.severity, issue.code, issue.message, issue.field);
+}
+
+function buildImportIssueViews(issues) {
+  var normalized = (issues || []).map(normalizeImportIssue).filter(Boolean);
+  var criticalIssues = normalized.filter(function(issue) { return issue.severity === 'critical'; });
+  var warningIssues = normalized.filter(function(issue) { return issue.severity === 'warning'; });
+  var suggestionIssues = normalized.filter(function(issue) { return issue.severity === 'suggestion'; });
+  return {
+    issues: normalized,
+    criticalIssues: criticalIssues,
+    warningIssues: warningIssues,
+    suggestionIssues: suggestionIssues,
+    issueMessages: normalized.map(function(issue) { return issue.message; }),
+    hasCriticalIssues: criticalIssues.length > 0
+  };
+}
+
+function getImportRowStatus(issueViews) {
+  if (issueViews.hasCriticalIssues) return 'Blocked';
+  if (issueViews.warningIssues.length > 0) return 'Needs review';
+  if (issueViews.suggestionIssues.length > 0) return 'Ready with suggestions';
+  return 'Ready';
+}
+
+function addImportRowStatus(stats, issueViews) {
+  if (issueViews.hasCriticalIssues || issueViews.warningIssues.length > 0) stats.review += 1;
+  else stats.ready += 1;
+}
+
+function isUnassignedImportScope(value) {
+  return !value || String(value).toLowerCase().indexOf('unassigned ') === 0;
+}
+
+function rawImportValuePresent(value) {
+  return value !== undefined && value !== null && String(value).trim() !== '' && String(value).trim() !== '-';
+}
+
+function catalogContainsValue(values, value) {
+  if (!rawImportValuePresent(value)) return false;
+  var normalized = String(value).trim().toLowerCase();
+  return (values || []).some(function(item) { return String(item).trim().toLowerCase() === normalized; });
+}
+
+function getImportSeverityCounts(previewItems) {
+  return (previewItems || []).reduce(function(counts, item) {
+    (item.criticalIssues || []).forEach(function() { counts.critical += 1; });
+    (item.warningIssues || []).forEach(function() { counts.warning += 1; });
+    (item.suggestionIssues || []).forEach(function() { counts.suggestion += 1; });
+    return counts;
+  }, { critical: 0, warning: 0, suggestion: 0 });
+}
+
 function buildImportLicenseRecord(rowObj, mappings, workspaceMode, sourceType, rowIndex, importContext) {
   var isIT = workspaceMode === 'Internal IT';
   var edit = (importContext && importContext.recordEdits && importContext.recordEdits[rowIndex + 2]) || {};
@@ -3530,8 +3596,19 @@ function buildImportPreview(rowObjects, mappings, sourceType, workspaceMode, imp
   var skippedColumns = mappings.filter(function(mapping) { return mapping.action === 'Skip' || !mapping.suggestedField; }).map(function(mapping) { return mapping.sourceColumn; });
   rowObjects.forEach(function(rowObj, index) {
     var target = detectImportTarget(rowObj, mappings, sourceType, importTarget);
-    var warnings = [];
-    if (target.warning) warnings.push(target.warning);
+    var issues = [];
+    function pushIssue(severity, code, message, field) {
+      issues.push(createImportIssue(severity, code, message, field));
+    }
+    if (target.warning) {
+      pushIssue(target.moduleKey === 'review' ? 'critical' : 'warning', target.moduleKey === 'review' ? 'target_unidentified' : 'target_review', target.warning, 'target');
+    }
+    if (skippedColumns.length > 0) {
+      pushIssue('suggestion', 'skipped_columns', 'Some source columns are skipped or unmapped; review mapping if they contain useful context.', 'mapping');
+    }
+    if ((mappings || []).some(function(mapping) { return mapping.confidence === 'Low' && mapping.action !== 'Skip'; })) {
+      pushIssue('suggestion', 'low_mapping_confidence', 'One or more mapped columns have low confidence and may benefit from review.', 'mapping');
+    }
     if (target.moduleKey === 'package') {
       if (generalWarnings.indexOf('Renewal Package / Bundle import is partially supported in this sandbox. Opriva will create the best available underlying license, hardware or contract records where possible. Full package modeling will require backend support.') < 0) {
         generalWarnings.push('Renewal Package / Bundle import is partially supported in this sandbox. Opriva will create the best available underlying license, hardware or contract records where possible. Full package modeling will require backend support.');
@@ -3550,7 +3627,7 @@ function buildImportPreview(rowObjects, mappings, sourceType, workspaceMode, imp
     var quantitySources = mappings.filter(function(mapping) {
       return mapping.action === 'Import' && (mapping.suggestedField === 'Quantity' || mapping.suggestedField === 'Quantity / Seats') && rowObj[mapping.sourceColumn];
     });
-    if (quantitySources.length > 1) warnings.push('Review quantity');
+    if (quantitySources.length > 1) pushIssue('warning', 'ambiguous_quantity', 'Multiple quantity columns are mapped; review quantity before import.', 'Quantity / Seats');
     var record = null;
     if (target.moduleKey === 'licenses') {
       var edit = (importContext && importContext.recordEdits && importContext.recordEdits[index + 2]) || {};
@@ -3560,8 +3637,10 @@ function buildImportPreview(rowObjects, mappings, sourceType, workspaceMode, imp
       var previewProvider = edit.providerDistributor || getMappedImportValue(rowObj, mappings, 'Provider / Distributor');
       var previewReseller = edit.resellerPartner || getMappedImportValue(rowObj, mappings, 'Reseller / Partner');
       var previewQuantity = edit.quantitySeats || getMappedImportValueAny(rowObj, mappings, ['Quantity / Seats','Quantity']);
-      var previewRenewal = normalizeImportDate(edit.expirationRenewalDate || getMappedImportValue(rowObj, mappings, 'Expiration / Renewal Date'));
-      var previewStart = normalizeImportDate(edit.startDate || getMappedImportValue(rowObj, mappings, 'Start Date'));
+      var previewRenewalRaw = edit.expirationRenewalDate || getMappedImportValue(rowObj, mappings, 'Expiration / Renewal Date');
+      var previewRenewal = normalizeImportDate(previewRenewalRaw);
+      var previewStartRaw = edit.startDate || getMappedImportValue(rowObj, mappings, 'Start Date');
+      var previewStart = normalizeImportDate(previewStartRaw);
       var previewLicenseTerm = edit.licenseTerm
         || getMappedImportValue(rowObj, mappings, 'License Term')
         || (previewStart && previewRenewal ? inferLicenseTerm(previewStart, previewRenewal) : '');
@@ -3573,25 +3652,33 @@ function buildImportPreview(rowObjects, mappings, sourceType, workspaceMode, imp
       var previewOwner = edit.owner || 'Unassigned';
       var previewAlertPolicy = edit.alertPolicy || 'Workspace default';
       var previewInvoice = edit.invoiceReference || getMappedImportValue(rowObj, mappings, 'Invoice / Billing Reference') || edit.invoiceDate || getMappedImportValue(rowObj, mappings, 'Invoice Date');
-      if (!previewProduct) warnings.push('Missing product');
-      if (!previewBrand || previewBrand === '-') warnings.push('Missing brand');
+      if (!previewProduct) pushIssue('critical', 'missing_product', 'Missing required product or license name.', 'Product / License Name');
+      if (previewProduct && !catalogContainsValue(MASTER_DATA.products.map(function(product) { return product.name; }), previewProduct)) pushIssue('warning', 'new_product_catalog_value', 'Product/license is not in the catalog and should be staged for review.', 'Product / License Name');
+      if (!previewBrand || previewBrand === '-') pushIssue('warning', 'unknown_brand', 'Unknown brand/manufacturer; stage catalog value for review.', 'Brand / Manufacturer');
+      else if (!catalogContainsValue(MASTER_DATA.vendors, previewBrand)) pushIssue('warning', 'new_brand_catalog_value', 'Brand/manufacturer is not in the catalog and should be staged for review.', 'Brand / Manufacturer');
       if (!previewProduct || !previewBrand || previewBrand === '-') stats.missingBrandProduct += 1;
-      if (!previewClient) warnings.push('Missing client/department');
-      if (!previewRenewal) warnings.push('Missing expiration date');
-      if (!previewOwner || previewOwner === 'Unassigned') warnings.push('Missing owner');
-      if (previewContactContext) warnings.push('Sensitive contact field. Review before creating or linking contact.');
+      if (isUnassignedImportScope(previewClient)) pushIssue('critical', 'missing_client_department', 'Missing required client/department after file and import context fallback.', 'Client / Department');
+      if (rawImportValuePresent(previewRenewalRaw) && !previewRenewal) pushIssue('critical', 'invalid_expiration_date', 'Invalid expiration/renewal date prevents expiration logic.', 'Expiration / Renewal Date');
+      else if (!previewRenewal) pushIssue('critical', 'missing_expiration_date', 'Missing required expiration/renewal date.', 'Expiration / Renewal Date');
+      if (rawImportValuePresent(previewStartRaw) && !previewStart) pushIssue('suggestion', 'invalid_start_date', 'Start date could not be parsed and should be cleaned up.', 'Start Date');
+      if (!previewProvider || previewProvider === '-') pushIssue('warning', 'unknown_provider', 'Missing or unknown provider/distributor; stage catalog value for review.', 'Provider / Distributor');
+      else if (!catalogContainsValue(MASTER_DATA.providers, previewProvider) && !catalogContainsValue(MASTER_DATA.vendors, previewProvider)) pushIssue('warning', 'new_provider_catalog_value', 'Provider/distributor is not in the catalog and should be staged for review.', 'Provider / Distributor');
+      if (!previewOwner || previewOwner === 'Unassigned') pushIssue('warning', 'missing_owner', 'Missing owner; assign before relying on renewal workflow ownership.', 'Owner');
+      if (!previewAlertPolicy) pushIssue('warning', 'missing_alert_policy', 'Missing alert policy; workspace default will be used.', 'Alert Policy');
+      if (previewContactContext) pushIssue('warning', 'sensitive_contact', 'Sensitive contact field. Review before creating or linking contact.', 'Contact');
       record = buildImportLicenseRecord(rowObj, mappings, workspaceMode, sourceType, index, importContext || {});
       var licenseDuplicateKeys = (record.meta && record.meta.duplicateKeys) || [];
       var duplicateRisk = isDuplicateByKeys(licenseDuplicateKeys, seenImportKeys)
         || (Array.isArray(RECORD_STORE.licenses) && RECORD_STORE.licenses.some(function(existing) { return matchesExistingRecord(record.meta, existing); }));
       if (duplicateRisk) {
-        warnings.push('Duplicate risk');
+        pushIssue('warning', 'duplicate_risk', 'Duplicate risk detected against this import session or existing records.', 'duplicate');
         stats.duplicates += 1;
       }
       addKeysToSet(licenseDuplicateKeys, seenImportKeys);
       records.licenses.push(record);
       stats.licenses += 1;
-      if (warnings.length) stats.review += 1; else stats.ready += 1;
+      var licenseIssueViews = buildImportIssueViews(issues);
+      addImportRowStatus(stats, licenseIssueViews);
       preview.push({
         rowNumber: index + 2,
         moduleLabel: target.label,
@@ -3621,32 +3708,68 @@ function buildImportPreview(rowObjects, mappings, sourceType, workspaceMode, imp
           contactEmail: previewContactContext ? previewContactContext.contactEmail : '',
           contactRole: previewContactContext ? previewContactContext.contactRole : ''
         },
-        issues: warnings,
-        status: warnings.length ? 'Needs review' : 'Ready'
+        issues: licenseIssueViews.issues,
+        criticalIssues: licenseIssueViews.criticalIssues,
+        warningIssues: licenseIssueViews.warningIssues,
+        suggestionIssues: licenseIssueViews.suggestionIssues,
+        issueMessages: licenseIssueViews.issueMessages,
+        hasCriticalIssues: licenseIssueViews.hasCriticalIssues,
+        status: getImportRowStatus(licenseIssueViews)
       });
       return;
     } else if (target.moduleKey === 'hardware') {
-      if (!getMappedImportValue(rowObj, mappings, 'Serial Number')) warnings.push('Missing serial');
+      var hardwareEdit = (importContext && importContext.recordEdits && importContext.recordEdits[index + 2]) || {};
+      var hardwareNameRaw = hardwareEdit.productLicenseName || getMappedImportValue(rowObj, mappings, 'Asset Name') || getMappedImportValueAny(rowObj, mappings, ['Product / License Name','License / Product']);
+      var hardwareClient = resolveImportClientDepartment(rowObj, mappings, hardwareEdit, workspaceMode, importContext);
+      var hardwareBrand = hardwareEdit.brandManufacturer || inferBrandFromProduct(hardwareNameRaw, getMappedImportValueAny(rowObj, mappings, ['Brand / Manufacturer','Brand']));
+      var hardwareProvider = hardwareEdit.providerDistributor || getMappedImportValue(rowObj, mappings, 'Provider / Distributor');
+      var hardwareOwner = hardwareEdit.owner || 'Unassigned';
+      var hardwareWarrantyRaw = hardwareEdit.expirationRenewalDate || getMappedImportValue(rowObj, mappings, 'Warranty End Date') || getMappedImportValue(rowObj, mappings, 'Expiration / Renewal Date');
+      var hardwareWarrantyEnd = normalizeImportDate(hardwareWarrantyRaw);
+      if (!hardwareNameRaw) pushIssue('critical', 'missing_hardware_name', 'Missing required hardware asset name.', 'Asset Name');
+      if (isUnassignedImportScope(hardwareClient)) pushIssue('critical', 'missing_client_department', 'Missing required client/department after file and import context fallback.', 'Client / Department');
+      if (rawImportValuePresent(hardwareWarrantyRaw) && !hardwareWarrantyEnd) pushIssue('critical', 'invalid_warranty_date', 'Invalid warranty/renewal date prevents expiration logic.', 'Warranty End Date');
+      else if (String(target.label || '').indexOf('Warranty') >= 0 && !hardwareWarrantyEnd) pushIssue('critical', 'missing_warranty_date', 'Missing required warranty/renewal date for hardware warranty import.', 'Warranty End Date');
+      if (!getMappedImportValue(rowObj, mappings, 'Serial Number')) pushIssue('warning', 'missing_serial', 'Missing serial number; review if this asset needs unique hardware identification.', 'Serial Number');
+      if (!hardwareBrand || hardwareBrand === '-') pushIssue('warning', 'unknown_brand', 'Unknown brand/manufacturer; stage catalog value for review.', 'Brand / Manufacturer');
+      else if (!catalogContainsValue(MASTER_DATA.vendors, hardwareBrand)) pushIssue('warning', 'new_brand_catalog_value', 'Brand/manufacturer is not in the catalog and should be staged for review.', 'Brand / Manufacturer');
+      if (!hardwareProvider || hardwareProvider === '-') pushIssue('warning', 'unknown_provider', 'Missing or unknown provider/distributor; stage catalog value for review.', 'Provider / Distributor');
+      else if (!catalogContainsValue(MASTER_DATA.providers, hardwareProvider) && !catalogContainsValue(MASTER_DATA.vendors, hardwareProvider)) pushIssue('warning', 'new_provider_catalog_value', 'Provider/distributor is not in the catalog and should be staged for review.', 'Provider / Distributor');
+      if (!hardwareOwner || hardwareOwner === 'Unassigned') pushIssue('warning', 'missing_owner', 'Missing owner; assign before relying on renewal workflow ownership.', 'Owner');
       record = buildImportHardwareRecord(rowObj, mappings, workspaceMode, sourceType, index, importContext || {});
       var hardwareDuplicateKeys = (record.meta && record.meta.duplicateKeys) || [];
       var hardwareDuplicate = isDuplicateByKeys(hardwareDuplicateKeys, seenImportKeys)
         || (Array.isArray(RECORD_STORE.hardware) && RECORD_STORE.hardware.some(function(existing) { return matchesExistingRecord(record.meta, existing); }));
       if (hardwareDuplicate) {
-        warnings.push('Duplicate risk');
+        pushIssue('warning', 'duplicate_risk', 'Duplicate risk detected against this import session or existing records.', 'duplicate');
         stats.duplicates += 1;
       }
       addKeysToSet(hardwareDuplicateKeys, seenImportKeys);
       records.hardware.push(record);
       stats.hardware += 1;
     } else if (target.moduleKey === 'contracts') {
+      var contractEdit = (importContext && importContext.recordEdits && importContext.recordEdits[index + 2]) || {};
+      var previewContractNumber = contractEdit.contractNumber || getMappedImportValue(rowObj, mappings, 'Contract Number');
+      var contractRenewalRaw = contractEdit.expirationRenewalDate || getMappedImportValue(rowObj, mappings, 'Expiration / Renewal Date');
+      var contractRenewalDate = normalizeImportDate(contractRenewalRaw);
+      var contractClient = resolveImportClientDepartment(rowObj, mappings, contractEdit, workspaceMode, importContext);
+      var contractProvider = contractEdit.providerDistributor || getMappedImportValue(rowObj, mappings, 'Provider / Distributor');
+      var contractOwner = contractEdit.owner || 'Unassigned';
+      if (!previewContractNumber) pushIssue('critical', 'missing_contract_number', 'Missing required contract number.', 'Contract Number');
+      if (isUnassignedImportScope(contractClient)) pushIssue('critical', 'missing_client_department', 'Missing required client/department after file and import context fallback.', 'Client / Department');
+      if (rawImportValuePresent(contractRenewalRaw) && !contractRenewalDate) pushIssue('critical', 'invalid_contract_renewal_date', 'Invalid contract renewal date prevents expiration logic.', 'Expiration / Renewal Date');
+      else if (!contractRenewalDate) pushIssue('critical', 'missing_contract_renewal_date', 'Missing required contract renewal date.', 'Expiration / Renewal Date');
+      if (!contractProvider || contractProvider === '-') pushIssue('warning', 'unknown_provider', 'Missing or unknown provider/distributor; stage catalog value for review.', 'Provider / Distributor');
+      else if (!catalogContainsValue(MASTER_DATA.providers, contractProvider) && !catalogContainsValue(MASTER_DATA.vendors, contractProvider)) pushIssue('warning', 'new_provider_catalog_value', 'Provider/distributor is not in the catalog and should be staged for review.', 'Provider / Distributor');
+      if (!contractOwner || contractOwner === 'Unassigned') pushIssue('warning', 'missing_owner', 'Missing owner; assign before relying on renewal workflow ownership.', 'Owner');
       record = buildImportContractRecord(rowObj, mappings, workspaceMode, sourceType, index, importContext || {});
       if (record) {
-        if (record.meta && record.meta.importContactContext) warnings.push('Sensitive contact field. Review before creating or linking contact.');
+        if (record.meta && record.meta.importContactContext) pushIssue('warning', 'sensitive_contact', 'Sensitive contact field. Review before creating or linking contact.', 'Contact');
         var contractDuplicateKeys = (record.meta && record.meta.duplicateKeys) || [];
         var contractDuplicate = isDuplicateByKeys(contractDuplicateKeys, seenImportKeys)
           || (Array.isArray(RECORD_STORE.contracts) && RECORD_STORE.contracts.some(function(existing) { return matchesExistingRecord(record.meta, existing); }));
         if (contractDuplicate) {
-          warnings.push('Duplicate risk');
+          pushIssue('warning', 'duplicate_risk', 'Duplicate risk detected against this import session or existing records.', 'duplicate');
           stats.duplicates += 1;
         }
         addKeysToSet(contractDuplicateKeys, seenImportKeys);
@@ -3654,10 +3777,11 @@ function buildImportPreview(rowObjects, mappings, sourceType, workspaceMode, imp
         stats.contracts += 1;
       } else {
         stats.skipped += 1;
-        warnings.push('Review required');
+        pushIssue('critical', 'review_required', 'Review required before Opriva can create this record.', 'target');
       }
     }
-    if (target.review || warnings.length) stats.review += 1; else stats.ready += 1;
+    var issueViews = buildImportIssueViews(issues);
+    addImportRowStatus(stats, issueViews);
     if (!record && target.moduleKey !== 'review' && target.moduleKey !== 'package') stats.skipped += 1;
     preview.push({
       rowNumber: index + 2,
@@ -3685,8 +3809,13 @@ function buildImportPreview(rowObjects, mappings, sourceType, workspaceMode, imp
         startDate: record.meta.startDate || '',
         licenseTerm: record.meta.licenseTerm || ''
       } : {},
-      issues: warnings,
-      status: warnings.length ? 'Needs review' : 'Ready'
+      issues: issueViews.issues,
+      criticalIssues: issueViews.criticalIssues,
+      warningIssues: issueViews.warningIssues,
+      suggestionIssues: issueViews.suggestionIssues,
+      issueMessages: issueViews.issueMessages,
+      hasCriticalIssues: issueViews.hasCriticalIssues,
+      status: getImportRowStatus(issueViews)
     });
   });
   stats.skipped += preview.filter(function(item) { return item.moduleLabel === 'Renewal Package' || item.moduleLabel === 'Related Component' || item.moduleLabel === 'Review needed'; }).length;
@@ -4040,14 +4169,12 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
     return mapping.action === 'Skip' || !mapping.suggestedField;
   });
   const importSummaryEntity = importPreview.entitySummary || {};
+  const importSeverityCounts = getImportSeverityCounts(importPreview.preview);
   const importSummarySensitiveFields = (importPreview.preview || []).filter(function(item) {
-    return (item.issues || []).some(function(issue) { return String(issue).indexOf('Sensitive contact field') >= 0; });
+    return (item.warningIssues || []).some(function(issue) {
+      return issue.code === 'sensitive_contact';
+    });
   }).length;
-  const importSummaryMissingRequired = (importPreview.preview || []).reduce(function(total, item) {
-    return total + (item.issues || []).filter(function(issue) {
-      return String(issue).indexOf('Missing ') === 0 || issue === 'Review required';
-    }).length;
-  }, 0);
   const formatEntitySummaryMetric = function(entityKey) {
     if (!rowObjects.length || !importSummaryEntity[entityKey]) return 'Not detected yet';
     var entity = importSummaryEntity[entityKey];
@@ -4063,11 +4190,13 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
     ['Selected sheet', selectedSheet || 'Not selected yet'],
     ['Rows found', String(rowObjects.length)],
     ['Records to create', String((importPreview.entitySummary && importPreview.entitySummary.recordsToCreate) || 0)],
+    ['Critical errors', String(importSeverityCounts.critical || 0)],
+    ['Warnings', String(importSeverityCounts.warning || 0)],
+    ['Suggestions', String(importSeverityCounts.suggestion || 0)],
     ['Ready rows', String(importPreview.stats.ready || 0)],
     ['Rows needing review', String(importPreview.stats.review || 0)],
     ['Sensitive fields', String(importSummarySensitiveFields)],
     ['Duplicate risks', String(importPreview.stats.duplicates || 0)],
-    ['Missing required fields', String(importSummaryMissingRequired)],
     ['Missing brand/product', String(importPreview.stats.missingBrandProduct || 0)]
   ];
   const importSummaryEntities = [
@@ -4085,6 +4214,14 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
     ((importPreview.records.licenses || []).length +
     (importPreview.records.hardware || []).length +
     (importPreview.records.contracts || []).length) > 0;
+  const hasCriticalImportIssues = (importSeverityCounts.critical || 0) > 0;
+  const canConfirmImport = recordsReadyToConfirm && !hasCriticalImportIssues;
+  const confirmBlockedMessage = hasCriticalImportIssues
+    ? 'Confirm Import is blocked until ' + importSeverityCounts.critical + ' critical issue' + (importSeverityCounts.critical === 1 ? ' is' : 's are') + ' fixed.'
+    : '';
+  const warningContinueMessage = !hasCriticalImportIssues && (importSeverityCounts.warning || 0) > 0
+    ? 'Warnings do not block import, but review them before confirming.'
+    : '';
   const mappingStepUnlocked = importContextReady && hasWorkbookColumns;
   const validationStepUnlocked = mappingStepUnlocked && hasValidationData;
   const previewStepUnlocked = validationStepUnlocked && hasImportPreview;
@@ -4132,7 +4269,7 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
       label: 'Confirm',
       unlocked: confirmStepUnlocked,
       complete: Boolean(importResult),
-      helper: !previewStepUnlocked ? 'Preview records before confirming.' : recordsReadyToConfirm ? 'Confirm session-only record creation when review is complete.' : 'No records are ready to confirm yet.'
+      helper: !previewStepUnlocked ? 'Preview records before confirming.' : hasCriticalImportIssues ? confirmBlockedMessage : recordsReadyToConfirm ? 'Confirm session-only record creation when review is complete.' : 'No records are ready to confirm yet.'
     }
   ];
   const currentImportStep = importStepDefinitions.find(function(step) { return step.key === importStep; }) || importStepDefinitions[0];
@@ -4179,6 +4316,10 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
   }
 
   function confirmImport() {
+    if (hasCriticalImportIssues) {
+      setImportResult(null);
+      return;
+    }
     var licenses = importPreview.records.licenses;
     var hardware = importPreview.records.hardware;
     var contracts = importPreview.records.contracts;
@@ -4227,6 +4368,33 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
       duplicates: duplicateCount,
       message: 'Imported records were added to the central local Opriva record store for this session. They can now be opened from relevant modules. Backend persistence is still required for corporate MVP. ' + duplicateCount + ' duplicate-looking record' + (duplicateCount === 1 ? ' was' : 's were') + ' skipped.'
     });
+  }
+
+  function getImportIssueStyle(severity) {
+    if (severity === 'critical') return {border:'1px solid #FECACA',background:'#FEF2F2',color:'#991B1B'};
+    if (severity === 'warning') return {border:'1px solid #FDE68A',background:'#FFFBEB',color:'#92400E'};
+    return {border:'1px solid #DDE5EF',background:'#F8FAFC',color:'#475569'};
+  }
+
+  function getImportIssueLabel(severity) {
+    if (severity === 'critical') return 'Critical';
+    if (severity === 'warning') return 'Warning';
+    return 'Suggestion';
+  }
+
+  function renderImportIssueBadges(item) {
+    var rowIssues = item && item.issues ? item.issues : [];
+    if (!rowIssues.length) return '-';
+    return <div style={{display:'flex',gap:5,flexWrap:'wrap',alignItems:'center'}}>
+      {rowIssues.slice(0, 3).map(function(issue, issueIndex) {
+        var label = getImportIssueLabel(issue.severity);
+        return <span key={(issue.code || 'issue') + issueIndex} style={Object.assign({display:'inline-flex',alignItems:'center',gap:4,borderRadius:999,padding:'4px 7px',fontSize:11,fontWeight:800,lineHeight:1.2}, getImportIssueStyle(issue.severity))} title={label + ': ' + issue.message} aria-label={label + ': ' + issue.message}>
+          <strong style={{fontSize:10,textTransform:'uppercase',letterSpacing:'.04em'}}>{label}</strong>
+          <span>{issue.message}</span>
+        </span>;
+      })}
+      {rowIssues.length > 3 && <span style={{fontSize:11,fontWeight:800,color:'#64748B'}}>+{rowIssues.length - 3} more</span>}
+    </div>;
   }
 
   return <main className="content">
@@ -4476,8 +4644,24 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
       </div>}
       {showImportStep('validation') && hasValidationData && <div style={{display:'grid',gap:12}}>
         <div className="panelTitle" style={{margin:0}}><h2>Validation checks</h2><span>Review current import signals before moving into row preview.</span></div>
+        <div style={{border:'1px solid #DDE5EF',borderRadius:12,background:'#F8FAFC',padding:'12px 14px',display:'grid',gap:8}}>
+          <strong style={{display:'block',fontSize:14,color:'#0B1F3A'}}>Severity rules</strong>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(3,minmax(0,1fr))',gap:8}}>
+            {[
+              ['Critical', String(importSeverityCounts.critical || 0), 'Must fix before import.'],
+              ['Warning', String(importSeverityCounts.warning || 0), 'Can import, but review.'],
+              ['Suggestion', String(importSeverityCounts.suggestion || 0), 'Optional cleanup.']
+            ].map(function(item) {
+              return <div key={item[0]} style={{border:'1px solid #E2E8F0',borderRadius:10,background:'#fff',padding:'9px 10px'}}>
+                <span style={{display:'block',fontSize:10,fontWeight:850,color:'#64748B',textTransform:'uppercase',letterSpacing:'.06em'}}>{item[0]}</span>
+                <strong style={{display:'block',fontSize:18,color:'#132033',marginTop:2}}>{item[1]}</strong>
+                <span style={{display:'block',fontSize:12,color:'#64748B',lineHeight:1.35}}>{item[2]}</span>
+              </div>;
+            })}
+          </div>
+        </div>
         <Table columns={['Validation area','Finding','AI suggestion','Action']} rows={validationRows}/>
-        <ValidationPanel workspaceMode={workspaceMode} />
+        <ValidationPanel workspaceMode={workspaceMode} issueCounts={importSeverityCounts} confirmBlocked={hasCriticalImportIssues} />
         <div style={{display:'flex',justifyContent:'flex-end',borderTop:'1px solid #EEF2F7',paddingTop:10}}>
           <button type="button" className="primary" onClick={function() { selectImportStep('preview'); }}>Continue to Preview</button>
         </div>
@@ -4556,7 +4740,7 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
                   <td>{item.brandProduct || '-'}</td>
                   <td>{item.expiration || '-'}</td>
                   <td>{item.moduleLabel}</td>
-                  <td>{item.issues.length ? item.issues.slice(0, 3).join(', ') : '-'}</td>
+                  <td>{renderImportIssueBadges(item)}</td>
                   <td className="actionCell"><button type="button" className="rowAction" onClick={function() { openImportReviewDrawer(item); }}>Review</button></td>
                 </tr>;
               })}
@@ -4578,10 +4762,16 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
           </table>
           {importPreview.preview.length > 8 && <p style={{margin:'8px 0 0',fontSize:12,color:'#64748B',lineHeight:1.45}}>Showing first 8 of {importPreview.preview.length} rows.</p>}
         </div>}
+        {showImportStep('confirm') && hasCriticalImportIssues && <div className="miniState errorState" role="alert">
+          {confirmBlockedMessage} Critical errors include missing required names, client/department scope, or renewal dates that prevent safe record creation.
+        </div>}
+        {showImportStep('confirm') && warningContinueMessage && <div className="miniState" role="status">
+          {warningContinueMessage}
+        </div>}
         {showImportStep('preview') && recordsReadyToConfirm && <div style={{display:'flex',justifyContent:'flex-end',borderTop:'1px solid #EEF2F7',paddingTop:10}}>
           <button type="button" className="primary" onClick={function() { selectImportStep('confirm'); }}>Continue to Confirm</button>
         </div>}
-        {showImportStep('confirm') && <button className="primary" type="button" onClick={confirmImport} disabled={!recordsReadyToConfirm} title={recordsReadyToConfirm ? 'Create records in the local session' : 'No records are ready to confirm yet'} style={{justifySelf:'start'}}>Confirm import to local session</button>}
+        {showImportStep('confirm') && <button className="primary" type="button" onClick={confirmImport} disabled={!canConfirmImport} title={canConfirmImport ? 'Create records in the local session' : (confirmBlockedMessage || 'No records are ready to confirm yet')} style={{justifySelf:'start'}}>Confirm import to local session</button>}
         {importResult && <div className="miniState successState" role="status">
           {importResult.message} Records created: {(importResult.licenses || 0) + (importResult.hardware || 0) + (importResult.contracts || 0)}; clients created/matched: {importResult.clientsCreated || 0}/{importResult.clientsMatched || 0}; licenses created: {importResult.licenses}; contracts/support coverage created: {importResult.contracts}; contacts reviewed/not auto-created: {importResult.entitySummary && importResult.entitySummary.contacts ? importResult.entitySummary.contacts.review : 0}; relationships staged: {importResult.entitySummary ? importResult.entitySummary.relationshipsToCreate : 0}; records needing review: {importResult.review}; duplicates skipped: {importResult.duplicates || 0}.
         </div>}

@@ -1108,6 +1108,31 @@ AI mapping suggestions are displayed as recommendations with a confidence indica
 
 ---
 
+### 19.11 Import Duplicate Detection (Record-Type-Specific Keys)
+
+Import duplicate detection is record-type specific and implemented in the local sandbox (commit `1e16a13`). Logic lives in `source/importSandbox/importDuplicates.js` and is wired into `withImportRecordMeta`, the preview duplicate check (`buildImportPreview`) and the confirm-time insert (`insertImportedRecords`).
+
+- `meta.duplicateKeys` is the real source of duplicate detection. Each imported record carries an array of namespaced, record-type-specific keys; two records are duplicates when they share any key.
+- `meta.importKey` remains only as a backward-compatible legacy fallback. It is still written to every record but is used only when comparing against an existing stored record that has no `duplicateKeys`.
+
+Implemented keys:
+
+| Record type | Primary key | Fallback / variant |
+|---|---|---|
+| Licenses | client/department + brand/product + expiration date | CSP variant adds order reference (client + product + end date + order reference) |
+| Hardware | serial number when available | client + model/product + (order reference or purchase date) |
+| Contracts | contract number + end date | client + provider + support/contract type + renewal/end date |
+
+Rules:
+
+- Sparse/weak keys are not emitted — a key is only produced when its required discriminating fields are present, so a single shared field (e.g. client alone) can never trigger a false duplicate.
+- Serial values that are empty or `-` are ignored for the hardware serial key; such rows fall back to the client + model + reference/date key.
+- Certificates and Renewal Package keys are defined as dormant placeholders and currently produce no keys; they are reserved for when those modules go live.
+
+Handling follows Option A: Opriva flags duplicate risk in the preview and Import Summary, and the existing confirm-time duplicate skip behavior is preserved. Strict flag-only duplicate handling with row-level include/exclude remains a future UX task. Full duplicate handling, persistence and audit remain backend-required for corporate MVP. Detailed design lives in `INTELLIGENT_BULK_UPLOAD_DESIGN.md` §11.
+
+---
+
 ## 18. Trend Micro Import Model
 
 This section documents the approved data model for importing Trend Micro renewal data into Opriva. It is derived from real Nextcom commercial records (`Datos.xlsx`) and a Trend Micro Entitlement Certificate PDF (`TM LICENSE -MI0008223.pdf`). Detailed field mapping lives in `IMPORT_MAPPING_TREND_MICRO.md`.
@@ -1289,3 +1314,4 @@ Phase 2 should include:
 - 2026-05-25: Local Excel Import Sandbox committed in `745585a`. Data Import now supports local `.xlsx` / `.xls` upload, sheet parsing, sheet selection, source detection, header mapping, canonical field mapping, skipped/calculated column handling, row normalization, target module detection, normalized record preview and confirmed local/session creation into `RECORD_STORE`. Imported session records are preserved during mock refresh when `meta.source === 'importSandbox'`. The `xlsx` dependency was added in `package.json` / `package-lock.json`. Build and `git diff --check` passed, and the working tree was clean after the commit. This remains a local sandbox validation feature, not the future backend import engine.
 - 2026-05-26: Controlled catalog product decision documented. Brand / Manufacturer, Product / License Name, Distributor / Provider, Vendor / Provider, Reseller / Partner, Client / Department, Owner, Alert Policy, Document Type, Contract Type, Support Coverage Type, License Term, Currency, Country and reusable business classifications should use select/search/create catalog behavior instead of unrestricted free text. Imports and bulk defaults should map to existing catalog values where possible, AI suggestions require user approval, and corporate MVP requires backend catalog tables, normalized keys, aliases/synonyms, duplicate prevention, merge/deactivate flows and audit history.
 - 2026-05-27: Import entity detection product decision documented. Bulk upload should detect clients/departments, contacts, brands, products, providers/distributors/resellers, licenses, hardware, contracts/support coverage, renewal packages, documents, tasks, relationships and activity events, then match or stage canonical entities before import confirmation. Local sandbox may simulate entity counts, metadata and relationship staging; corporate MVP requires backend persistence, permissions, contact handling, relationship creation and audit trail.
+- 2026-05-27: Record-type-specific import duplicate keys implemented (commit `1e16a13`). `source/importSandbox/importDuplicates.js` added with `buildDuplicateKeys`, `isDuplicateByKeys`, `addKeysToSet` and `matchesExistingRecord`. `meta.duplicateKeys` is now the real source of duplicate detection (preview duplicate-risk flag + confirm-time skip); `meta.importKey` is retained only as a backward-compatible legacy fallback for stored records without `duplicateKeys`. Keys: Licenses = client/department + brand/product + expiration (CSP variant adds order reference); Hardware = serial number primary, fallback client + model/product + order reference or purchase date; Contracts = contract number + end date, fallback client + provider + support/contract type + renewal/end date. Sparse/weak keys are not emitted; empty or `-` serials are ignored; Certificates and Renewal Package keys are dormant. Handling follows Option A (flag in preview, preserve confirm-time skip); strict flag-only handling with row-level include/exclude remains a future UX task. MEMORY.md §19.11 and INTELLIGENT_BULK_UPLOAD_DESIGN.md §11 updated. No application code modified in this documentation pass.

@@ -435,24 +435,53 @@ Users should be able to:
 
 ## 11. Duplicate Detection
 
-Duplicate detection should be record-type specific.
+Duplicate detection is record-type specific.
+
+### 11.1 Implemented behavior (commit `1e16a13`)
+
+Record-type-specific duplicate keys are implemented in the local sandbox in `source/importSandbox/importDuplicates.js` and wired into the import flow:
+
+- **`meta.duplicateKeys` is the real source of duplicate detection.** Each imported record carries an array of namespaced, record-type-specific keys. Two records are duplicates when they share any key (intersection).
+- **`meta.importKey` remains only as a backward-compatible legacy fallback.** It is still written to every record by `withImportRecordMeta`, but it is no longer the primary signal. It is used only when comparing against an existing stored record that has no `duplicateKeys` (older record shape).
+- Keys are built once in `withImportRecordMeta` (as `meta.duplicateKeys`) and consumed by both the preview duplicate check (`buildImportPreview`) and the confirm-time skip (`insertImportedRecords`).
+
+Implemented keys by record type:
+
+| Record type | Primary key | Fallback / variant |
+|---|---|---|
+| Licenses | client/department + brand/product + expiration date | CSP variant: client + product + end date + order reference |
+| Hardware | serial number (when available) | client + model/product + (order reference or purchase date) |
+| Contracts | contract number + end date | client + provider + support/contract type + renewal/end date |
+
+Key construction rules:
+
+- **Sparse/weak keys are not emitted.** A key is only produced when its required discriminating fields are all present (e.g. a license needs client + brand-or-product + expiration; a hardware fallback needs client + model + a reference or date). A single shared field such as client alone never produces a key, so it can never trigger a false duplicate.
+- **Serial values that are empty or `-` are ignored** for the hardware serial key; such rows fall back to the client + model + reference/date key.
+- A record may carry more than one key (e.g. a CSP license carries both the primary license key and the CSP variant). Sharing any one key flags a duplicate. Keys are namespaced by record type, so keys never collide across types.
+- Certificates and Renewal Package keys are defined as dormant placeholders and currently produce no keys; they are reserved for when those modules go live.
+
+### 11.2 Option A handling (current)
+
+Duplicate handling follows Option A:
+
+- Opriva **flags duplicate risk in the import preview** (a `Duplicate risk` issue on the affected rows) and reports a duplicate count in the Import Summary.
+- **Confirm-time duplicate skip behavior is preserved.** On confirm, records whose keys match an already-created record are skipped and counted as duplicates skipped, exactly as before.
+- **Strict flag-only duplicate handling with row-level include/exclude remains a future UX task.** The current behavior continues to skip matched duplicates at confirm time rather than letting the user selectively include or exclude individual flagged rows.
+
+### 11.3 Additional design candidates (future)
+
+The following additional key combinations remain design-level direction and are not all implemented yet:
 
 Licenses:
 
-- client/department + brand/product + expiration date
-- customer + offer + end date + order reference
 - product + quantity + provider + renewal date
 
 Hardware:
 
-- serial number
-- client + product/model + transaction reference
 - asset name + provider + purchase date
 
 Contracts:
 
-- contract number + end date
-- client + provider + contract type + renewal date
 - support coverage reference + covered record
 
 Certificates:
@@ -781,7 +810,7 @@ Expected focus:
 
 ### Phase 4: Improve Duplicate Detection And Enrichment
 
-- Add record-type duplicate keys.
+- Add record-type duplicate keys. **Implemented in the local sandbox (commit `1e16a13`) via `meta.duplicateKeys`; see §11.1.**
 - Add selected-row bulk defaults.
 - Add quantity metric resolution.
 - Add warranty term enrichment.

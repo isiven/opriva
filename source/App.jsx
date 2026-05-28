@@ -3860,7 +3860,8 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
     ['Rows needing review', String(importPreview.stats.review || 0)],
     ['Sensitive fields', String(importSummarySensitiveFields)],
     ['Duplicate risks', String(importPreview.stats.duplicates || 0)],
-    ['Missing required fields', String(importSummaryMissingRequired)]
+    ['Missing required fields', String(importSummaryMissingRequired)],
+    ['Missing brand/product', String(importPreview.stats.missingBrandProduct || 0)]
   ];
   const importSummaryEntities = [
     ['Clients', formatEntitySummaryMetric('clients')],
@@ -3947,57 +3948,28 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
   }
 
   return <main className="content">
-    <ScreenHeader active="Data Import" subtitle="Local import sandbox for reading Excel files, reviewing mappings and creating session-only Opriva records.">
-      <a href={templateHref} download="OPRIVA_IMPORT_TEMPLATE.xlsx" style={{display:'inline-flex',alignItems:'center',justifyContent:'center',textDecoration:'none',border:'1px solid var(--border)',background:'#fff',color:'#243247',borderRadius:10,padding:'9px 12px',fontWeight:700}}>Download template</a>
-      <label className="primary" style={{display:'inline-flex',alignItems:'center',justifyContent:'center',borderRadius:10,padding:'9px 12px',fontWeight:700,cursor:'pointer'}}>
-        Upload Excel
-        <input type="file" accept=".xlsx,.xls,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={handleExcelUpload} style={{display:'none'}} />
-      </label>
-    </ScreenHeader>
-    <section className="split">
-      <article className="panel">
-        <div className="panelTitle"><h2>AI-assisted mapping preview</h2><span>Path A</span></div>
-        <p style={{margin:'0 0 14px',color:'#526174',fontSize:13,lineHeight:1.55}}>Upload any vendor, client or internal Excel file. Opriva uses local rule-based suggestions in this MVP, then you review and approve how columns map into the Opriva model.</p>
-        <div style={{display:'grid',gap:8,marginBottom:14,color:'#64748B',fontSize:13,lineHeight:1.4}}>
-          <span>Upload Excel or XLS files locally</span>
-          <span>Review suggested mappings before import</span>
-          <span>Preview normalized Opriva records</span>
-          <span>Confirm to create session-only records</span>
-        </div>
-        <label className="primary" style={{display:'inline-flex',alignItems:'center',justifyContent:'center',borderRadius:10,padding:'9px 12px',fontWeight:700,cursor:'pointer'}}>
-          Upload file
+    <ScreenHeader active="Data Import" subtitle="Local import sandbox for reading Excel files, reviewing mappings and creating session-only Opriva records." />
+    <section className="panel" style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap',padding:'10px 14px'}}>
+      <div style={{display:'flex',alignItems:'center',gap:10,minWidth:0,flex:'1 1 320px'}}>
+        {fileName
+          ? <>
+              <span style={{fontSize:11,fontWeight:800,color:'#64748B',textTransform:'uppercase',letterSpacing:'.06em'}}>Workbook</span>
+              <strong style={{fontSize:13,color:'#132033',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',minWidth:0,flex:'1 1 auto'}} title={fileName}>{fileName}</strong>
+            </>
+          : <span style={{fontSize:13,color:'#526174',lineHeight:1.5}}>Upload any vendor, client or internal Excel file — or use the official Opriva template. Opriva maps columns into canonical records and previews them before creation.</span>
+        }
+      </div>
+      <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+        <a href={templateHref} download="OPRIVA_IMPORT_TEMPLATE.xlsx" style={{display:'inline-flex',alignItems:'center',justifyContent:'center',textDecoration:'none',border:'1px solid var(--border)',background:'#fff',color:'#243247',borderRadius:10,padding:'8px 12px',fontWeight:700,fontSize:12}}>Download template</a>
+        <label className="primary" style={{display:'inline-flex',alignItems:'center',justifyContent:'center',borderRadius:10,padding:'8px 12px',fontWeight:700,fontSize:12,cursor:'pointer'}}>
+          {fileName ? 'Replace file' : 'Upload Excel'}
           <input type="file" accept=".xlsx,.xls,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={handleExcelUpload} style={{display:'none'}} />
         </label>
-      </article>
-      <article className="panel">
-        <div className="panelTitle"><h2>Official Opriva Template</h2><span>Path B</span></div>
-        <p style={{margin:'0 0 14px',color:'#526174',fontSize:13,lineHeight:1.55}}>Use this template if you want to prepare your data directly in Opriva's standard format.</p>
-        <div style={{display:'grid',gap:8,marginBottom:14,color:'#64748B',fontSize:13,lineHeight:1.4}}>
-          <span>Download the official template</span>
-          <span>Fill it using Opriva's canonical fields</span>
-          <span>Upload completed template</span>
-          <span>Validate and preview records</span>
-        </div>
-        <a href={templateHref} download="OPRIVA_IMPORT_TEMPLATE.xlsx" className="primary" style={{display:'inline-flex',alignItems:'center',justifyContent:'center',textDecoration:'none',borderRadius:10,padding:'9px 12px',fontWeight:700}}>Download template</a>
-      </article>
+      </div>
     </section>
     <section className="panel" style={{display:'grid',gap:14}}>
       <div className="panelTitle"><h2>Local import sandbox</h2><span>Imported data is stored locally for this MVP session. Backend persistence will be added later.</span></div>
       {importError && <ErrorState title="Excel import failed" message={importError} />}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(4,minmax(0,1fr))',gap:10}}>
-        {[
-          ['Workbook', fileName || 'No file selected'],
-          ['Sheet', selectedSheet || '-'],
-          ['Detected source', sourceType],
-          ['Suggested records', suggestedImportTarget],
-          ['Rows parsed', String(rowObjects.length)]
-        ].map(function(item) {
-          return <div key={item[0]} style={{border:'1px solid #EEF2F7',borderRadius:10,padding:'10px 12px',background:'#FAFCFF'}}>
-            <span style={{display:'block',fontSize:11,fontWeight:800,color:'#94A3B8',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:4}}>{item[0]}</span>
-            <strong style={{display:'block',fontSize:13,color:'#132033',lineHeight:1.35,wordBreak:'break-word'}}>{item[1]}</strong>
-          </div>;
-        })}
-      </div>
       <div style={{position:'sticky',top:12,zIndex:3,border:'1px solid #CDEDE5',borderRadius:14,background:'#F8FFFD',boxShadow:'0 10px 24px rgba(15, 118, 110, .08)',padding:'14px',display:'grid',gap:12}}>
         <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}>
           <div>
@@ -4006,7 +3978,7 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
           </div>
           <span style={{border:'1px solid #CDEDE5',borderRadius:999,padding:'5px 9px',background:'#fff',fontSize:11,fontWeight:800,color:'#0F766E'}}>Local sandbox</span>
         </div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(5,minmax(0,1fr))',gap:8}}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:8}}>
           {importSummaryMetrics.map(function(item) {
             return <div key={'summary-' + item[0]} style={{border:'1px solid #E2E8F0',borderRadius:10,background:'#fff',padding:'8px 10px',minWidth:0}}>
               <span style={{display:'block',fontSize:10,fontWeight:850,color:'#94A3B8',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:3}}>{item[0]}</span>
@@ -4132,17 +4104,6 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
         {importPreview.generalWarnings.length > 0 && <div style={{border:'1px solid #F1E3C8',background:'#FFFDF7',borderRadius:10,padding:'10px 12px',fontSize:12,color:'#7C5A12',lineHeight:1.45}}>
           {importPreview.generalWarnings[0]}
         </div>}
-        <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
-          {[
-            ['Total rows parsed', importPreview.stats.processed],
-            ['Ready to import', importPreview.stats.ready],
-            ['Needs review', importPreview.stats.review],
-            ['Duplicate risks', importPreview.stats.duplicates],
-            ['Missing brand/product', importPreview.stats.missingBrandProduct]
-          ].map(function(item) {
-            return <span key={item[0]} style={{fontSize:12,fontWeight:800,color:'#475569',border:'1px solid #E2E8F0',background:'#fff',borderRadius:999,padding:'5px 9px'}}>{item[0]}: {item[1]}</span>;
-          })}
-        </div>
         {importPreview.entitySummary && <div style={{border:'1px solid #DDE5EF',borderRadius:12,background:'#F8FAFC',padding:'12px 14px',display:'grid',gap:10}}>
           <div>
             <strong style={{display:'block',fontSize:14,color:'#0B1F3A',marginBottom:4}}>Entities detected</strong>

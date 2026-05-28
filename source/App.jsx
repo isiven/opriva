@@ -4382,6 +4382,24 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
     return 'Suggestion';
   }
 
+  // Local tone override for the Bulk Import preview status badge so each
+  // status reads with the right severity colour:
+  //   Blocked                -> critical (red)
+  //   Needs review           -> medium   (yellow / warning)
+  //   Ready with suggestions -> review   (blue / informational)
+  //   Ready                  -> low      (green / ok)
+  // Falls back to the row's status string so riskClass can keep handling any
+  // future status value. Does not modify shared riskClass, the issue model,
+  // hasCriticalIssues, confirm gating, parsing, mapping, preview, drawer or
+  // RECORD_STORE behavior.
+  function getImportRowStatusTone(status) {
+    if (status === 'Blocked') return 'critical';
+    if (status === 'Needs review') return 'medium';
+    if (status === 'Ready with suggestions') return 'review';
+    if (status === 'Ready') return 'low';
+    return status;
+  }
+
   function renderImportIssueBadges(item) {
     var rowIssues = item && item.issues ? item.issues : [];
     if (!rowIssues.length) return '-';
@@ -4734,7 +4752,7 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
             <tbody>
               {importPreview.preview.slice(0, 12).map(function(item) {
                 return <tr key={'preview-' + item.rowNumber}>
-                  <td><Badge tone={item.status}>{item.status}</Badge></td>
+                  <td><Badge tone={getImportRowStatusTone(item.status)}>{item.status}</Badge></td>
                   <td className="recordCell"><strong>{item.name}</strong><br/><span style={{fontSize:11,color:'#64748B',fontWeight:600}}>{item.createdRecords.join(' + ')}</span></td>
                   <td>{item.clientDepartment || '-'}</td>
                   <td>{item.brandProduct || '-'}</td>

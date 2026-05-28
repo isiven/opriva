@@ -3696,7 +3696,6 @@ function buildImportPreview(rowObjects, mappings, sourceType, workspaceMode, imp
 function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
   const isInternalIT = workspaceMode === 'Internal IT';
   const templateHref = '/templates/OPRIVA_IMPORT_TEMPLATE.xlsx';
-  const steps = ['Upload file','Choose records','Map columns','Validate fields','Detect duplicates','Fix errors','AI suggestions','Confirm','Summary'];
   const historyRows = isInternalIT ? importRows.internalIT : importRows.mspIntegrator;
   const validationRows = isInternalIT ? [
     ['Provider mapping', '6 provider names resemble existing supplier records', 'Use Nextcom / Oracle Direct normalized provider records', 'Review provider matches'],
@@ -3741,6 +3740,7 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
   const [previewDrawerOpen, setPreviewDrawerOpen] = React.useState(false);
   const [previewEditForm, setPreviewEditForm] = React.useState({});
   const [rawDetailsOpen, setRawDetailsOpen] = React.useState(false);
+  const [importStep, setImportStep] = React.useState('context');
   const importContextScopeLabel = isInternalIT ? 'Department / Business Unit' : 'Client / Account';
   const importContextScopeValue = isInternalIT ? importContext.departmentBusinessUnit : importContext.clientAccount;
   const importContextScopeOptions = isInternalIT ? MASTER_DATA.departments : MASTER_DATA.companies;
@@ -3809,6 +3809,7 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
     setPreviewDrawerOpen(false);
     setPreviewSelectedRecord(null);
     setImportResult(null);
+    setImportStep('mapping');
   }
 
   async function handleExcelUpload(event) {
@@ -4077,6 +4078,80 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
     ['Unique providers', formatEntitySummaryMetric('providers')],
     ['Relationships', rowObjects.length ? String(importSummaryEntity.relationshipsToCreate || 0) + ' staged' : 'Not detected yet']
   ];
+  const hasWorkbookColumns = Boolean(workbook && headers.length > 0);
+  const hasValidationData = rowObjects.length > 0 && importPreview.preview.length > 0;
+  const hasImportPreview = importPreview.preview.length > 0;
+  const recordsReadyToConfirm =
+    ((importPreview.records.licenses || []).length +
+    (importPreview.records.hardware || []).length +
+    (importPreview.records.contracts || []).length) > 0;
+  const mappingStepUnlocked = importContextReady && hasWorkbookColumns;
+  const validationStepUnlocked = mappingStepUnlocked && hasValidationData;
+  const previewStepUnlocked = validationStepUnlocked && hasImportPreview;
+  const confirmStepUnlocked = previewStepUnlocked && recordsReadyToConfirm;
+  const importStepDefinitions = [
+    {
+      key: 'context',
+      label: 'Context',
+      unlocked: true,
+      complete: importContextReady,
+      helper: importContextReady
+        ? (isInternalIT ? 'Department scope is ready.' : 'Client/account scope is ready.')
+        : (importContextDisabledMessage || 'Complete import context before upload.')
+    },
+    {
+      key: 'upload',
+      label: 'Upload',
+      unlocked: importContextReady,
+      complete: Boolean(fileName && hasWorkbookColumns),
+      helper: importContextReady ? (fileName || 'Upload an Excel workbook.') : importContextDisabledMessage
+    },
+    {
+      key: 'mapping',
+      label: 'Mapping',
+      unlocked: mappingStepUnlocked,
+      complete: mappingStepUnlocked && mappings.length > 0,
+      helper: !importContextReady ? importContextDisabledMessage : hasWorkbookColumns ? 'Review target records, sheet and column mappings.' : 'Upload a workbook to unlock mapping.'
+    },
+    {
+      key: 'validation',
+      label: 'Validation',
+      unlocked: validationStepUnlocked,
+      complete: validationStepUnlocked,
+      helper: !mappingStepUnlocked ? 'Complete context and mapping before validation.' : hasValidationData ? 'Review entity detection, missing data and duplicate signals.' : 'Mapping data is required before validation.'
+    },
+    {
+      key: 'preview',
+      label: 'Preview',
+      unlocked: previewStepUnlocked,
+      complete: previewStepUnlocked && importPreview.stats.ready > 0,
+      helper: !validationStepUnlocked ? 'Validation data is required before preview.' : hasImportPreview ? 'Review and enrich normalized records before creation.' : 'Validation data is required before preview.'
+    },
+    {
+      key: 'confirm',
+      label: 'Confirm',
+      unlocked: confirmStepUnlocked,
+      complete: Boolean(importResult),
+      helper: !previewStepUnlocked ? 'Preview records before confirming.' : recordsReadyToConfirm ? 'Confirm session-only record creation when review is complete.' : 'No records are ready to confirm yet.'
+    }
+  ];
+  const currentImportStep = importStepDefinitions.find(function(step) { return step.key === importStep; }) || importStepDefinitions[0];
+
+  function selectImportStep(stepKey) {
+    var nextStep = importStepDefinitions.find(function(step) { return step.key === stepKey; });
+    if (!nextStep || !nextStep.unlocked) return;
+    setImportStep(stepKey);
+  }
+
+  function showImportStep(stepKey) {
+    return currentImportStep.key === stepKey;
+  }
+
+  React.useEffect(function() {
+    if (currentImportStep.unlocked) return;
+    var fallback = importStepDefinitions.slice().reverse().find(function(step) { return step.unlocked; }) || importStepDefinitions[0];
+    if (fallback.key !== importStep) setImportStep(fallback.key);
+  }, [importStep, importContextReady, hasWorkbookColumns, hasValidationData, hasImportPreview, recordsReadyToConfirm]);
 
   function applyImportDefaults(overwrite) {
     var defaultFields = ['brandManufacturer','productLicenseName','owner','alertPolicy','providerDistributor'];
@@ -4156,7 +4231,43 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
 
   return <main className="content">
     <ScreenHeader active="Data Import" subtitle="Local import sandbox for reading Excel files, reviewing mappings and creating session-only Opriva records." />
-    <section className="panel" aria-labelledby="import-context-title" style={{display:'grid',gap:14,borderColor:importContextReady ? '#DDE6F1' : '#F1E3C8',background:'#fff'}}>
+    <section className="panel" aria-labelledby="import-stepper-title" style={{display:'grid',gap:12,padding:'14px'}}>
+      <div className="panelTitle" style={{margin:0,alignItems:'flex-start'}}>
+        <div>
+          <h2 id="import-stepper-title">Bulk Import Workflow</h2>
+          <span>Navigate unlocked steps as the file moves from context to confirmation.</span>
+        </div>
+        <span style={{border:'1px solid #E2E8F0',borderRadius:999,padding:'5px 9px',background:'#F8FAFC',fontSize:11,fontWeight:850,color:'#475569'}}>
+          {importStepDefinitions.filter(function(step) { return step.complete; }).length} / {importStepDefinitions.length} complete
+        </span>
+      </div>
+      <div className="wizardSteps" role="list" aria-label="Bulk import steps" style={{gridTemplateColumns:'repeat(6,minmax(132px,1fr))',marginBottom:0}}>
+        {importStepDefinitions.map(function(step, index) {
+          var active = currentImportStep.key === step.key;
+          var status = step.complete ? 'Complete' : step.unlocked ? 'Available' : 'Locked';
+          return <button
+            key={step.key}
+            type="button"
+            role="listitem"
+            className={cx('wizardStep', step.complete && 'done', active && 'active')}
+            disabled={!step.unlocked}
+            aria-current={active ? 'step' : undefined}
+            aria-describedby="import-step-status"
+            title={step.unlocked ? step.helper : 'Locked: ' + step.helper}
+            onClick={function() { selectImportStep(step.key); }}
+            style={{textAlign:'left',cursor:step.unlocked ? 'pointer' : 'not-allowed',opacity:step.unlocked ? 1 : .58}}
+          >
+            <strong>{index + 1}</strong>
+            <span>{step.label}</span>
+            <em style={{fontStyle:'normal',fontSize:11,fontWeight:750,color:active ? '#1D4ED8' : '#64748B'}}>{status}</em>
+          </button>;
+        })}
+      </div>
+      <div id="import-step-status" className="miniState" role="status" style={{marginTop:0}}>
+        Current step: {currentImportStep.label}. {currentImportStep.helper}
+      </div>
+    </section>
+    {showImportStep('context') && <section className="panel" aria-labelledby="import-context-title" style={{display:'grid',gap:14,borderColor:importContextReady ? '#DDE6F1' : '#F1E3C8',background:'#fff'}}>
       <div className="panelTitle" style={{margin:0,alignItems:'flex-start'}}>
         <div>
           <h2 id="import-context-title">Import Context</h2>
@@ -4211,8 +4322,14 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
             : importContextDisabledMessage}
         </span>
       </div>
-    </section>
-    <section className="panel" style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap',padding:'10px 14px'}}>
+      <div style={{display:'flex',justifyContent:'flex-end',borderTop:'1px solid #EEF2F7',paddingTop:10}}>
+        <button type="button" className="primary" disabled={!importContextReady} title={importContextReady ? 'Continue to upload' : importContextDisabledMessage} onClick={function() { selectImportStep('upload'); }}>
+          Continue to Upload
+        </button>
+      </div>
+    </section>}
+    {showImportStep('upload') && <section className="panel" style={{display:'grid',gap:12,padding:'12px 14px'}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}>
       <div style={{display:'flex',alignItems:'center',gap:10,minWidth:0,flex:'1 1 320px'}}>
         {fileName
           ? <>
@@ -4245,11 +4362,16 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
           <input id="opriva-import-file-input" type="file" disabled={!importContextReady} accept=".xlsx,.xls,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={handleExcelUpload} style={{display:'none'}} />
         </label>
       </div>
-    </section>
-    <section className="panel" style={{display:'grid',gap:14}}>
+      </div>
+      {importError && <ErrorState title="Excel import failed" message={importError} />}
+      {fileName && <div style={{display:'flex',justifyContent:'flex-end',borderTop:'1px solid #EEF2F7',paddingTop:10}}>
+        <button type="button" className="primary" onClick={function() { selectImportStep('mapping'); }}>Continue to Mapping</button>
+      </div>}
+    </section>}
+    {['mapping','validation','preview','confirm'].indexOf(currentImportStep.key) >= 0 && <section className="panel" style={{display:'grid',gap:14}}>
       <div className="panelTitle"><h2>Local import sandbox</h2><span>Imported data is stored locally for this MVP session. Backend persistence will be added later.</span></div>
       {importError && <ErrorState title="Excel import failed" message={importError} />}
-      <div style={{position:'sticky',top:12,zIndex:3,border:'1px solid #CDEDE5',borderRadius:14,background:'#F8FFFD',boxShadow:'0 10px 24px rgba(15, 118, 110, .08)',padding:'14px',display:'grid',gap:12}}>
+      {(showImportStep('validation') || showImportStep('preview') || showImportStep('confirm')) && <div style={{position:'sticky',top:12,zIndex:3,border:'1px solid #CDEDE5',borderRadius:14,background:'#F8FFFD',boxShadow:'0 10px 24px rgba(15, 118, 110, .08)',padding:'14px',display:'grid',gap:12}}>
         <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}>
           <div>
             <strong style={{display:'block',fontSize:15,color:'#0B1F3A',marginBottom:3}}>Import Summary</strong>
@@ -4279,11 +4401,11 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
             })}
           </div>
         </div>
-      </div>
+      </div>}
       {headers.length > 0 && !importContextReady && <div className="miniState" role="status">
         {importContextDisabledMessage || 'Complete import context before continuing with mapping and preview.'}
       </div>}
-      {importContextReady && headers.length > 0 && <div style={{border:'1px solid #DDEFEA',borderRadius:12,background:'#F6FEFC',padding:'12px 14px',display:'grid',gap:10}}>
+      {showImportStep('mapping') && importContextReady && headers.length > 0 && <div style={{border:'1px solid #DDEFEA',borderRadius:12,background:'#F6FEFC',padding:'12px 14px',display:'grid',gap:10}}>
         <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}>
           <div style={{minWidth:220,flex:'1 1 320px'}}>
             <strong style={{display:'block',fontSize:14,color:'#0B1F3A',marginBottom:4}}>Records to create</strong>
@@ -4299,13 +4421,13 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
         </div>
         <span style={{fontSize:12,color:'#0F766E',lineHeight:1.45}}>Mappings are suggested based on workspace mode, detected source, and selected record type. You can adjust them before creating records.</span>
       </div>}
-      {importContextReady && sheetNames.length > 1 && <div style={{display:'flex',alignItems:'center',gap:10}}>
+      {showImportStep('mapping') && importContextReady && sheetNames.length > 1 && <div style={{display:'flex',alignItems:'center',gap:10}}>
         <label style={{fontSize:12,fontWeight:800,color:'#64748B'}}>Choose sheet</label>
         <select value={selectedSheet} onChange={handleSheetChange} style={{border:'1px solid #DDE5EF',borderRadius:10,padding:'8px 10px',fontWeight:700,color:'#132033',background:'#fff'}}>
           {sheetNames.map(function(name) { return <option key={name} value={name}>{name}</option>; })}
         </select>
       </div>}
-      {importContextReady && headers.length > 0 && <div className="tableWrap">
+      {showImportStep('mapping') && importContextReady && headers.length > 0 && <div className="tableWrap">
         <table>
           <thead><tr>{['Source Column','Suggested Opriva Field','Action','Sample Value'].map(function(col) { return <th key={col}>{col}</th>; })}</tr></thead>
           <tbody>
@@ -4329,7 +4451,7 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
           </tbody>
         </table>
       </div>}
-      {importContextReady && unmappedColumns.length > 0 && <div style={{border:'1px solid #F1E3C8',borderRadius:12,background:'#FFFDF7',padding:'12px 14px',display:'grid',gap:10}}>
+      {showImportStep('mapping') && importContextReady && unmappedColumns.length > 0 && <div style={{border:'1px solid #F1E3C8',borderRadius:12,background:'#FFFDF7',padding:'12px 14px',display:'grid',gap:10}}>
         <div>
           <strong style={{display:'block',fontSize:14,color:'#0B1F3A',marginBottom:4}}>Unmapped / skipped columns</strong>
           <span style={{display:'block',fontSize:12,color:'#64748B',lineHeight:1.45}}>Opriva will not blindly import these columns. Map them to a canonical field, map useful context to Notes, or keep them skipped.</span>
@@ -4349,7 +4471,18 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
           </table>
         </div>
       </div>}
-      {importContextReady && rowObjects.length > 0 && <div style={{display:'grid',gap:12}}>
+      {showImportStep('mapping') && hasValidationData && <div style={{display:'flex',justifyContent:'flex-end',borderTop:'1px solid #EEF2F7',paddingTop:10}}>
+        <button type="button" className="primary" onClick={function() { selectImportStep('validation'); }}>Continue to Validation</button>
+      </div>}
+      {showImportStep('validation') && hasValidationData && <div style={{display:'grid',gap:12}}>
+        <div className="panelTitle" style={{margin:0}}><h2>Validation checks</h2><span>Review current import signals before moving into row preview.</span></div>
+        <Table columns={['Validation area','Finding','AI suggestion','Action']} rows={validationRows}/>
+        <ValidationPanel workspaceMode={workspaceMode} />
+        <div style={{display:'flex',justifyContent:'flex-end',borderTop:'1px solid #EEF2F7',paddingTop:10}}>
+          <button type="button" className="primary" onClick={function() { selectImportStep('preview'); }}>Continue to Preview</button>
+        </div>
+      </div>}
+      {(showImportStep('preview') || showImportStep('confirm')) && importContextReady && rowObjects.length > 0 && <div style={{display:'grid',gap:12}}>
         <div style={{border:'1px solid #DDEFEA',borderRadius:12,background:'#F8FFFD',padding:'12px 14px',display:'grid',gap:12}}>
           <div style={{display:'flex',justifyContent:'space-between',gap:12,alignItems:'flex-start',flexWrap:'wrap'}}>
             <div style={{minWidth:240,flex:'1 1 360px'}}>
@@ -4445,14 +4578,16 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
           </table>
           {importPreview.preview.length > 8 && <p style={{margin:'8px 0 0',fontSize:12,color:'#64748B',lineHeight:1.45}}>Showing first 8 of {importPreview.preview.length} rows.</p>}
         </div>}
-        <button className="primary" type="button" onClick={confirmImport} style={{justifySelf:'start'}}>Confirm import to local session</button>
+        {showImportStep('preview') && recordsReadyToConfirm && <div style={{display:'flex',justifyContent:'flex-end',borderTop:'1px solid #EEF2F7',paddingTop:10}}>
+          <button type="button" className="primary" onClick={function() { selectImportStep('confirm'); }}>Continue to Confirm</button>
+        </div>}
+        {showImportStep('confirm') && <button className="primary" type="button" onClick={confirmImport} disabled={!recordsReadyToConfirm} title={recordsReadyToConfirm ? 'Create records in the local session' : 'No records are ready to confirm yet'} style={{justifySelf:'start'}}>Confirm import to local session</button>}
         {importResult && <div className="miniState successState" role="status">
           {importResult.message} Records created: {(importResult.licenses || 0) + (importResult.hardware || 0) + (importResult.contracts || 0)}; clients created/matched: {importResult.clientsCreated || 0}/{importResult.clientsMatched || 0}; licenses created: {importResult.licenses}; contracts/support coverage created: {importResult.contracts}; contacts reviewed/not auto-created: {importResult.entitySummary && importResult.entitySummary.contacts ? importResult.entitySummary.contacts.review : 0}; relationships staged: {importResult.entitySummary ? importResult.entitySummary.relationshipsToCreate : 0}; records needing review: {importResult.review}; duplicates skipped: {importResult.duplicates || 0}.
         </div>}
       </div>}
-    </section>
+    </section>}
     <section className="panel"><div className="panelTitle"><h2>Import history</h2><span>Landing page with recent jobs and operational status</span></div><Table columns={['Import','File','Rows','Duplicate prevention','Status']} rows={historyRows}/></section>
-    <section className="panel"><div className="panelTitle"><h2>Import wizard</h2><span>Guided steps prevent bad data before records are created</span></div><div className="wizardSteps">{steps.map((step,i)=><div className={cx('wizardStep',i<3&&'done',i===3&&'active')} key={step}><strong>{i+1}</strong><span>{step}</span></div>)}</div><Table columns={['Validation area','Finding','AI suggestion','Action']} rows={validationRows}/><ValidationPanel workspaceMode={workspaceMode} /></section>
     {previewDrawerOpen && previewSelectedRecord && (() => {
       var moduleKey = previewSelectedRecord.moduleKey;
       var moduleTitle = moduleKeyToTitle(moduleKey);

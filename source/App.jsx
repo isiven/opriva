@@ -3977,10 +3977,11 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
   };
   const importSummaryMetrics = [
     ['Detected source', sourceType === 'No file loaded' ? 'Not detected yet' : sourceType],
-    ['Records to create', importTarget || 'Not selected yet'],
+    ['Import target', importTarget || 'Not selected yet'],
     ['Workspace mode', workspaceMode],
     ['Selected sheet', selectedSheet || 'Not selected yet'],
     ['Rows found', String(rowObjects.length)],
+    ['Records to create', String((importPreview.entitySummary && importPreview.entitySummary.recordsToCreate) || 0)],
     ['Ready rows', String(importPreview.stats.ready || 0)],
     ['Rows needing review', String(importPreview.stats.review || 0)],
     ['Sensitive fields', String(importSummarySensitiveFields)],
@@ -3989,11 +3990,11 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
     ['Missing brand/product', String(importPreview.stats.missingBrandProduct || 0)]
   ];
   const importSummaryEntities = [
-    ['Clients', formatEntitySummaryMetric('clients')],
+    ['Unique clients', formatEntitySummaryMetric('clients')],
     ['Contacts', rowObjects.length && importSummaryEntity.contacts ? String(importSummaryEntity.contacts.review || 0) + ' review required' : 'Not detected yet'],
-    ['Brands', formatEntitySummaryMetric('brands')],
-    ['Products', formatEntitySummaryMetric('products')],
-    ['Providers', formatEntitySummaryMetric('providers')],
+    ['Unique brands', formatEntitySummaryMetric('brands')],
+    ['Unique products', formatEntitySummaryMetric('products')],
+    ['Unique providers', formatEntitySummaryMetric('providers')],
     ['Relationships', rowObjects.length ? String(importSummaryEntity.relationshipsToCreate || 0) + ' staged' : 'Not detected yet']
   ];
 
@@ -4233,7 +4234,7 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
         {importPreview.entitySummary && <div style={{border:'1px solid #DDE5EF',borderRadius:12,background:'#F8FAFC',padding:'12px 14px',display:'grid',gap:10}}>
           <div>
             <strong style={{display:'block',fontSize:14,color:'#0B1F3A',marginBottom:4}}>Entities detected</strong>
-            <span style={{display:'block',fontSize:12,color:'#64748B',lineHeight:1.45}}>Opriva stages related entities for matching or creation before final import. Sensitive contacts require review and are not created automatically in this sandbox.</span>
+            <span style={{display:'block',fontSize:12,color:'#64748B',lineHeight:1.45}}>Unique business entities staged across all {rowObjects.length} parsed rows. Many rows can share the same client, brand, product or provider, so the counts below are deduplicated — they are not row totals. Sensitive contacts require review and are not created automatically in this sandbox.</span>
           </div>
           <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
             {[
@@ -4268,6 +4269,7 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
             </tbody>
           </table>
         </div>
+        {importPreview.preview.length > 12 && <p style={{margin:0,fontSize:12,color:'#64748B',lineHeight:1.45}}>Showing first 12 of {importPreview.preview.length} rows. All {importPreview.preview.length} rows are processed. Open Review on any row to inspect it.</p>}
         <button type="button" onClick={function() { setRawDetailsOpen(function(value) { return !value; }); }} style={{justifySelf:'start'}}>View raw row details</button>
         {rawDetailsOpen && <div className="tableWrap">
           <table>
@@ -4280,6 +4282,7 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
               </tr>;
             })}</tbody>
           </table>
+          {importPreview.preview.length > 8 && <p style={{margin:'8px 0 0',fontSize:12,color:'#64748B',lineHeight:1.45}}>Showing first 8 of {importPreview.preview.length} rows.</p>}
         </div>}
         <button className="primary" type="button" onClick={confirmImport} style={{justifySelf:'start'}}>Confirm import to local session</button>
         {importResult && <div className="miniState successState" role="status">

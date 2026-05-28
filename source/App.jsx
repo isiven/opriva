@@ -3826,15 +3826,6 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
   const isInternalIT = workspaceMode === 'Internal IT';
   const templateHref = '/templates/OPRIVA_IMPORT_TEMPLATE.xlsx';
   const historyRows = isInternalIT ? importRows.internalIT : importRows.mspIntegrator;
-  const validationRows = isInternalIT ? [
-    ['Provider mapping', '6 provider names resemble existing supplier records', 'Use Nextcom / Oracle Direct normalized provider records', 'Review provider matches'],
-    ['Department ownership', '8 records have no department owner', 'Assign owners based on department and budget responsibility', 'Assign owners'],
-    ['Approval readiness', '5 records are missing approval or contract evidence', 'Request missing documents before CIO approval', 'Request evidence']
-  ] : [
-    ['Distributor mapping', '5 distributor names resemble existing upstream suppliers', 'Use TD Synnex / Ingram Micro normalized distributor records', 'Review distributor matches'],
-    ['Owner assignment', '7 client renewal rows have no commercial owner', 'Assign owners based on client portfolio history', 'Assign owners'],
-    ['Margin validation', '3 rows have missing cost or margin fields', 'Add cost data before proposal preparation', 'Complete margin data']
-  ];
   const [workbook, setWorkbook] = React.useState(null);
   const [fileName, setFileName] = React.useState('');
   const [sheetNames, setSheetNames] = React.useState([]);
@@ -4605,7 +4596,6 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
             <span style={{fontSize:11,color:'#64748B'}}>Detected source is informational: {sourceType}. Suggested records: {suggestedImportTarget}. Workspace mode: {workspaceMode}.</span>
           </div>
         </div>
-        <span style={{fontSize:12,color:'#0F766E',lineHeight:1.45}}>Mappings are suggested based on workspace mode, detected source, and selected record type. You can adjust them before creating records.</span>
       </div>}
       {showImportStep('mapping') && importContextReady && sheetNames.length > 1 && <div style={{display:'flex',alignItems:'center',gap:10}}>
         <label style={{fontSize:12,fontWeight:800,color:'#64748B'}}>Choose sheet</label>
@@ -4662,23 +4652,6 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
       </div>}
       {showImportStep('validation') && hasValidationData && <div style={{display:'grid',gap:12}}>
         <div className="panelTitle" style={{margin:0}}><h2>Validation checks</h2><span>Review current import signals before moving into row preview.</span></div>
-        <div style={{border:'1px solid #DDE5EF',borderRadius:12,background:'#F8FAFC',padding:'12px 14px',display:'grid',gap:8}}>
-          <strong style={{display:'block',fontSize:14,color:'#0B1F3A'}}>Severity rules</strong>
-          <div style={{display:'grid',gridTemplateColumns:'repeat(3,minmax(0,1fr))',gap:8}}>
-            {[
-              ['Critical', String(importSeverityCounts.critical || 0), 'Must fix before import.'],
-              ['Warning', String(importSeverityCounts.warning || 0), 'Can import, but review.'],
-              ['Suggestion', String(importSeverityCounts.suggestion || 0), 'Optional cleanup.']
-            ].map(function(item) {
-              return <div key={item[0]} style={{border:'1px solid #E2E8F0',borderRadius:10,background:'#fff',padding:'9px 10px'}}>
-                <span style={{display:'block',fontSize:10,fontWeight:850,color:'#64748B',textTransform:'uppercase',letterSpacing:'.06em'}}>{item[0]}</span>
-                <strong style={{display:'block',fontSize:18,color:'#132033',marginTop:2}}>{item[1]}</strong>
-                <span style={{display:'block',fontSize:12,color:'#64748B',lineHeight:1.35}}>{item[2]}</span>
-              </div>;
-            })}
-          </div>
-        </div>
-        <Table columns={['Validation area','Finding','AI suggestion','Action']} rows={validationRows}/>
         <ValidationPanel workspaceMode={workspaceMode} issueCounts={importSeverityCounts} confirmBlocked={hasCriticalImportIssues} />
         <div style={{display:'flex',justifyContent:'flex-end',borderTop:'1px solid #EEF2F7',paddingTop:10}}>
           <button type="button" className="primary" onClick={function() { selectImportStep('preview'); }}>Continue to Preview</button>
@@ -4721,30 +4694,8 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
         </div>
         <div className="panelTitle" style={{margin:0}}><h2>Review & enrich records</h2><span>Review normalized records before creation. Improve mappings above when brand, product, client or commercial context is missing.</span></div>
         <p style={{margin:0,color:'#64748B',fontSize:13,lineHeight:1.5}}>Review how Opriva will create these records. You can adjust mappings or enrich missing fields before importing.</p>
-        <div style={{border:'1px solid #DDEFEA',background:'#F6FEFC',borderRadius:10,padding:'10px 12px',fontSize:12,color:'#475569',lineHeight:1.45}}>
-          After confirmation, imported records are added to the central local Opriva record store and can be opened like regular records during this session. Backend persistence will be required for corporate MVP.
-        </div>
         {importPreview.generalWarnings.length > 0 && <div style={{border:'1px solid #F1E3C8',background:'#FFFDF7',borderRadius:10,padding:'10px 12px',fontSize:12,color:'#7C5A12',lineHeight:1.45}}>
           {importPreview.generalWarnings[0]}
-        </div>}
-        {importPreview.entitySummary && <div style={{border:'1px solid #DDE5EF',borderRadius:12,background:'#F8FAFC',padding:'12px 14px',display:'grid',gap:10}}>
-          <div>
-            <strong style={{display:'block',fontSize:14,color:'#0B1F3A',marginBottom:4}}>Entities detected</strong>
-            <span style={{display:'block',fontSize:12,color:'#64748B',lineHeight:1.45}}>Unique business entities staged across all {rowObjects.length} parsed rows. Many rows can share the same client, brand, product or provider, so the counts below are deduplicated — they are not row totals. Sensitive contacts require review and are not created automatically in this sandbox.</span>
-          </div>
-          <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
-            {[
-              ['Clients to create/match', (importPreview.entitySummary.clients.toCreate || 0) + '/' + (importPreview.entitySummary.clients.matched || 0)],
-              ['Contacts to review', importPreview.entitySummary.contacts.review || 0],
-              ['Brands to create/match', (importPreview.entitySummary.brands.toCreate || 0) + '/' + (importPreview.entitySummary.brands.matched || 0)],
-              ['Products to create/match', (importPreview.entitySummary.products.toCreate || 0) + '/' + (importPreview.entitySummary.products.matched || 0)],
-              ['Providers to create/match', (importPreview.entitySummary.providers.toCreate || 0) + '/' + (importPreview.entitySummary.providers.matched || 0)],
-              ['Records to create', importPreview.entitySummary.recordsToCreate || 0],
-              ['Relationships to create', importPreview.entitySummary.relationshipsToCreate || 0]
-            ].map(function(item) {
-              return <span key={item[0]} style={{fontSize:12,fontWeight:800,color:'#475569',border:'1px solid #E2E8F0',background:'#fff',borderRadius:999,padding:'5px 9px'}}>{item[0]}: {item[1]}</span>;
-            })}
-          </div>
         </div>}
         <div className="tableWrap">
           <table>

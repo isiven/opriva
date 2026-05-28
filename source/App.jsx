@@ -3369,12 +3369,15 @@ function buildImportLicenseRecord(rowObj, mappings, workspaceMode, sourceType, r
 
 function buildImportHardwareRecord(rowObj, mappings, workspaceMode, sourceType, rowIndex, importContext) {
   var isIT = workspaceMode === 'Internal IT';
-  var assetName = getMappedImportValue(rowObj, mappings, 'Asset Name') || getMappedImportValueAny(rowObj, mappings, ['Product / License Name','License / Product']) || 'Imported hardware asset';
-  var client = getMappedImportValue(rowObj, mappings, 'Client / Department') || (isIT ? 'Unassigned department' : 'Unassigned client');
-  var brand = inferBrandFromProduct(assetName, getMappedImportValueAny(rowObj, mappings, ['Brand / Manufacturer','Brand']));
-  var provider = getMappedImportValue(rowObj, mappings, 'Provider / Distributor') || '-';
-  var serial = getMappedImportValue(rowObj, mappings, 'Serial Number') || '-';
-  var warrantyEnd = normalizeImportDate(getMappedImportValue(rowObj, mappings, 'Warranty End Date') || getMappedImportValue(rowObj, mappings, 'Expiration / Renewal Date'));
+  var edit = (importContext && importContext.recordEdits && importContext.recordEdits[rowIndex + 2]) || {};
+  var assetName = edit.productLicenseName || getMappedImportValue(rowObj, mappings, 'Asset Name') || getMappedImportValueAny(rowObj, mappings, ['Product / License Name','License / Product']) || 'Imported hardware asset';
+  var client = edit.clientDepartment || getMappedImportValue(rowObj, mappings, 'Client / Department') || (isIT ? 'Unassigned department' : 'Unassigned client');
+  var brand = edit.brandManufacturer || inferBrandFromProduct(assetName, getMappedImportValueAny(rowObj, mappings, ['Brand / Manufacturer','Brand']));
+  var provider = edit.providerDistributor || getMappedImportValue(rowObj, mappings, 'Provider / Distributor') || '-';
+  var serial = edit.serialNumber || getMappedImportValue(rowObj, mappings, 'Serial Number') || '-';
+  var warrantyEnd = normalizeImportDate(edit.expirationRenewalDate || getMappedImportValue(rowObj, mappings, 'Warranty End Date') || getMappedImportValue(rowObj, mappings, 'Expiration / Renewal Date'));
+  var owner = edit.owner || 'Unassigned';
+  var alertPolicy = edit.alertPolicy || 'Workspace default';
   var sourceStatus = getMappedImportValue(rowObj, mappings, 'Source Status / Vendor Status');
   var columns = getModuleColumns('hardware', workspaceMode);
   var map = isIT
@@ -3388,8 +3391,8 @@ function buildImportHardwareRecord(rowObj, mappings, workspaceMode, sourceType, 
         'Provider': provider,
         'Warranty end': warrantyEnd || '-',
         'Approval status': sourceStatus || 'Pending review',
-        'Owner': 'Unassigned',
-        'Status': warrantyEnd ? calcExpirationState(warrantyEnd, 'Workspace default', '').systemStatus : 'Pending date',
+        'Owner': owner,
+        'Status': warrantyEnd ? calcExpirationState(warrantyEnd, alertPolicy, '').systemStatus : 'Pending date',
         'Risk': '-',
         'Action': 'Review import'
       }
@@ -3402,8 +3405,8 @@ function buildImportHardwareRecord(rowObj, mappings, workspaceMode, sourceType, 
         'Serial': serial,
         'Warranty end': warrantyEnd || '-',
         'Support': getMappedImportValue(rowObj, mappings, 'Support') || '-',
-        'Owner': 'Unassigned',
-        'Status': warrantyEnd ? calcExpirationState(warrantyEnd, 'Workspace default', '').systemStatus : 'Pending date',
+        'Owner': owner,
+        'Status': warrantyEnd ? calcExpirationState(warrantyEnd, alertPolicy, '').systemStatus : 'Pending date',
         'Risk': '-',
         'Action': 'Review import'
       };
@@ -3430,8 +3433,8 @@ function buildImportHardwareRecord(rowObj, mappings, workspaceMode, sourceType, 
     quantitySeats: '',
     commercialValue: '',
     vendorCost: '',
-    owner: 'Unassigned',
-    alertPolicy: 'Workspace default',
+    owner: owner,
+    alertPolicy: alertPolicy,
     contractNumber: '',
     orderReference: ''
   }, importContext || {});
@@ -3439,13 +3442,15 @@ function buildImportHardwareRecord(rowObj, mappings, workspaceMode, sourceType, 
 
 function buildImportContractRecord(rowObj, mappings, workspaceMode, sourceType, rowIndex, importContext) {
   var edit = (importContext && importContext.recordEdits && importContext.recordEdits[rowIndex + 2]) || {};
-  var contractNumber = getMappedImportValue(rowObj, mappings, 'Contract Number');
-  var renewalDate = normalizeImportDate(getMappedImportValue(rowObj, mappings, 'Expiration / Renewal Date'));
+  var contractNumber = edit.contractNumber || getMappedImportValue(rowObj, mappings, 'Contract Number');
+  var renewalDate = normalizeImportDate(edit.expirationRenewalDate || getMappedImportValue(rowObj, mappings, 'Expiration / Renewal Date'));
   if (!contractNumber || !renewalDate) return null;
   var isIT = workspaceMode === 'Internal IT';
-  var client = getMappedImportValue(rowObj, mappings, 'Client / Department') || (isIT ? 'Unassigned department' : 'Unassigned client');
-  var provider = getMappedImportValue(rowObj, mappings, 'Provider / Distributor') || '-';
-  var support = getMappedImportValue(rowObj, mappings, 'Support') || 'Support coverage';
+  var client = edit.clientDepartment || getMappedImportValue(rowObj, mappings, 'Client / Department') || (isIT ? 'Unassigned department' : 'Unassigned client');
+  var provider = edit.providerDistributor || getMappedImportValue(rowObj, mappings, 'Provider / Distributor') || '-';
+  var support = edit.productLicenseName || getMappedImportValue(rowObj, mappings, 'Support') || 'Support coverage';
+  var owner = edit.owner || 'Unassigned';
+  var alertPolicy = edit.alertPolicy || 'Workspace default';
   var columns = getModuleColumns('contracts', workspaceMode);
   var sourceStatus = getMappedImportValue(rowObj, mappings, 'Source Status / Vendor Status');
   var map = isIT
@@ -3454,7 +3459,7 @@ function buildImportContractRecord(rowObj, mappings, workspaceMode, sourceType, 
         'Type': support,
         'Department': client,
         'Provider': provider,
-        'Owner': 'Unassigned',
+        'Owner': owner,
         'Document': 'Not attached',
         'Renewal': renewalDate,
         'Notice': 'Workspace default',
@@ -3467,7 +3472,7 @@ function buildImportContractRecord(rowObj, mappings, workspaceMode, sourceType, 
         'Type': support,
         'Client': client,
         'Provider / Distributor': provider,
-        'Owner': 'Unassigned',
+        'Owner': owner,
         'Document': 'Not attached',
         'Renewal': renewalDate,
         'Notice': 'Workspace default',
@@ -3490,8 +3495,8 @@ function buildImportContractRecord(rowObj, mappings, workspaceMode, sourceType, 
     quantitySeats: '',
     commercialValue: '',
     vendorCost: '',
-    owner: 'Unassigned',
-    alertPolicy: 'Workspace default',
+    owner: owner,
+    alertPolicy: alertPolicy,
     contractNumber: contractNumber,
     orderReference: ''
   }, importContext || {});
@@ -3637,7 +3642,24 @@ function buildImportPreview(rowObjects, mappings, sourceType, workspaceMode, imp
       brandProduct: record && record.meta ? ([record.meta.brandManufacturer, record.meta.productLicenseName].filter(Boolean).join(' / ') || '-') : '-',
       expiration: record && record.meta ? (record.meta.expirationRenewalDate || '-') : '-',
       createdRecords: [target.label],
-      canonical: {},
+      canonical: record && record.meta ? {
+        brandManufacturer: record.meta.brandManufacturer || '',
+        productLicenseName: record.meta.productLicenseName || '',
+        clientDepartment: record.meta.clientDepartment || '',
+        providerDistributor: record.meta.providerDistributor || '',
+        quantitySeats: record.meta.quantitySeats || '',
+        expirationRenewalDate: record.meta.expirationRenewalDate || '',
+        contractNumber: record.meta.contractNumber || '',
+        orderReference: record.meta.orderReference || '',
+        commercialValue: record.meta.commercialValue || '',
+        vendorCost: record.meta.vendorCost || '',
+        owner: record.meta.owner || 'Unassigned',
+        alertPolicy: record.meta.alertPolicy || 'Workspace default',
+        serialNumber: record.meta.serialNumber || '',
+        purchaseDate: record.meta.purchaseDate || '',
+        startDate: record.meta.startDate || '',
+        licenseTerm: record.meta.licenseTerm || ''
+      } : {},
       issues: warnings,
       status: warnings.length ? 'Needs review' : 'Ready'
     });
@@ -3680,7 +3702,9 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
     alertPolicy: 'Workspace default',
     providerDistributor: ''
   });
-  const [reviewRowNumber, setReviewRowNumber] = React.useState(null);
+  const [previewSelectedRecord, setPreviewSelectedRecord] = React.useState(null);
+  const [previewDrawerOpen, setPreviewDrawerOpen] = React.useState(false);
+  const [previewEditForm, setPreviewEditForm] = React.useState({});
   const [rawDetailsOpen, setRawDetailsOpen] = React.useState(false);
 
   function mergeImportMappingSuggestions(existingMappings, nextMappings) {
@@ -3717,7 +3741,8 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
       alertPolicy: 'Workspace default',
       providerDistributor: ''
     });
-    setReviewRowNumber(null);
+    setPreviewDrawerOpen(false);
+    setPreviewSelectedRecord(null);
     setImportResult(null);
   }
 
@@ -3781,6 +3806,98 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
       return next;
     });
     setImportResult(null);
+  }
+
+  // Map an edit-form field key (used by buildEditForm / getFormFields) back to
+  // the canonical key written into recordEdits so the record builders pick it
+  // up on the next preview pass. Returns null for non-canonical / computed
+  // fields that should not propagate to recordEdits.
+  function previewEditKeyToCanonical(key, moduleKey) {
+    if (key === 'name') return moduleKey === 'contracts' ? 'contractNumber' : 'productLicenseName';
+    if (key === 'type') return moduleKey === 'contracts' ? 'productLicenseName' : null;
+    if (key === 'client') return 'clientDepartment';
+    if (key === 'brand') return 'brandManufacturer';
+    if (key === 'provider' || key === 'distributor') return 'providerDistributor';
+    if (key === 'owner') return 'owner';
+    if (key === 'seats') return 'quantitySeats';
+    if (key === 'renewalDate' || key === 'warrantyEnd') return 'expirationRenewalDate';
+    if (key === 'contractValue' || key === 'annualCost' || key === 'assetValue') return 'commercialValue';
+    if (key === 'cost') return 'vendorCost';
+    if (key === 'alertPolicy') return 'alertPolicy';
+    if (key === 'startDate') return 'startDate';
+    if (key === 'licenseTerm') return 'licenseTerm';
+    if (key === 'serial') return 'serialNumber';
+    if (key === 'purchaseDate') return 'purchaseDate';
+    return null;
+  }
+
+  function moduleKeyToTitle(moduleKey) {
+    if (moduleKey === 'hardware') return 'Hardware';
+    if (moduleKey === 'contracts') return 'Contracts';
+    return 'Licenses';
+  }
+
+  function moduleKeyToDisplay(moduleKey) {
+    if (moduleKey === 'hardware') return 'Hardware';
+    if (moduleKey === 'contracts') return 'Contracts / Support Coverage';
+    return 'Licenses';
+  }
+
+  function openImportReviewDrawer(item) {
+    if (!item) return;
+    var moduleKey = item.moduleLabel === 'Hardware / Warranty' ? 'hardware'
+      : item.moduleLabel === 'Contract / Support Coverage' ? 'contracts'
+      : 'licenses';
+    var record = (importPreview.records[moduleKey] || []).find(function(r) {
+      return r && r.meta && r.meta.rowNumber === item.rowNumber;
+    });
+    if (!record) return;
+    var moduleTitle = moduleKeyToTitle(moduleKey);
+    var fieldSpecs = getFormFields(moduleTitle, workspaceMode);
+    var columns = getModuleColumns(moduleKey, workspaceMode);
+    var selected = {
+      id: record.id,
+      moduleKey: moduleKey,
+      columns: columns,
+      row: record.row,
+      localRowIndex: -1,
+      meta: record.meta,
+      isImportPreview: true,
+      importRowNumber: item.rowNumber
+    };
+    setPreviewSelectedRecord(selected);
+    setPreviewEditForm(buildEditForm(selected, fieldSpecs, workspaceMode));
+    setPreviewDrawerOpen(true);
+  }
+
+  function closePreviewDrawer() {
+    setPreviewDrawerOpen(false);
+    setPreviewSelectedRecord(null);
+    setPreviewEditForm({});
+  }
+
+  // Save preview-mode edits to recordEdits only. Never writes to RECORD_STORE
+  // or module rows — Confirm Import remains the only path to canonical
+  // record creation.
+  function handlePreviewEditSave() {
+    if (!previewSelectedRecord || !previewSelectedRecord.isImportPreview) return;
+    var moduleKey = previewSelectedRecord.moduleKey;
+    var rowNumber = previewSelectedRecord.importRowNumber;
+    setRecordEdits(function(prev) {
+      var next = Object.assign({}, prev);
+      var rowEdit = Object.assign({}, next[rowNumber] || {});
+      Object.keys(previewEditForm || {}).forEach(function(key) {
+        var canonical = previewEditKeyToCanonical(key, moduleKey);
+        if (!canonical) return;
+        var value = previewEditForm[key];
+        if (value === undefined || value === null) return;
+        rowEdit[canonical] = value;
+      });
+      next[rowNumber] = rowEdit;
+      return next;
+    });
+    setImportResult(null);
+    closePreviewDrawer();
   }
 
   function updateImportDefault(key, value) {
@@ -3892,7 +4009,8 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
       });
       return next;
     });
-    setReviewRowNumber(null);
+    setPreviewDrawerOpen(false);
+    setPreviewSelectedRecord(null);
     setImportResult(null);
   }
 
@@ -4136,58 +4254,12 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
                   <td>{item.expiration || '-'}</td>
                   <td>{item.moduleLabel}</td>
                   <td>{item.issues.length ? item.issues.slice(0, 3).join(', ') : '-'}</td>
-                  <td className="actionCell"><button type="button" className="rowAction" onClick={function() { setReviewRowNumber(item.rowNumber); }}>Review</button></td>
+                  <td className="actionCell"><button type="button" className="rowAction" onClick={function() { openImportReviewDrawer(item); }}>Review</button></td>
                 </tr>;
               })}
             </tbody>
           </table>
         </div>
-        {reviewRowNumber && (() => {
-          var item = importPreview.preview.find(function(row) { return row.rowNumber === reviewRowNumber; });
-          if (!item) return null;
-          var edit = Object.assign({}, item.canonical || {}, recordEdits[reviewRowNumber] || {});
-          var editFields = [
-            ['brandManufacturer','Brand / Manufacturer'],
-            ['productLicenseName','Product / License Name'],
-            ['clientDepartment','Client / Department'],
-            ['providerDistributor','Distributor / Provider'],
-            ['resellerPartner','Reseller / Partner'],
-            ['quantitySeats','Quantity / Seats'],
-            ['expirationRenewalDate','Expiration / Renewal Date'],
-            ['contractNumber','Contract Number'],
-            ['orderReference','PO / Order Reference'],
-            ['commercialValue','Sale Price / Annual Value'],
-            ['vendorCost','Vendor Cost'],
-            ['contactName','Related Contact'],
-            ['contactEmail','Contact Email'],
-            ['contactRole','Contact Role'],
-            ['owner','Owner'],
-            ['alertPolicy','Alert Policy']
-          ];
-          return <div style={{border:'1px solid #DDEFEA',borderRadius:12,background:'#F8FFFD',padding:'12px 14px',display:'grid',gap:12}}>
-            <div style={{display:'flex',justifyContent:'space-between',gap:10,alignItems:'flex-start'}}>
-              <div>
-                <strong style={{display:'block',fontSize:14,color:'#0B1F3A',marginBottom:3}}>Review row {reviewRowNumber}</strong>
-                <span style={{fontSize:12,color:'#64748B'}}>Use this exception editor for row-specific corrections before creating this local Opriva record. Contact fields are sensitive relationship context and are not created automatically.</span>
-              </div>
-              <button type="button" onClick={function() { setReviewRowNumber(null); }}>Close</button>
-            </div>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:10}}>
-              {editFields.map(function(field) {
-                var isSelect = field[0] === 'alertPolicy';
-                return <label key={field[0]} style={{display:'grid',gap:4,fontSize:12,fontWeight:800,color:'#64748B'}}>
-                  {field[1]}
-                  {isSelect
-                    ? <select value={edit[field[0]] || 'Workspace default'} onChange={function(e) { updateRecordEdit(reviewRowNumber, field[0], e.target.value); }} style={{border:'1px solid #DDE5EF',borderRadius:8,padding:'8px 9px',background:'#fff',color:'#132033',fontWeight:650}}>
-                        {LICENSE_ALERT_POLICY_OPTIONS.map(function(opt) { return <option key={opt} value={opt}>{opt}</option>; })}
-                      </select>
-                    : <input value={edit[field[0]] || ''} onChange={function(e) { updateRecordEdit(reviewRowNumber, field[0], e.target.value); }} style={{border:'1px solid #DDE5EF',borderRadius:8,padding:'8px 9px',background:'#fff',color:'#132033',fontWeight:650}} />
-                  }
-                </label>;
-              })}
-            </div>
-          </div>;
-        })()}
         <button type="button" onClick={function() { setRawDetailsOpen(function(value) { return !value; }); }} style={{justifySelf:'start'}}>View raw row details</button>
         {rawDetailsOpen && <div className="tableWrap">
           <table>
@@ -4209,6 +4281,81 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
     </section>
     <section className="panel"><div className="panelTitle"><h2>Import history</h2><span>Landing page with recent jobs and operational status</span></div><Table columns={['Import','File','Rows','Duplicate prevention','Status']} rows={historyRows}/></section>
     <section className="panel"><div className="panelTitle"><h2>Import wizard</h2><span>Guided steps prevent bad data before records are created</span></div><div className="wizardSteps">{steps.map((step,i)=><div className={cx('wizardStep',i<3&&'done',i===3&&'active')} key={step}><strong>{i+1}</strong><span>{step}</span></div>)}</div><Table columns={['Validation area','Finding','AI suggestion','Action']} rows={validationRows}/><ValidationPanel workspaceMode={workspaceMode} /></section>
+    {previewDrawerOpen && previewSelectedRecord && (() => {
+      var moduleKey = previewSelectedRecord.moduleKey;
+      var moduleTitle = moduleKeyToTitle(moduleKey);
+      var fieldSpecs = getFormFields(moduleTitle, workspaceMode);
+      var moduleDisplay = moduleKeyToDisplay(moduleKey);
+      var recordTitle = (previewSelectedRecord.row && previewSelectedRecord.row[0]) || 'Import preview row';
+      var fieldStyle = {border:'1px solid #DDE5EF',borderRadius:8,padding:'8px 10px',background:'#fff',color:'#132033',fontSize:13,width:'100%',fontFamily:'inherit',boxSizing:'border-box'};
+      var setField = function(key, value) {
+        setPreviewEditForm(function(prev) { return Object.assign({}, prev, { [key]: value }); });
+      };
+      return <>
+        <style>{`.agentWrap,.floatingAgentWrap{display:none!important}`}</style>
+        <div style={{position:'fixed',inset:0,background:'rgba(11,31,58,.18)',zIndex:48}} onClick={closePreviewDrawer} aria-hidden="true"/>
+        <aside role="dialog" aria-modal="true" aria-label="Import preview record" style={{position:'fixed',right:0,top:0,bottom:0,width:'min(440px,100vw)',background:'#fff',borderLeft:'1px solid #E5E7EB',boxShadow:'-8px 0 40px rgba(11,31,58,.16)',zIndex:49,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+          <div style={{padding:'12px 16px 10px',borderBottom:'1px solid #EEF2F7',display:'grid',gap:7,flexShrink:0}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:10}}>
+              <div style={{minWidth:0,flex:1}}>
+                <p style={{margin:'0 0 3px',color:'#0D9488',textTransform:'uppercase',fontSize:9.5,letterSpacing:'.14em',fontWeight:900,lineHeight:1}}>{moduleDisplay.toUpperCase()} · IMPORT PREVIEW</p>
+                <h2 style={{margin:0,color:'#0B1F3A',fontSize:16.5,letterSpacing:'-.015em',lineHeight:1.18,wordBreak:'break-word',fontWeight:800}}>{recordTitle}</h2>
+              </div>
+              <button type="button" style={{width:26,height:26,borderRadius:7,fontSize:14,background:'#fff',border:'1px solid #EEF2F7',color:'#94A3B8',cursor:'pointer',lineHeight:1,padding:0}} onClick={closePreviewDrawer} aria-label="Close">×</button>
+            </div>
+            <div style={{color:'#64748B',fontSize:12,lineHeight:1.35}}>Row {previewSelectedRecord.importRowNumber}{fileName ? ' · ' + fileName : ''}</div>
+          </div>
+          <div style={{padding:'10px 16px',borderBottom:'1px solid #F1E3C8',background:'#FFFDF7',color:'#7C5A12',fontSize:12,lineHeight:1.45,flexShrink:0}}>
+            Not yet created. Confirm Import to add this record to {moduleDisplay}. Relationships, Documents, Tasks and Activity become available after the record is created.
+          </div>
+          <div style={{flex:1,overflowY:'auto',padding:'16px 20px',display:'grid',gap:12,alignContent:'start'}}>
+            {(function() {
+              var renderField = function(f) {
+                var labelEl = <label style={{display:'block',marginBottom:5,fontSize:13,fontWeight:700,color:'#334155'}}>
+                  {f.label}{f.required && <span style={{color:'#DC2626',marginLeft:3}}>*</span>}
+                  {f.type === 'computed' && <span style={{marginLeft:6,fontSize:11,fontWeight:600,color:'#94A3B8'}}>auto</span>}
+                </label>;
+                if (f.type === 'computed') {
+                  return <div key={f.key}>{labelEl}<input type="text" value={previewEditForm[f.key] || ''} readOnly placeholder="Calculated" style={Object.assign({}, fieldStyle, {background:'#F0F4F8',color:previewEditForm[f.key] ? '#0F766E' : '#94A3B8',cursor:'default'})}/></div>;
+                }
+                if (f.multi) {
+                  return <div key={f.key}>{labelEl}<textarea value={previewEditForm[f.key] || ''} onChange={function(e) { setField(f.key, e.target.value); }} rows={3} style={Object.assign({}, fieldStyle, {resize:'vertical'})}/></div>;
+                }
+                if (f.type === 'select') {
+                  var baseOptions = f.source ? resolveFieldOptions(f.source, workspaceMode) : (f.options || []);
+                  var currentVal = previewEditForm[f.key] || '';
+                  var selectOptions = currentVal && !baseOptions.some(function(o) { return String(o) === String(currentVal); })
+                    ? [currentVal].concat(baseOptions) : baseOptions;
+                  return <div key={f.key}>{labelEl}<select value={currentVal} onChange={function(e) { setField(f.key, e.target.value); }} style={Object.assign({}, fieldStyle, {cursor:'pointer',color:currentVal ? '#132033' : '#94A3B8'})}>
+                    <option value="">Select...</option>
+                    {selectOptions.map(function(o) { return <option key={o} value={o}>{o}</option>; })}
+                  </select></div>;
+                }
+                return <div key={f.key}>{labelEl}<input type={f.type || 'text'} value={previewEditForm[f.key] || ''} onChange={function(e) { setField(f.key, e.target.value); }} style={fieldStyle}/></div>;
+              };
+              var reqF  = fieldSpecs.filter(function(f) { return f.required && f.type !== 'file'; });
+              var optF  = fieldSpecs.filter(function(f) { return !f.required && !f.multi && f.type !== 'file'; });
+              var noteF = fieldSpecs.filter(function(f) { return f.multi; });
+              return <>
+                {reqF.length > 0 && <div style={{display:'grid',gap:12}}>{reqF.map(renderField)}</div>}
+                {optF.length > 0 && <>
+                  <div style={{display:'flex',alignItems:'center',gap:8,margin:'4px 0 -4px'}}>
+                    <span style={{fontSize:11,fontWeight:800,color:'#94A3B8',letterSpacing:'.1em',textTransform:'uppercase',flexShrink:0}}>Optional</span>
+                    <div style={{flex:1,height:1,background:'#EEF2F7'}}/>
+                  </div>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>{optF.map(renderField)}</div>
+                </>}
+                {noteF.length > 0 && <div style={{display:'grid',gap:12}}>{noteF.map(renderField)}</div>}
+              </>;
+            })()}
+          </div>
+          <div style={{padding:'10px 16px',borderTop:'1px solid #EEF2F7',display:'flex',justifyContent:'flex-end',gap:8,flexShrink:0,background:'#fff'}}>
+            <button type="button" onClick={closePreviewDrawer} style={{border:'1px solid #DDE5EF',borderRadius:8,padding:'8px 12px',background:'#fff',color:'#243247',fontWeight:700,fontSize:12,cursor:'pointer'}}>Cancel</button>
+            <button type="button" className="primary" onClick={handlePreviewEditSave} style={{borderRadius:8,padding:'8px 12px',fontWeight:700,fontSize:12,cursor:'pointer'}}>Save preview</button>
+          </div>
+        </aside>
+      </>;
+    })()}
   </main>;
 }
 

@@ -173,6 +173,12 @@ Rules:
 
 External methodologies can inspire Opriva, but Opriva's own rules remain authoritative.
 
+### 11.1 Cross-Agent Skill Parity (Claude Code ↔ Codex)
+
+Opriva is developed across multiple AI agents. Any external design, UX, taste or methodology skill approved and adapted for one agent (e.g., Claude Code) must also be adapted — or have a clearly planned equivalent — for the other supported agents (e.g., Codex). This prevents drift between sessions, contributors and tools.
+
+The canonical record of external design-skill sources currently under research, the cross-agent parity rule, the rule that the assistant must remind the user about Codex parity when they say work is continuing in Codex, and the likely Codex target locations all live in `OPRIVA_AI_DEVELOPMENT_TEAM.md` §10.1–§10.2 and §11.1.
+
 ## 12. Recommended Use With Codex And Claude Code
 
 Use precise prompts that match the desired workflow:
@@ -192,6 +198,7 @@ Recommended prompt patterns:
 - "Do not modify routes, Sidebar, Topbar, Floating AI or workspaceMode."
 - "Run build and diff check. Do not commit yet."
 - "Stage only these files and commit with this message."
+- "When I say I am continuing in Codex, remind me to replicate or adapt approved Claude Code skills for Codex parity before proceeding."
 
 ## 13. Final Recommendation
 

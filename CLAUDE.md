@@ -119,3 +119,22 @@ See `OPRIVA_AI_DEVELOPMENT_TEAM.md` §6 for recommended lens combinations by tas
 These lenses are advisory and support inspection, planning, implementation and
 validation. They do not override explicit user instructions, file-safety rules or
 validation requirements.
+
+---
+
+## 5. Cross-Agent Skill Parity (Claude Code ↔ Codex)
+
+Opriva is developed across Claude Code and Codex. Any external design, UX, taste
+or methodology skill adapted for Claude Code must also be adapted — or clearly
+planned — for Codex, and vice versa, to avoid drift between agents.
+
+When the user states that work is continuing in Codex, remind them to replicate
+or adapt approved Claude Code skills for Codex parity before proceeding with
+non-trivial work.
+
+Three external design-skill sources are currently under research only (no install,
+no adapt approved): `emilkowalski/skill`, `pbakaus/impeccable` (Apache 2.0) and
+`Leonxlnx/taste-skill` (MIT). The canonical record — sources, formats, licenses,
+likely Codex target locations (`.codex/`, `.agents/`, the existing `skills/`
+directory, `AGENTS.md`) and the parity rule — lives in
+`OPRIVA_AI_DEVELOPMENT_TEAM.md` §10.1–§10.2 and §11.1. See also `AGENTS.md` §14.

@@ -109,3 +109,11 @@ Do not treat a single generic coding pass as enough for strategic Opriva changes
 Use `OPRIVA_DEVELOPMENT_METHODOLOGY.md` as the project methodology for Codex and Claude Code work. It defines Opriva's inspect-before-implement, plan-before-coding, minimal-change, systematic-debugging, verification-before-completion, code-review, and finish-task discipline.
 
 External agent methodologies may be researched as references, but do not install, clone, run scripts, configure hooks, add dependencies, or import external skill behavior without explicit user approval. Adapt useful patterns into Opriva-specific guidance instead.
+
+## 14. Cross-Agent Skill Parity (Claude Code ↔ Codex)
+
+Opriva is developed across multiple AI agents. Any external design, UX, taste or methodology skill adapted for one agent must also be adapted — or clearly planned — for the other supported agents, so the project does not drift between Claude Code and Codex sessions.
+
+When the user states that work is continuing in Codex, remind the user to replicate or adapt approved Claude Code skills for Codex parity before proceeding with non-trivial work.
+
+Three external design-skill sources are currently under research only (no install, no adapt approved): see `OPRIVA_AI_DEVELOPMENT_TEAM.md` §10.1 for the full source list, formats, licenses and Codex-compatibility status. The cross-agent parity rule lives in §10.2, and the likely Codex target locations to inspect before any adaptation (`.codex/`, `.agents/`, the existing `skills/` directory, `AGENTS.md`) are documented there.

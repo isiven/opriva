@@ -366,6 +366,34 @@ Rules:
 - Adapt useful patterns into Opriva-specific skills instead of copying generic behavior blindly.
 - Keep Opriva rules authoritative when external skills conflict.
 
+### 10.1 External Design-Skill Sources Currently Under Research
+
+The following external repositories are under research as possible sources of design / UX / "taste" guidance for Opriva. Research only — no installation, cloning, script execution, MCP configuration, hook configuration, dependency addition or adaptation has been approved.
+
+| Source | Format | Topic | License | Multi-agent native? |
+|---|---|---|---|---|
+| https://github.com/emilkowalski/skill | `skills/emil-design-eng/` directory; spec not yet detailed in README | UI design & engineering principles (curated from author's blog) | Not visible in README | Not stated |
+| https://github.com/pbakaus/impeccable | `SKILL.md` spec with 7 domain reference files (typography, color-and-contrast, spatial-design, motion-design, interaction-design, responsive-design, ux-writing); ships `.claude/`, `.cursor/`, `.agents/`, `.gemini/`, `.impeccable/` directories; 23 commands; optional CLI (`npx impeccable detect`) | Frontend design quality and anti-pattern detection | Apache 2.0 | Yes — Claude, Cursor, Codex-style `.agents/`, Gemini |
+| https://github.com/Leonxlnx/taste-skill | Portable `SKILL.md` files; install via `npx skills add` CLI | Frontend "taste" / anti-slop layout, typography, motion, spacing | MIT | Yes — Cursor, Claude Code, Codex |
+
+Until explicitly approved by the user, do not download bundles, run any `npx` or `skill.sh` commands, copy these directories into the repo, or modify settings to register these skills.
+
+### 10.2 Cross-Agent Skill Parity (Claude Code ↔ Codex)
+
+Opriva is developed across multiple AI agents (Claude Code today, Codex when work continues there, future agents). External design, UX, taste or methodology skills that are adapted into Opriva for one agent **must** also be adapted — or have a clearly planned equivalent — for the other supported agents. Single-agent skill installs create drift between sessions, contributors and tools and must be avoided.
+
+Likely Codex target locations to inspect **before** any future adaptation (do not create yet, verify what the Codex tooling in use actually reads):
+
+- `.codex/` or `.agents/` style directories, if supported by the Codex tooling
+- The existing project-wide `skills/` directory as the canonical `SKILL.md` home (already used by Opriva review lenses)
+- `AGENTS.md` references — Codex reads `AGENTS.md` as primary always-on guidance
+
+Rule the assistant must enforce:
+
+- When the user states that Opriva work is continuing in Codex, the assistant must remind the user to replicate or adapt any approved Claude Code skills (including any future adoption of the §10.1 sources) into Codex-equivalent guidance before proceeding with non-trivial work.
+
+Until cross-agent parity is planned, no design-skill adoption should be approved for a single agent in isolation.
+
 ## 11. Claude Code Equivalent
 
 When continuing Opriva work in Claude Code, create equivalent project guidance:
@@ -377,6 +405,17 @@ When continuing Opriva work in Claude Code, create equivalent project guidance:
 - Commands for common safe workflows such as review-only audits, import checks, UI validation and focused commits.
 
 Claude Code guidance should preserve the same Opriva rules: local/sandbox now, backend later, no private files, model-driven import, controlled catalogs, sensitive contact review, workspace-mode review and focused commits.
+
+### 11.1 Codex Equivalent
+
+When Opriva work continues in Codex, equivalent project guidance must be in place:
+
+- `AGENTS.md` is already the primary Codex always-on guidance.
+- Each Opriva review lens / expert role should have a Codex-compatible equivalent (likely under a Codex-recognized skills directory such as `.codex/` or `.agents/`, or by ensuring the existing `skills/SKILL.md` files are loadable by the Codex tooling in use). Inspect what the active Codex tooling reads before creating anything.
+- Validation workflows (`npm run build`, `git diff --check`, `git status --short`, focused commits) must hold identical authority in Codex sessions.
+- All Opriva non-negotiables apply identically: local/sandbox now, backend later, no private files, model-driven import, controlled catalogs, sensitive contact review, workspace-mode review and focused commits.
+
+See §10.2 for the cross-agent parity rule. Any approved adaptation of an external design/UX/taste skill into Claude Code triggers a planning obligation for the same skill in Codex.
 
 ## 12. Final Recommendation
 

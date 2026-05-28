@@ -4171,25 +4171,14 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
     var entity = importSummaryEntity[entityKey];
     return String(entity.matched || 0) + ' matched / ' + String(entity.toCreate || entity.review || 0) + ' new or review';
   };
-  const importSummaryMetrics = [
-    [isInternalIT ? 'Importing into department' : 'Importing into client', importContextScopeValue || 'Not selected yet'],
-    ['Import purpose', importContext.purpose || 'Not provided'],
-    ['Target modules', importContextHasTargetModules ? importContext.targetModules.join(', ') : 'Not selected yet'],
-    ['Detected source', sourceType === 'No file loaded' ? 'Not detected yet' : sourceType],
-    ['Import target', importTarget || 'Not selected yet'],
-    ['Workspace mode', workspaceMode],
-    ['Selected sheet', selectedSheet || 'Not selected yet'],
-    ['Rows found', String(rowObjects.length)],
-    ['Records to create', String((importPreview.entitySummary && importPreview.entitySummary.recordsToCreate) || 0)],
-    ['Critical errors', String(importSeverityCounts.critical || 0)],
-    ['Warnings', String(importSeverityCounts.warning || 0)],
-    ['Suggestions', String(importSeverityCounts.suggestion || 0)],
-    ['Ready rows', String(importPreview.stats.ready || 0)],
-    ['Rows needing review', String(importPreview.stats.review || 0)],
-    ['Sensitive fields', String(importSummarySensitiveFields)],
-    ['Duplicate risks', String(importPreview.stats.duplicates || 0)],
-    ['Missing brand/product', String(importPreview.stats.missingBrandProduct || 0)]
-  ];
+  // The compact 8-item summary bar in the render block consumes the same
+  // underlying values directly (sourceType, importTarget, rowObjects.length,
+  // importPreview.entitySummary.recordsToCreate, importPreview.stats.ready,
+  // importSeverityCounts.critical/warning/suggestion). Workspace mode,
+  // Selected sheet, Rows needing review, Sensitive fields, Duplicate risks
+  // and Missing brand/product remain queryable on importPreview but are no
+  // longer surfaced in the summary; they are covered by the ValidationPanel
+  // (W3) and the per-row Issues column.
   const importSummaryEntities = [
     [isInternalIT ? 'Unique departments' : 'Unique clients', formatEntitySummaryMetric('clients')],
     ['Contacts', rowObjects.length && importSummaryEntity.contacts ? String(importSummaryEntity.contacts.review || 0) + ' review required' : 'Not detected yet'],
@@ -4562,22 +4551,31 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
             {importContext.purpose && <span style={{border:'1px solid #E2E8F0',borderRadius:999,padding:'5px 9px',background:'#fff',fontSize:11,fontWeight:800,color:'#334155'}}>Purpose: {importContext.purpose}</span>}
           </div>
         </div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:8}}>
-          {importSummaryMetrics.map(function(item) {
-            return <div key={'summary-' + item[0]} style={{border:'1px solid #E2E8F0',borderRadius:10,background:'#fff',padding:'8px 10px',minWidth:0}}>
-              <span style={{display:'block',fontSize:10,fontWeight:850,color:'#94A3B8',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:3}}>{item[0]}</span>
-              <strong style={{display:'block',fontSize:12,color:'#132033',lineHeight:1.25,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={item[1]}>{item[1]}</strong>
-            </div>;
+        <div role="group" aria-label="Import summary metrics" style={{display:'flex',flexWrap:'wrap',alignItems:'baseline',gap:'8px 22px',border:'1px solid #DDE5EF',borderRadius:10,background:'#fff',padding:'10px 14px'}}>
+          {[
+            ['Source', sourceType === 'No file loaded' ? '—' : sourceType],
+            ['Target', importTarget || '—'],
+            ['Rows', String(rowObjects.length)],
+            ['Records', String((importPreview.entitySummary && importPreview.entitySummary.recordsToCreate) || 0)],
+            ['Ready', String(importPreview.stats.ready || 0)],
+            ['Critical', String(importSeverityCounts.critical || 0)],
+            ['Warnings', String(importSeverityCounts.warning || 0)],
+            ['Suggestions', String(importSeverityCounts.suggestion || 0)]
+          ].map(function(item) {
+            return <span key={'summary-bar-' + item[0]} style={{display:'inline-flex',alignItems:'baseline',gap:6,minWidth:0,maxWidth:'100%'}}>
+              <span style={{fontSize:10,fontWeight:850,color:'#94A3B8',textTransform:'uppercase',letterSpacing:'.06em'}}>{item[0]}</span>
+              <strong style={{fontSize:13,fontVariantNumeric:'tabular-nums',color:'#132033',lineHeight:1.2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}} title={String(item[1])}>{item[1]}</strong>
+            </span>;
           })}
         </div>
-        <div style={{borderTop:'1px solid #DDEFEA',paddingTop:10,display:'grid',gap:8}}>
-          <span style={{fontSize:11,fontWeight:850,color:'#64748B',textTransform:'uppercase',letterSpacing:'.06em'}}>Entities detected</span>
-          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+        <details style={{border:'1px solid #DDE5EF',borderRadius:10,background:'#fff'}}>
+          <summary style={{cursor:'pointer',padding:'8px 12px',fontSize:12,fontWeight:700,color:'#475569',userSelect:'none'}}>Detected entities</summary>
+          <div style={{padding:'8px 12px 10px',borderTop:'1px solid #EEF2F7',display:'flex',gap:8,flexWrap:'wrap'}}>
             {importSummaryEntities.map(function(item) {
               return <span key={'summary-entity-' + item[0]} style={{fontSize:12,fontWeight:750,color:'#475569',border:'1px solid #E2E8F0',background:'#fff',borderRadius:999,padding:'5px 9px'}}>{item[0]}: {item[1]}</span>;
             })}
           </div>
-        </div>
+        </details>
       </div>}
       {headers.length > 0 && !importContextReady && <div className="miniState" role="status">
         {importContextDisabledMessage || 'Complete import context before continuing with mapping and preview.'}
@@ -4627,26 +4625,26 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
           </tbody>
         </table>
       </div>}
-      {showImportStep('mapping') && importContextReady && unmappedColumns.length > 0 && <div style={{border:'1px solid #F1E3C8',borderRadius:12,background:'#FFFDF7',padding:'12px 14px',display:'grid',gap:10}}>
-        <div>
-          <strong style={{display:'block',fontSize:14,color:'#0B1F3A',marginBottom:4}}>Unmapped / skipped columns</strong>
+      {showImportStep('mapping') && importContextReady && unmappedColumns.length > 0 && <details style={{border:'1px solid #F1E3C8',borderRadius:12,background:'#FFFDF7'}}>
+        <summary style={{cursor:'pointer',padding:'10px 14px',fontSize:13,fontWeight:700,color:'#7C5A12',userSelect:'none'}}>View unmapped / skipped columns ({unmappedColumns.length})</summary>
+        <div style={{padding:'0 14px 12px',display:'grid',gap:10}}>
           <span style={{display:'block',fontSize:12,color:'#64748B',lineHeight:1.45}}>Opriva will not blindly import these columns. Map them to a canonical field, map useful context to Notes, or keep them skipped.</span>
+          <div className="tableWrap">
+            <table>
+              <thead><tr>{['Source Column','Action','Sample Value'].map(function(col) { return <th key={col}>{col}</th>; })}</tr></thead>
+              <tbody>
+                {unmappedColumns.slice(0, 8).map(function(mapping) {
+                  return <tr key={'unmapped-' + mapping.sourceColumn}>
+                    <td className="recordCell">{mapping.sourceColumn}</td>
+                    <td>{mapping.action === 'Skip' ? 'Skipped' : 'No target'}</td>
+                    <td style={{maxWidth:280,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={mapping.sampleValue}>{mapping.sampleValue || '-'}</td>
+                  </tr>;
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
-        <div className="tableWrap">
-          <table>
-            <thead><tr>{['Source Column','Action','Sample Value'].map(function(col) { return <th key={col}>{col}</th>; })}</tr></thead>
-            <tbody>
-              {unmappedColumns.slice(0, 8).map(function(mapping) {
-                return <tr key={'unmapped-' + mapping.sourceColumn}>
-                  <td className="recordCell">{mapping.sourceColumn}</td>
-                  <td>{mapping.action === 'Skip' ? 'Skipped' : 'No target'}</td>
-                  <td style={{maxWidth:280,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={mapping.sampleValue}>{mapping.sampleValue || '-'}</td>
-                </tr>;
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>}
+      </details>}
       {showImportStep('mapping') && hasValidationData && <div style={{display:'flex',justifyContent:'flex-end',borderTop:'1px solid #EEF2F7',paddingTop:10}}>
         <button type="button" className="primary" onClick={function() { selectImportStep('validation'); }}>Continue to Validation</button>
       </div>}
@@ -4658,40 +4656,38 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
         </div>
       </div>}
       {(showImportStep('preview') || showImportStep('confirm')) && importContextReady && rowObjects.length > 0 && <div style={{display:'grid',gap:12}}>
-        <div style={{border:'1px solid #DDEFEA',borderRadius:12,background:'#F8FFFD',padding:'12px 14px',display:'grid',gap:12}}>
-          <div style={{display:'flex',justifyContent:'space-between',gap:12,alignItems:'flex-start',flexWrap:'wrap'}}>
-            <div style={{minWidth:240,flex:'1 1 360px'}}>
-              <strong style={{display:'block',fontSize:14,color:'#0B1F3A',marginBottom:4}}>Import defaults</strong>
-              <span style={{display:'block',fontSize:12,color:'#64748B',lineHeight:1.45}}>Use defaults to enrich many imported records at once. You can still review individual rows when something needs correction.</span>
+        <details style={{border:'1px solid #DDEFEA',borderRadius:12,background:'#F8FFFD'}}>
+          <summary style={{cursor:'pointer',padding:'10px 14px',fontSize:13,fontWeight:700,color:'#0F766E',userSelect:'none',display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+            <span>Apply bulk defaults</span>
+            <span style={{border:'1px solid #CDEDE5',borderRadius:999,padding:'3px 8px',fontSize:11,fontWeight:800,color:'#0F766E',background:'#fff'}}>Records: {importTarget}</span>
+          </summary>
+          <div style={{padding:'0 14px 14px',display:'grid',gap:12}}>
+            <span style={{display:'block',fontSize:12,color:'#64748B',lineHeight:1.45}}>Use defaults to enrich many imported records at once. You can still review individual rows when something needs correction.</span>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(5,minmax(0,1fr))',gap:10}}>
+              {[
+                ['brandManufacturer','Brand / Manufacturer'],
+                ['productLicenseName','Product / License Name'],
+                ['providerDistributor','Distributor / Provider'],
+                ['owner','Owner']
+              ].map(function(field) {
+                return <label key={field[0]} style={{display:'grid',gap:4,fontSize:12,fontWeight:800,color:'#64748B'}}>
+                  {field[1]}
+                  <input value={importDefaults[field[0]] || ''} onChange={function(e) { updateImportDefault(field[0], e.target.value); }} style={{border:'1px solid #DDE5EF',borderRadius:8,padding:'8px 9px',background:'#fff',color:'#132033',fontWeight:650}} />
+                </label>;
+              })}
+              <label style={{display:'grid',gap:4,fontSize:12,fontWeight:800,color:'#64748B'}}>
+                Alert Policy
+                <select value={importDefaults.alertPolicy || 'Workspace default'} onChange={function(e) { updateImportDefault('alertPolicy', e.target.value); }} style={{border:'1px solid #DDE5EF',borderRadius:8,padding:'8px 9px',background:'#fff',color:'#132033',fontWeight:650}}>
+                  {LICENSE_ALERT_POLICY_OPTIONS.map(function(opt) { return <option key={opt} value={opt}>{opt}</option>; })}
+                </select>
+              </label>
             </div>
-            <div style={{border:'1px solid #CDEDE5',borderRadius:999,padding:'5px 9px',fontSize:11,fontWeight:800,color:'#0F766E',background:'#fff'}}>
-              Records: {importTarget}
+            <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+              <button type="button" className="primary" onClick={function() { applyImportDefaults(false); }}>Apply defaults to rows missing these values</button>
+              <button type="button" onClick={function() { applyImportDefaults(true); }}>Apply defaults to all rows</button>
             </div>
           </div>
-          <div style={{display:'grid',gridTemplateColumns:'repeat(5,minmax(0,1fr))',gap:10}}>
-            {[
-              ['brandManufacturer','Brand / Manufacturer'],
-              ['productLicenseName','Product / License Name'],
-              ['providerDistributor','Distributor / Provider'],
-              ['owner','Owner']
-            ].map(function(field) {
-              return <label key={field[0]} style={{display:'grid',gap:4,fontSize:12,fontWeight:800,color:'#64748B'}}>
-                {field[1]}
-                <input value={importDefaults[field[0]] || ''} onChange={function(e) { updateImportDefault(field[0], e.target.value); }} style={{border:'1px solid #DDE5EF',borderRadius:8,padding:'8px 9px',background:'#fff',color:'#132033',fontWeight:650}} />
-              </label>;
-            })}
-            <label style={{display:'grid',gap:4,fontSize:12,fontWeight:800,color:'#64748B'}}>
-              Alert Policy
-              <select value={importDefaults.alertPolicy || 'Workspace default'} onChange={function(e) { updateImportDefault('alertPolicy', e.target.value); }} style={{border:'1px solid #DDE5EF',borderRadius:8,padding:'8px 9px',background:'#fff',color:'#132033',fontWeight:650}}>
-                {LICENSE_ALERT_POLICY_OPTIONS.map(function(opt) { return <option key={opt} value={opt}>{opt}</option>; })}
-              </select>
-            </label>
-          </div>
-          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-            <button type="button" className="primary" onClick={function() { applyImportDefaults(false); }}>Apply defaults to rows missing these values</button>
-            <button type="button" onClick={function() { applyImportDefaults(true); }}>Apply defaults to all rows</button>
-          </div>
-        </div>
+        </details>
         <div className="panelTitle" style={{margin:0}}><h2>Review & enrich records</h2><span>Review normalized records before creation. Improve mappings above when brand, product, client or commercial context is missing.</span></div>
         <p style={{margin:0,color:'#64748B',fontSize:13,lineHeight:1.5}}>Review how Opriva will create these records. You can adjust mappings or enrich missing fields before importing.</p>
         {importPreview.generalWarnings.length > 0 && <div style={{border:'1px solid #F1E3C8',background:'#FFFDF7',borderRadius:10,padding:'10px 12px',fontSize:12,color:'#7C5A12',lineHeight:1.45}}>
@@ -4746,7 +4742,16 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
         </div>}
       </div>}
     </section>}
-    <section className="panel"><div className="panelTitle"><h2>Import history</h2><span>Landing page with recent jobs and operational status</span></div><Table columns={['Import','File','Rows','Duplicate prevention','Status']} rows={historyRows}/></section>
+    <details style={{border:'1px solid var(--border)',borderRadius:14,background:'#fff',boxShadow:'0 6px 16px rgba(15,35,65,.025)'}}>
+      <summary style={{cursor:'pointer',padding:'12px 16px',fontSize:13,fontWeight:700,color:'#475569',userSelect:'none',display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:8}}>
+        <span>Recent imports</span>
+        <span style={{fontSize:11,fontWeight:800,color:'#94A3B8',textTransform:'uppercase',letterSpacing:'.06em'}}>Sample data</span>
+      </summary>
+      <div style={{padding:'0 16px 14px',display:'grid',gap:10}}>
+        <span style={{fontSize:12,color:'#64748B',lineHeight:1.45}}>Demo entries shown for layout reference. Real per-import session history will replace this when import batches are recorded.</span>
+        <Table columns={['Import','File','Rows','Duplicate prevention','Status']} rows={historyRows}/>
+      </div>
+    </details>
     {previewDrawerOpen && previewSelectedRecord && (() => {
       var moduleKey = previewSelectedRecord.moduleKey;
       var moduleTitle = moduleKeyToTitle(moduleKey);

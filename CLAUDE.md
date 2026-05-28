@@ -111,6 +111,10 @@ auto-installed capabilities. Use them when requested, or when a task matches a l
   drawers, tables, dashboards.
 - `opriva-design-system-auditor` — design consistency, reusable patterns, hierarchy,
   workspace-specific terminology.
+- `opriva-design-fundamentals-auditor` — universal enterprise design fundamentals
+  (typography, color/contrast, spatial, motion, interaction, responsive, UX writing)
+  calibrated to Opriva's data-heavy screens. Pairs with the visual/UX/design-system
+  lenses; inspired by `pbakaus/impeccable` (Apache 2.0) — see `THIRD_PARTY_NOTICES.md`.
 - `opriva-dashboard-ux-reviewer` — dashboard usefulness, KPI meaning, renewal risk
   visibility, MSP vs Internal IT leadership needs.
 

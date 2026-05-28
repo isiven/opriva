@@ -64,6 +64,10 @@ Reviews visual quality for enterprise SaaS: layout polish, typography, spacing, 
 
 Reviews design consistency across modules, reusable patterns, component behavior, information density, visual hierarchy, tables, forms, drawers, tabs and workspace-specific terminology.
 
+### opriva-design-fundamentals-auditor
+
+Reviews universal enterprise SaaS design fundamentals — typography, color and contrast, spatial design, motion discipline, interaction states, responsive design and UX writing — calibrated to Opriva's data-heavy tables, drawers, dashboards, import flows and both workspace modes. Pairs with the visual-design and design-system lenses; does not replace them. Seven-domain structure is inspired by `pbakaus/impeccable` (Apache 2.0); see `THIRD_PARTY_NOTICES.md`. The canonical lens lives at `skills/opriva-design-fundamentals-auditor/SKILL.md`; the `.claude/skills/` copy mirrors it for Claude Code project-scoped loading. Codex-specific mirrors (`.codex/`, `.agents/`) are deferred until the active Codex tooling's loading path is verified per §10.2 / §11.1.
+
 ### opriva-dashboard-ux-reviewer
 
 Reviews dashboard quality, executive usefulness, dashboard density, chart/table clarity, KPI meaning, renewal risk visibility and the distinction between MSP / Integrator and Internal IT leadership needs.
@@ -239,12 +243,13 @@ Primary checks: database boundaries, tenant isolation, RBAC, storage, import job
 
 Use:
 
+- opriva-design-fundamentals-auditor
 - opriva-enterprise-ux-reviewer
 - opriva-enterprise-visual-design-reviewer
 - opriva-design-system-auditor
 - opriva-dashboard-ux-reviewer if dashboard-related
 
-Primary checks: enterprise quality, density, clarity, layout consistency, table readability, drawer behavior, empty states, warnings and confidence before confirmation.
+Primary checks: enterprise quality, density, clarity, layout consistency, table readability, drawer behavior, empty states, warnings, design fundamentals (typography, color, spacing, motion, interaction, responsive, UX writing) and confidence before confirmation.
 
 ### D. Data Model / Catalog Changes
 

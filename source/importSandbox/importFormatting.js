@@ -102,6 +102,11 @@ export function withImportRecordMeta(record, moduleKey, canonical, importContext
     importSheetName: importContext.sheetName || '',
     importTarget: importContext.importTarget || '',
     detectedSource: importContext.sourceType || '',
+    importWorkspaceMode: importContext.workspaceMode || '',
+    importContextClient: importContext.clientAccount || '',
+    importContextDepartment: importContext.departmentBusinessUnit || '',
+    importPurpose: importContext.purpose || '',
+    importTargetModules: Array.isArray(importContext.targetModules) ? importContext.targetModules.slice() : [],
     workspaceMode: importContext.workspaceMode || '',
     importedAt: importContext.importedAt || new Date().toISOString()
   });

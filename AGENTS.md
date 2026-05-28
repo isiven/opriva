@@ -98,19 +98,47 @@ Use these review lenses when a task calls for deeper Opriva judgment:
 
 These lenses are advisory. They do not override explicit user instructions, file safety rules, or validation requirements.
 
-## 12. AI Development Team Operating Model
+## 12. Codex Reviewer Usage Rules
+
+Before any meaningful product, UX, architecture, data model, backend-readiness, security, procurement, or import work, Codex must check which local Opriva reviewer skills apply and use them as lenses before or after implementation.
+
+Reviewer aliases:
+
+- architecture-reviewer -> `skills/opriva-software-architecture-auditor/SKILL.md`
+- enterprise-ux-reviewer -> `skills/opriva-enterprise-ux-reviewer/SKILL.md`
+- enterprise-visual-design-reviewer -> `skills/opriva-enterprise-visual-design-reviewer/SKILL.md`
+- backend-readiness-reviewer -> `skills/opriva-backend-readiness-auditor/SKILL.md`
+- import-data-model-reviewer -> `skills/opriva-import-data-model-auditor/SKILL.md`
+- workspace-mode-reviewer -> `skills/opriva-workspace-mode-reviewer/SKILL.md`
+- ciso-security-reviewer -> `skills/opriva-ciso-security-compliance-reviewer/SKILL.md`
+- cio-it-director-reviewer -> `skills/opriva-cio-it-director-reviewer/SKILL.md`
+- it-procurement-vendor-management-reviewer -> `skills/opriva-it-procurement-vendor-reviewer/SKILL.md`
+- accessibility-reviewer -> `skills/opriva-accessibility-reviewer/SKILL.md`
+
+Application rules:
+
+- For UI changes: use enterprise-ux-reviewer, enterprise-visual-design-reviewer, accessibility-reviewer, and workspace-mode-reviewer.
+- For import, bulk upload, mapping, catalogs, or data normalization: use import-data-model-reviewer, backend-readiness-reviewer, workspace-mode-reviewer, and architecture-reviewer.
+- For security, permissions, roles, audit trail, documents, storage, or sensitive data: use ciso-security-reviewer, backend-readiness-reviewer, and architecture-reviewer.
+- For business workflows involving vendors, licenses, renewals, support coverage, warranties, contracts, or procurement: use cio-it-director-reviewer and it-procurement-vendor-management-reviewer.
+- For any feature that affects both MSP / Integrator and Internal IT: use workspace-mode-reviewer.
+- Do not install, clone, or fetch external skills automatically.
+- External skills may only be reviewed or adapted after explicit approval.
+- Prefer local Opriva-specific reviewer skills and checklists.
+
+## 13. AI Development Team Operating Model
 
 Use `OPRIVA_AI_DEVELOPMENT_TEAM.md` as the operating model for major Opriva work. Before significant product, architecture, backend, import, security, UX, data model, catalog, dashboard, or workflow changes, select the appropriate Opriva skills or expert-role lenses from that document to inspect, plan, implement, validate, and document the change.
 
 Do not treat a single generic coding pass as enough for strategic Opriva changes. Use the specialized review model to catch product, MSP / Integrator, Internal IT, security, backend-readiness, import, procurement, UX, and data-model risks before implementation.
 
-## 13. Development Methodology
+## 14. Development Methodology
 
 Use `OPRIVA_DEVELOPMENT_METHODOLOGY.md` as the project methodology for Codex and Claude Code work. It defines Opriva's inspect-before-implement, plan-before-coding, minimal-change, systematic-debugging, verification-before-completion, code-review, and finish-task discipline.
 
 External agent methodologies may be researched as references, but do not install, clone, run scripts, configure hooks, add dependencies, or import external skill behavior without explicit user approval. Adapt useful patterns into Opriva-specific guidance instead.
 
-## 14. Cross-Agent Skill Parity (Claude Code ↔ Codex)
+## 15. Cross-Agent Skill Parity (Claude Code ↔ Codex)
 
 Opriva is developed across multiple AI agents. Any external design, UX, taste or methodology skill adapted for one agent must also be adapted — or clearly planned — for the other supported agents, so the project does not drift between Claude Code and Codex sessions.
 

@@ -3271,11 +3271,28 @@ function getImportContactContext(rowObj, mappings, edit) {
   return next.contactName || next.contactEmail || next.contactRole ? next : null;
 }
 
+function getImportContextClientDepartment(importContext, workspaceMode) {
+  if (!importContext) return '';
+  return workspaceMode === 'Internal IT'
+    ? (importContext.departmentBusinessUnit || '')
+    : (importContext.clientAccount || '');
+}
+
+function resolveImportClientDepartment(rowObj, mappings, edit, workspaceMode, importContext) {
+  var isIT = workspaceMode === 'Internal IT';
+  var fileValue = getMappedImportValue(rowObj, mappings, 'Client / Department');
+  // Manual drawer edits intentionally override uploaded file values because
+  // they represent explicit user review/correction before confirmation.
+  if (edit && edit.clientDepartment) return edit.clientDepartment;
+  if (fileValue) return fileValue;
+  return getImportContextClientDepartment(importContext, workspaceMode) || (isIT ? 'Unassigned department' : 'Unassigned client');
+}
+
 function buildImportLicenseRecord(rowObj, mappings, workspaceMode, sourceType, rowIndex, importContext) {
   var isIT = workspaceMode === 'Internal IT';
   var edit = (importContext && importContext.recordEdits && importContext.recordEdits[rowIndex + 2]) || {};
   var product = edit.productLicenseName || getMappedImportValueAny(rowObj, mappings, ['Product / License Name','License / Product']) || 'Imported license';
-  var client = edit.clientDepartment || getMappedImportValue(rowObj, mappings, 'Client / Department') || (isIT ? 'Unassigned department' : 'Unassigned client');
+  var client = resolveImportClientDepartment(rowObj, mappings, edit, workspaceMode, importContext);
   var brand = edit.brandManufacturer || inferBrandFromProduct(product, getMappedImportValueAny(rowObj, mappings, ['Brand / Manufacturer','Brand']));
   var provider = edit.providerDistributor || getMappedImportValue(rowObj, mappings, 'Provider / Distributor') || '-';
   var resellerPartner = edit.resellerPartner || getMappedImportValue(rowObj, mappings, 'Reseller / Partner');
@@ -3373,7 +3390,7 @@ function buildImportHardwareRecord(rowObj, mappings, workspaceMode, sourceType, 
   var isIT = workspaceMode === 'Internal IT';
   var edit = (importContext && importContext.recordEdits && importContext.recordEdits[rowIndex + 2]) || {};
   var assetName = edit.productLicenseName || getMappedImportValue(rowObj, mappings, 'Asset Name') || getMappedImportValueAny(rowObj, mappings, ['Product / License Name','License / Product']) || 'Imported hardware asset';
-  var client = edit.clientDepartment || getMappedImportValue(rowObj, mappings, 'Client / Department') || (isIT ? 'Unassigned department' : 'Unassigned client');
+  var client = resolveImportClientDepartment(rowObj, mappings, edit, workspaceMode, importContext);
   var brand = edit.brandManufacturer || inferBrandFromProduct(assetName, getMappedImportValueAny(rowObj, mappings, ['Brand / Manufacturer','Brand']));
   var provider = edit.providerDistributor || getMappedImportValue(rowObj, mappings, 'Provider / Distributor') || '-';
   var serial = edit.serialNumber || getMappedImportValue(rowObj, mappings, 'Serial Number') || '-';
@@ -3448,7 +3465,7 @@ function buildImportContractRecord(rowObj, mappings, workspaceMode, sourceType, 
   var renewalDate = normalizeImportDate(edit.expirationRenewalDate || getMappedImportValue(rowObj, mappings, 'Expiration / Renewal Date'));
   if (!contractNumber || !renewalDate) return null;
   var isIT = workspaceMode === 'Internal IT';
-  var client = edit.clientDepartment || getMappedImportValue(rowObj, mappings, 'Client / Department') || (isIT ? 'Unassigned department' : 'Unassigned client');
+  var client = resolveImportClientDepartment(rowObj, mappings, edit, workspaceMode, importContext);
   var provider = edit.providerDistributor || getMappedImportValue(rowObj, mappings, 'Provider / Distributor') || '-';
   var support = edit.productLicenseName || getMappedImportValue(rowObj, mappings, 'Support') || 'Support coverage';
   var owner = edit.owner || 'Unassigned';
@@ -3539,7 +3556,7 @@ function buildImportPreview(rowObjects, mappings, sourceType, workspaceMode, imp
       var edit = (importContext && importContext.recordEdits && importContext.recordEdits[index + 2]) || {};
       var previewProduct = edit.productLicenseName || getMappedImportValueAny(rowObj, mappings, ['Product / License Name','License / Product']);
       var previewBrand = edit.brandManufacturer || inferBrandFromProduct(previewProduct, getMappedImportValueAny(rowObj, mappings, ['Brand / Manufacturer','Brand']));
-      var previewClient = edit.clientDepartment || getMappedImportValue(rowObj, mappings, 'Client / Department');
+      var previewClient = resolveImportClientDepartment(rowObj, mappings, edit, workspaceMode, importContext);
       var previewProvider = edit.providerDistributor || getMappedImportValue(rowObj, mappings, 'Provider / Distributor');
       var previewReseller = edit.resellerPartner || getMappedImportValue(rowObj, mappings, 'Reseller / Partner');
       var previewQuantity = edit.quantitySeats || getMappedImportValueAny(rowObj, mappings, ['Quantity / Seats','Quantity']);
@@ -3710,10 +3727,50 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
     alertPolicy: 'Workspace default',
     providerDistributor: ''
   });
+  // TODO backend: persist import context with the import batch/job, enforce RBAC for
+  // client/department import scope, write audit-trail events, and stage detected
+  // catalog/entity values for approval before corporate MVP.
+  const [importContext, setImportContext] = React.useState({
+    workspaceMode: workspaceMode,
+    clientAccount: '',
+    departmentBusinessUnit: '',
+    purpose: '',
+    targetModules: ['Licenses', 'Hardware', 'Contracts / Support Coverage']
+  });
   const [previewSelectedRecord, setPreviewSelectedRecord] = React.useState(null);
   const [previewDrawerOpen, setPreviewDrawerOpen] = React.useState(false);
   const [previewEditForm, setPreviewEditForm] = React.useState({});
   const [rawDetailsOpen, setRawDetailsOpen] = React.useState(false);
+  const importContextScopeLabel = isInternalIT ? 'Department / Business Unit' : 'Client / Account';
+  const importContextScopeValue = isInternalIT ? importContext.departmentBusinessUnit : importContext.clientAccount;
+  const importContextScopeOptions = isInternalIT ? MASTER_DATA.departments : MASTER_DATA.companies;
+  // TODO W2+: use importContext.targetModules to constrain suggested/allowed import targets. W1 only stores it as context/meta.
+  const importContextTargetModules = ['Licenses', 'Hardware', 'Contracts / Support Coverage'];
+  const importContextHasTargetModules = Array.isArray(importContext.targetModules) && importContext.targetModules.length > 0;
+  const importContextReady = Boolean(importContextScopeValue) && importContextHasTargetModules;
+  const importContextDisabledMessage = !importContextScopeValue
+    ? 'Select a ' + (isInternalIT ? 'department or business unit' : 'client or account') + ' before upload.'
+    : !importContextHasTargetModules
+    ? 'Select at least one target module before upload.'
+    : '';
+
+  function updateImportContext(key, value) {
+    setImportContext(function(prev) {
+      return Object.assign({}, prev, { [key]: value });
+    });
+    setImportResult(null);
+  }
+
+  function toggleImportTargetModule(moduleName) {
+    setImportContext(function(prev) {
+      var current = Array.isArray(prev.targetModules) ? prev.targetModules : [];
+      var exists = current.indexOf(moduleName) >= 0;
+      return Object.assign({}, prev, {
+        targetModules: exists ? current.filter(function(item) { return item !== moduleName; }) : current.concat(moduleName)
+      });
+    });
+    setImportResult(null);
+  }
 
   function mergeImportMappingSuggestions(existingMappings, nextMappings) {
     return nextMappings.map(function(mapping, index) {
@@ -3758,6 +3815,11 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
     var file = event.target.files && event.target.files[0];
     if (!file) return;
     setImportError('');
+    if (!importContextReady) {
+      setImportError(importContextDisabledMessage || 'Complete import context before uploading a workbook.');
+      event.target.value = '';
+      return;
+    }
     try {
       var buffer = await file.arrayBuffer();
       var parsed = XLSX.read(buffer, { type: 'array' });
@@ -3803,6 +3865,17 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
     var nextMappings = createImportMappings(headers, rowObjects, sourceType, importTarget, workspaceMode);
     setMappings(function(prev) {
       return mergeImportMappingSuggestions(prev, nextMappings);
+    });
+    setImportResult(null);
+  }, [workspaceMode]);
+
+  React.useEffect(function() {
+    setImportContext(function(prev) {
+      return Object.assign({}, prev, {
+        workspaceMode: workspaceMode,
+        clientAccount: workspaceMode === 'Internal IT' ? '' : prev.clientAccount,
+        departmentBusinessUnit: workspaceMode === 'Internal IT' ? prev.departmentBusinessUnit : ''
+      });
     });
     setImportResult(null);
   }, [workspaceMode]);
@@ -3955,9 +4028,13 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
       importTarget: importTarget,
       sourceType: sourceType,
       workspaceMode: workspaceMode,
+      clientAccount: importContext.clientAccount,
+      departmentBusinessUnit: importContext.departmentBusinessUnit,
+      purpose: importContext.purpose,
+      targetModules: importContext.targetModules,
       recordEdits: recordEdits
     });
-  }, [rowObjects, mappings, sourceType, workspaceMode, importTarget, fileName, selectedSheet, recordEdits]);
+  }, [rowObjects, mappings, sourceType, workspaceMode, importTarget, fileName, selectedSheet, recordEdits, importContext]);
   const unmappedColumns = mappings.filter(function(mapping) {
     return mapping.action === 'Skip' || !mapping.suggestedField;
   });
@@ -3976,6 +4053,9 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
     return String(entity.matched || 0) + ' matched / ' + String(entity.toCreate || entity.review || 0) + ' new or review';
   };
   const importSummaryMetrics = [
+    [isInternalIT ? 'Importing into department' : 'Importing into client', importContextScopeValue || 'Not selected yet'],
+    ['Import purpose', importContext.purpose || 'Not provided'],
+    ['Target modules', importContextHasTargetModules ? importContext.targetModules.join(', ') : 'Not selected yet'],
     ['Detected source', sourceType === 'No file loaded' ? 'Not detected yet' : sourceType],
     ['Import target', importTarget || 'Not selected yet'],
     ['Workspace mode', workspaceMode],
@@ -3990,7 +4070,7 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
     ['Missing brand/product', String(importPreview.stats.missingBrandProduct || 0)]
   ];
   const importSummaryEntities = [
-    ['Unique clients', formatEntitySummaryMetric('clients')],
+    [isInternalIT ? 'Unique departments' : 'Unique clients', formatEntitySummaryMetric('clients')],
     ['Contacts', rowObjects.length && importSummaryEntity.contacts ? String(importSummaryEntity.contacts.review || 0) + ' review required' : 'Not detected yet'],
     ['Unique brands', formatEntitySummaryMetric('brands')],
     ['Unique products', formatEntitySummaryMetric('products')],
@@ -4076,6 +4156,62 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
 
   return <main className="content">
     <ScreenHeader active="Data Import" subtitle="Local import sandbox for reading Excel files, reviewing mappings and creating session-only Opriva records." />
+    <section className="panel" aria-labelledby="import-context-title" style={{display:'grid',gap:14,borderColor:importContextReady ? '#DDE6F1' : '#F1E3C8',background:'#fff'}}>
+      <div className="panelTitle" style={{margin:0,alignItems:'flex-start'}}>
+        <div>
+          <h2 id="import-context-title">Import Context</h2>
+          <span>{isInternalIT ? 'Set the department scope before uploading internal IT renewal data.' : 'Set the client/account scope before uploading MSP or integrator renewal data.'}</span>
+        </div>
+        <span style={{border:'1px solid #E2E8F0',borderRadius:999,padding:'5px 9px',background:'#F8FAFC',fontSize:11,fontWeight:850,color:'#475569'}}>
+          Step 0
+        </span>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'minmax(220px,1.15fr) minmax(220px,1fr) minmax(260px,1.25fr)',gap:12,alignItems:'start'}}>
+        <label style={{display:'grid',gap:6,fontSize:12,fontWeight:850,color:'#475569'}}>
+          {importContextScopeLabel}<span style={{color:'#B91C1C',marginLeft:3}}>*</span>
+          <select
+            value={importContextScopeValue}
+            onChange={function(e) { updateImportContext(isInternalIT ? 'departmentBusinessUnit' : 'clientAccount', e.target.value); }}
+            style={{border:'1px solid #DDE5EF',borderRadius:10,padding:'10px 11px',background:'#fff',color:importContextScopeValue ? '#132033' : '#64748B',fontWeight:750}}
+          >
+            <option value="">Select {isInternalIT ? 'department / business unit' : 'client / account'}...</option>
+            {importContextScopeOptions.map(function(option) { return <option key={option} value={option}>{option}</option>; })}
+          </select>
+        </label>
+        <label style={{display:'grid',gap:6,fontSize:12,fontWeight:850,color:'#475569'}}>
+          Import purpose
+          <input
+            type="text"
+            value={importContext.purpose}
+            onChange={function(e) { updateImportContext('purpose', e.target.value); }}
+            placeholder={isInternalIT ? 'e.g. Q3 renewal register cleanup' : 'e.g. Client renewal portfolio upload'}
+            style={{border:'1px solid #DDE5EF',borderRadius:10,padding:'10px 11px',background:'#fff',color:'#132033',fontWeight:650}}
+          />
+        </label>
+        <fieldset style={{margin:0,border:'1px solid #DDE5EF',borderRadius:10,padding:'9px 11px',display:'grid',gap:8}}>
+          <legend style={{padding:'0 4px',fontSize:12,fontWeight:850,color:'#475569'}}>Target modules</legend>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+            {importContextTargetModules.map(function(moduleName) {
+              var checked = (importContext.targetModules || []).indexOf(moduleName) >= 0;
+              return <label key={moduleName} style={{display:'inline-flex',alignItems:'center',gap:6,border:'1px solid ' + (checked ? '#CDEDE5' : '#E2E8F0'),borderRadius:999,padding:'6px 9px',background:checked ? '#F8FFFD' : '#fff',color:'#334155',fontSize:12,fontWeight:750}}>
+                <input type="checkbox" checked={checked} onChange={function() { toggleImportTargetModule(moduleName); }} />
+                {moduleName}
+              </label>;
+            })}
+          </div>
+        </fieldset>
+      </div>
+      <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',borderTop:'1px solid #EEF2F7',paddingTop:10}}>
+        <span style={{border:'1px solid ' + (importContextReady ? '#BBF7D0' : '#FDE68A'),borderRadius:999,padding:'5px 9px',background:importContextReady ? '#F0FDF4' : '#FFFBEB',fontSize:12,fontWeight:800,color:importContextReady ? '#15803D' : '#92400E'}}>
+          {importContextReady ? 'Context ready' : 'Context required'}
+        </span>
+        <span style={{fontSize:12,color:'#64748B',lineHeight:1.45}}>
+          {importContextReady
+            ? (isInternalIT ? 'Importing into: ' + importContext.departmentBusinessUnit : 'Importing into: ' + importContext.clientAccount) + (importContext.purpose ? ' · Purpose: ' + importContext.purpose : '')
+            : importContextDisabledMessage}
+        </span>
+      </div>
+    </section>
     <section className="panel" style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap',padding:'10px 14px'}}>
       <div style={{display:'flex',alignItems:'center',gap:10,minWidth:0,flex:'1 1 320px'}}>
         {fileName
@@ -4088,9 +4224,25 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
       </div>
       <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
         <a href={templateHref} download="OPRIVA_IMPORT_TEMPLATE.xlsx" style={{display:'inline-flex',alignItems:'center',justifyContent:'center',textDecoration:'none',border:'1px solid var(--border)',background:'#fff',color:'#243247',borderRadius:10,padding:'8px 12px',fontWeight:700,fontSize:12}}>Download template</a>
-        <label className="primary" style={{display:'inline-flex',alignItems:'center',justifyContent:'center',borderRadius:10,padding:'8px 12px',fontWeight:700,fontSize:12,cursor:'pointer'}}>
+        <label
+          className="primary"
+          htmlFor="opriva-import-file-input"
+          role="button"
+          tabIndex={importContextReady ? 0 : -1}
+          aria-disabled={!importContextReady}
+          title={importContextReady ? 'Upload Excel workbook' : importContextDisabledMessage}
+          onKeyDown={function(e) {
+            if (!importContextReady) return;
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              var input = document.getElementById('opriva-import-file-input');
+              if (input) input.click();
+            }
+          }}
+          style={{display:'inline-flex',alignItems:'center',justifyContent:'center',borderRadius:10,padding:'8px 12px',fontWeight:700,fontSize:12,cursor:importContextReady ? 'pointer' : 'not-allowed',opacity:importContextReady ? 1 : .58}}
+        >
           {fileName ? 'Replace file' : 'Upload Excel'}
-          <input type="file" accept=".xlsx,.xls,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={handleExcelUpload} style={{display:'none'}} />
+          <input id="opriva-import-file-input" type="file" disabled={!importContextReady} accept=".xlsx,.xls,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={handleExcelUpload} style={{display:'none'}} />
         </label>
       </div>
     </section>
@@ -4103,7 +4255,13 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
             <strong style={{display:'block',fontSize:15,color:'#0B1F3A',marginBottom:3}}>Import Summary</strong>
             <span style={{display:'block',fontSize:12,color:'#64748B',lineHeight:1.45}}>This summary updates as Opriva detects source, mappings, entities and review needs.</span>
           </div>
-          <span style={{border:'1px solid #CDEDE5',borderRadius:999,padding:'5px 9px',background:'#fff',fontSize:11,fontWeight:800,color:'#0F766E'}}>Local sandbox</span>
+          <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',justifyContent:'flex-end'}}>
+            <span style={{border:'1px solid #CDEDE5',borderRadius:999,padding:'5px 9px',background:'#fff',fontSize:11,fontWeight:800,color:'#0F766E'}}>Local sandbox</span>
+            <span style={{border:'1px solid #E2E8F0',borderRadius:999,padding:'5px 9px',background:'#fff',fontSize:11,fontWeight:800,color:'#334155'}}>
+              {isInternalIT ? 'Importing into: ' + (importContext.departmentBusinessUnit || 'Department not selected') : 'Importing into: ' + (importContext.clientAccount || 'Client not selected')}
+            </span>
+            {importContext.purpose && <span style={{border:'1px solid #E2E8F0',borderRadius:999,padding:'5px 9px',background:'#fff',fontSize:11,fontWeight:800,color:'#334155'}}>Purpose: {importContext.purpose}</span>}
+          </div>
         </div>
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:8}}>
           {importSummaryMetrics.map(function(item) {
@@ -4122,7 +4280,10 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
           </div>
         </div>
       </div>
-      {headers.length > 0 && <div style={{border:'1px solid #DDEFEA',borderRadius:12,background:'#F6FEFC',padding:'12px 14px',display:'grid',gap:10}}>
+      {headers.length > 0 && !importContextReady && <div className="miniState" role="status">
+        {importContextDisabledMessage || 'Complete import context before continuing with mapping and preview.'}
+      </div>}
+      {importContextReady && headers.length > 0 && <div style={{border:'1px solid #DDEFEA',borderRadius:12,background:'#F6FEFC',padding:'12px 14px',display:'grid',gap:10}}>
         <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}>
           <div style={{minWidth:220,flex:'1 1 320px'}}>
             <strong style={{display:'block',fontSize:14,color:'#0B1F3A',marginBottom:4}}>Records to create</strong>
@@ -4138,13 +4299,13 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
         </div>
         <span style={{fontSize:12,color:'#0F766E',lineHeight:1.45}}>Mappings are suggested based on workspace mode, detected source, and selected record type. You can adjust them before creating records.</span>
       </div>}
-      {sheetNames.length > 1 && <div style={{display:'flex',alignItems:'center',gap:10}}>
+      {importContextReady && sheetNames.length > 1 && <div style={{display:'flex',alignItems:'center',gap:10}}>
         <label style={{fontSize:12,fontWeight:800,color:'#64748B'}}>Choose sheet</label>
         <select value={selectedSheet} onChange={handleSheetChange} style={{border:'1px solid #DDE5EF',borderRadius:10,padding:'8px 10px',fontWeight:700,color:'#132033',background:'#fff'}}>
           {sheetNames.map(function(name) { return <option key={name} value={name}>{name}</option>; })}
         </select>
       </div>}
-      {headers.length > 0 && <div className="tableWrap">
+      {importContextReady && headers.length > 0 && <div className="tableWrap">
         <table>
           <thead><tr>{['Source Column','Suggested Opriva Field','Action','Sample Value'].map(function(col) { return <th key={col}>{col}</th>; })}</tr></thead>
           <tbody>
@@ -4168,7 +4329,7 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
           </tbody>
         </table>
       </div>}
-      {unmappedColumns.length > 0 && <div style={{border:'1px solid #F1E3C8',borderRadius:12,background:'#FFFDF7',padding:'12px 14px',display:'grid',gap:10}}>
+      {importContextReady && unmappedColumns.length > 0 && <div style={{border:'1px solid #F1E3C8',borderRadius:12,background:'#FFFDF7',padding:'12px 14px',display:'grid',gap:10}}>
         <div>
           <strong style={{display:'block',fontSize:14,color:'#0B1F3A',marginBottom:4}}>Unmapped / skipped columns</strong>
           <span style={{display:'block',fontSize:12,color:'#64748B',lineHeight:1.45}}>Opriva will not blindly import these columns. Map them to a canonical field, map useful context to Notes, or keep them skipped.</span>
@@ -4188,7 +4349,7 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
           </table>
         </div>
       </div>}
-      {rowObjects.length > 0 && <div style={{display:'grid',gap:12}}>
+      {importContextReady && rowObjects.length > 0 && <div style={{display:'grid',gap:12}}>
         <div style={{border:'1px solid #DDEFEA',borderRadius:12,background:'#F8FFFD',padding:'12px 14px',display:'grid',gap:12}}>
           <div style={{display:'flex',justifyContent:'space-between',gap:12,alignItems:'flex-start',flexWrap:'wrap'}}>
             <div style={{minWidth:240,flex:'1 1 360px'}}>

@@ -1275,6 +1275,86 @@ Phase 2 should include:
 
 ---
 
+## 21. Progressive Guidance Model
+
+**Decision date:** 2026-05-29
+**Status:** Approved product decision. Applies to all Opriva UI surfaces — especially Data Import, Mapping, Validation, Preview, Confirm, Documents, Coverage and Dashboards.
+
+### MVP / local testing phase
+
+Helper text visible inline is **allowed** while Opriva is in local / sandbox testing. Helpers in MVP can explain:
+
+- Coverage as a related entity (warranty / support / maintenance)
+- Multi-client / multi-department file scope behavior
+- Column mapping suggestions
+- Template usage (MSP / Internal IT / Canonical)
+- Sandbox / local-state caveats
+- Why a row was inferred or suggested
+
+The goal in MVP is to validate that users actually understand each concept before it is hidden behind tooltips or assistant prompts.
+
+### Commercial version
+
+Once Opriva ships to corporate pilots, educational helpers must follow progressive disclosure:
+
+- Compact by default
+- Dismissible per surface
+- Tooltip-based when explanation is short
+- Assisted by Opriva AI when explanation is long or context-dependent
+
+The screen must not be filled with permanent educational text. Expert users must be able to work in a compact mode.
+
+### Always inline and visible (cannot be moved to AI / Help)
+
+These prevent incorrect import or destructive action and stay inline regardless of phase:
+
+- Critical validation errors
+- Confirm-blocking reasons
+- Missing required Client / Department / Owner
+- Duplicate or data-integrity warnings
+- Security / PII warnings
+- Documents metadata-only warnings
+
+### Move to Opriva AI / Help
+
+Long or context-dependent educational content belongs in the assistant surface, not on the main canvas:
+
+- "What does Coverage mean?"
+- "Which template should I use?"
+- "How do I map this column?"
+- "Why is this row Blocked?"
+- "How do I correct the file?"
+- Vendor-specific guidance (Microsoft CSP, Veeam, Cisco SmartNet, HPE Care Pack, Fortinet, VMware, distributor reports)
+
+### Long-term: Guidance Modes
+
+Opriva should eventually expose a workspace-level Guidance Mode setting with four options:
+
+| Mode | Behavior |
+|---|---|
+| **Guided** | All educational helpers inline + tooltips + AI nudges |
+| **Compact** | Educational helpers collapsed; only critical visible inline |
+| **Expert** | Critical only inline; everything else opt-in via toggle |
+| **Ask Opriva AI** | Educational helpers replaced with "Ask Opriva" links to assistant chat |
+
+### Implementation guidance for current work
+
+- C1 Coverage helper banner stays inline and small (current commit `c65c28f`).
+- C2-C5 coverage UI must be designed as compactable from day one.
+- Future helper surfaces should default to inline + critical visible, with educational text wrapped in compactable components (single conditional, no internal state, easy to swap to tooltip or Opriva AI link).
+
+### Backend implications
+
+- Guidance Mode persistence (workspace-default + user-override) requires backend storage.
+- Per-surface dismissal state requires backend storage.
+- Opriva AI must be permission-aware and respect workspace boundaries when serving educational explanations on demand.
+
+### Operational rule for agents
+
+The corresponding operational rule for Claude Code, Codex and all Opriva reviewers lives in `AGENTS.md §16` ("Helper Text Rule"). Both documents must stay in sync.
+
+---
+
 ## 17. Recent History
 
 - Repository cloned and inspected on branch `audit/opriva-healthcheck`.
@@ -1317,3 +1397,4 @@ Phase 2 should include:
 - 2026-05-27: Record-type-specific import duplicate keys implemented (commit `1e16a13`). `source/importSandbox/importDuplicates.js` added with `buildDuplicateKeys`, `isDuplicateByKeys`, `addKeysToSet` and `matchesExistingRecord`. `meta.duplicateKeys` is now the real source of duplicate detection (preview duplicate-risk flag + confirm-time skip); `meta.importKey` is retained only as a backward-compatible legacy fallback for stored records without `duplicateKeys`. Keys: Licenses = client/department + brand/product + expiration (CSP variant adds order reference); Hardware = serial number primary, fallback client + model/product + order reference or purchase date; Contracts = contract number + end date, fallback client + provider + support/contract type + renewal/end date. Sparse/weak keys are not emitted; empty or `-` serials are ignored; Certificates and Renewal Package keys are dormant. Handling follows Option A (flag in preview, preserve confirm-time skip); strict flag-only handling with row-level include/exclude remains a future UX task. MEMORY.md §19.11 and INTELLIGENT_BULK_UPLOAD_DESIGN.md §11 updated. No application code modified in this documentation pass.
 - 2026-05-27: Cross-agent skill parity rule documented. External design/UX/taste skills adapted into Opriva for one AI agent (Claude Code or Codex) must also be adapted — or have a clearly planned equivalent — for the other supported agents to prevent drift between sessions, contributors and tools. Three external design-skill sources are under research only (no install, no clone, no `npx`/`skill.sh` execution, no settings registration approved): `emilkowalski/skill` (license not visible), `pbakaus/impeccable` (Apache 2.0; ships `.claude/`/`.cursor/`/`.agents/`/`.gemini/` directories; optional `npx impeccable detect` CLI), `Leonxlnx/taste-skill` (MIT; portable SKILL.md files; install via `npx skills add` CLI). Likely Codex target locations to inspect before any future adaptation: `.codex/` or `.agents/` style directories if supported by the active Codex tooling, the existing `skills/` SKILL.md home, and `AGENTS.md`. New rule: when the user states that work is continuing in Codex, the assistant must remind the user to replicate or adapt any approved Claude Code skills for Codex parity before proceeding with non-trivial work. Documentation updates: `AGENTS.md` §14, `CLAUDE.md` §5, `OPRIVA_AI_DEVELOPMENT_TEAM.md` §10.1–§10.2 and §11.1, `OPRIVA_DEVELOPMENT_METHODOLOGY.md` §11.1 and §12 (prompt patterns), `MEMORY.md` (this entry). No application code modified; no external skills installed; no dependencies added; no hooks or MCP configured.
 - 2026-05-27: Phase 1 external design-skill adoption — added one new Opriva lens `opriva-design-fundamentals-auditor` (mirrored under `skills/` and `.claude/skills/`) covering typography, color and contrast, spatial design, motion discipline, interaction states, responsive design and UX writing — calibrated to Opriva enterprise SaaS, data-heavy tables/drawers/dashboards/import flows, MSP / Integrator and Internal IT. Seven-domain structure is inspired by `pbakaus/impeccable` (Apache 2.0); no impeccable code was installed, cloned, executed or registered (no `npx`, no `.claude/`/`.cursor/`/`.agents/`/`.gemini/` directories adopted, no MCP, no hooks, no dependencies). Attribution recorded at the bottom of the new lens file and in new repo-root `THIRD_PARTY_NOTICES.md`. Lens registered in `OPRIVA_AI_DEVELOPMENT_TEAM.md` §3 and added to the §6.C "UI / Screen Design" lens combination, and in `CLAUDE.md` §4. Codex parity (per `OPRIVA_AI_DEVELOPMENT_TEAM.md` §10.2 / §11.1): the canonical lens lives at `skills/opriva-design-fundamentals-auditor/SKILL.md`; the `.claude/skills/` copy mirrors it for Claude Code project-scoped loading; Codex-specific mirrors (`.codex/`, `.agents/`) deferred until the active Codex tooling's loading path is verified. `Leonxlnx/taste-skill` (MIT) and `emilkowalski/skill` (license not visible) remain deferred to later phases. No application code modified.
+- 2026-05-29: Progressive Guidance Model product decision documented. MVP allows visible inline helpers to validate user understanding. Commercial version requires educational helpers to be compact, dismissible, tooltip-based or assisted by Opriva AI. Critical guidance (confirm-blocking reasons, missing required Client / Department / Owner, critical validation errors, duplicate or data-integrity warnings, security / PII warnings, documents metadata-only warnings) remains inline regardless of phase. Educational content ("What is Coverage?", "Which template should I use?", "How do I map this column?", "Why is this row Blocked?", sandbox / local-state caveats, vendor-specific guidance) moves to Opriva AI / Help. Long-term: Opriva exposes a workspace-level Guidance Mode setting with four options (Guided, Compact, Expert, Ask Opriva AI). New `MEMORY.md` §21 added as the product decision record. New `AGENTS.md` §16 "Helper Text Rule" added as the operational rule for all agents and reviewers. Implementation guidance: C1 Coverage helper banner (commit `c65c28f`) stays inline and small but is structured to be compactable later; C2-C5 coverage UI must be designed as compactable from day one. Backend implications: Guidance Mode persistence (workspace-default + user-override) and per-surface dismissal state require backend storage; Opriva AI must be permission-aware and respect workspace boundaries when serving educational content on demand. No application code modified.

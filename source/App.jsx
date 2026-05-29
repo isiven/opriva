@@ -3966,6 +3966,24 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
   });
   const multiScopeMissingColumn = isMultiScope && rowObjects.length > 0 && !hasClientDepartmentMapping;
 
+  // Coverage Import C1 — detection only. When any mapping resolves to a
+  // warranty/support/maintenance/coverage canonical field with an active
+  // action (Import or Review), surface a small helper banner in the Mapping
+  // step so the user knows Opriva detected coverage-related data. No
+  // Coverage records are created yet; later phases (C2-C5) will materialise
+  // them via inference, preview suggestions, approval and creation.
+  const COVERAGE_RELATED_IMPORT_FIELDS = [
+    'Support', 'Warranty End Date',
+    'Warranty Start Date', 'Warranty Term', 'Warranty Provider',
+    'Support Start Date', 'Support End Date', 'Support Term', 'Support Provider',
+    'Support Level', 'Support Reference',
+    'Maintenance Start Date', 'Maintenance End Date', 'Maintenance Term',
+    'Coverage Type', 'Coverage Reference', 'Support Included'
+  ];
+  const hasCoverageRelatedMappings = (mappings || []).some(function(m) {
+    return m.action !== 'Skip' && COVERAGE_RELATED_IMPORT_FIELDS.indexOf(m.suggestedField) >= 0;
+  });
+
   function updateImportContext(key, value) {
     setImportContext(function(prev) {
       return Object.assign({}, prev, { [key]: value });
@@ -4806,6 +4824,10 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
       {showImportStep('mapping') && importContextReady && multiScopeMissingColumn && <div role="alert" style={{border:'1px solid #FECACA',background:'#FEF2F2',borderRadius:12,padding:'10px 12px',display:'grid',gap:4}}>
         <strong style={{fontSize:13,fontWeight:850,color:'#991B1B'}}>{isInternalIT ? 'Department / Business Unit column required' : 'Client / Account column required'}</strong>
         <span style={{fontSize:12,color:'#7F1D1D',lineHeight:1.45}}>{multiScopeMissingColumnMessage} Confirm Import stays blocked until a column is mapped.</span>
+      </div>}
+      {showImportStep('mapping') && importContextReady && hasCoverageRelatedMappings && <div role="note" style={{border:'1px solid #FDE68A',background:'#FFFBEB',borderRadius:10,padding:'8px 12px',display:'flex',alignItems:'flex-start',gap:8,fontSize:12,lineHeight:1.45,color:'#92400E'}}>
+        <strong style={{fontWeight:850}}>Coverage-related columns detected.</strong>
+        <span>Opriva can map warranty/support data for review.</span>
       </div>}
       {showImportStep('mapping') && importContextReady && headers.length > 0 && <div className="tableWrap">
         <table>

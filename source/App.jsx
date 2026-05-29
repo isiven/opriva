@@ -3281,10 +3281,18 @@ function getImportContextClientDepartment(importContext, workspaceMode) {
 function resolveImportClientDepartment(rowObj, mappings, edit, workspaceMode, importContext) {
   var isIT = workspaceMode === 'Internal IT';
   var fileValue = getMappedImportValue(rowObj, mappings, 'Client / Department');
-  // Manual drawer edits intentionally override uploaded file values because
-  // they represent explicit user review/correction before confirmation.
+  // Precedence (W1.5): manual drawer edit → file value → scope fallback
+  // (only in single scope) → Unassigned sentinel (which W3 promotes to a
+  // critical issue). In multi scope we intentionally do NOT use the import
+  // context scope as a fallback because the file is multi-entity; assigning
+  // unresolved rows to a single client/department would be a data-integrity
+  // hazard. Unresolved rows must surface as Critical / Blocked.
   if (edit && edit.clientDepartment) return edit.clientDepartment;
   if (fileValue) return fileValue;
+  var scopeMode = (importContext && importContext.scopeMode) || 'single';
+  if (scopeMode === 'multi') {
+    return isIT ? 'Unassigned department' : 'Unassigned client';
+  }
   return getImportContextClientDepartment(importContext, workspaceMode) || (isIT ? 'Unassigned department' : 'Unassigned client');
 }
 
@@ -3890,6 +3898,11 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
   // catalog/entity values for approval before corporate MVP.
   const [importContext, setImportContext] = React.useState({
     workspaceMode: workspaceMode,
+    // 'single' = one client/department for the whole file; selected scope value
+    // is used as fallback for rows without a file-resolved client/department.
+    // 'multi' = file may contain multiple clients/departments; no global
+    // fallback, unresolved rows surface as W3 critical issues.
+    scopeMode: 'single',
     clientAccount: '',
     departmentBusinessUnit: '',
     purpose: '',
@@ -3910,12 +3923,38 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
   // TODO W2+: use importContext.targetModules to constrain suggested/allowed import targets. W1 only stores it as context/meta.
   const importContextTargetModules = ['Licenses', 'Hardware', 'Contracts / Support Coverage'];
   const importContextHasTargetModules = Array.isArray(importContext.targetModules) && importContext.targetModules.length > 0;
-  const importContextReady = Boolean(importContextScopeValue) && importContextHasTargetModules;
-  const importContextDisabledMessage = !importContextScopeValue
-    ? 'Select a ' + (isInternalIT ? 'department or business unit' : 'client or account') + ' before upload.'
-    : !importContextHasTargetModules
-    ? 'Select at least one target module before upload.'
-    : '';
+  // W1.5 scope mode awareness
+  const importContextScopeMode = importContext.scopeMode || 'single';
+  const isMultiScope = importContextScopeMode === 'multi';
+  // Single scope: requires a selected scope value (client/department) AND target modules.
+  // Multi scope: requires only target modules; the file's mapped column resolves ownership per row.
+  const importContextReady = isMultiScope
+    ? importContextHasTargetModules
+    : (Boolean(importContextScopeValue) && importContextHasTargetModules);
+  const importContextDisabledMessage = isMultiScope
+    ? (!importContextHasTargetModules ? 'Select at least one target module before upload.' : '')
+    : (!importContextScopeValue
+      ? 'Select a ' + (isInternalIT ? 'department or business unit' : 'client or account') + ' before upload.'
+      : !importContextHasTargetModules
+      ? 'Select at least one target module before upload.'
+      : '');
+  // Workspace-aware scope option labels surfaced in the Import Context UI.
+  const importScopeModeOptions = isInternalIT
+    ? [
+        { key: 'single', label: 'Single department', description: 'One department or business unit for the whole file. Selected scope is used as fallback when a row has no department.' },
+        { key: 'multi', label: 'Company-wide file', description: 'File may contain multiple departments, owners, providers, brands and products. Each row resolves its department from the file or manual edit; no global fallback.' }
+      ]
+    : [
+        { key: 'single', label: 'Single client', description: 'One client or account for the whole file. Selected scope is used as fallback when a row has no client.' },
+        { key: 'multi', label: 'Multi-client file', description: 'File contains multiple clients. Each row resolves its client from the file or manual edit; no global fallback.' }
+      ];
+  // True when any mapping resolves to Client / Department with Import action.
+  // Used by multi-scope to gate Confirm Import and surface a Mapping-step
+  // guidance banner when ownership cannot be resolved per row.
+  const hasClientDepartmentMapping = (mappings || []).some(function(m) {
+    return m.action === 'Import' && m.suggestedField === 'Client / Department';
+  });
+  const multiScopeMissingColumn = isMultiScope && rowObjects.length > 0 && !hasClientDepartmentMapping;
 
   function updateImportContext(key, value) {
     setImportContext(function(prev) {
@@ -4271,10 +4310,18 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
     (importPreview.records.hardware || []).length +
     (importPreview.records.contracts || []).length) > 0;
   const hasCriticalImportIssues = (importSeverityCounts.critical || 0) > 0;
-  const canConfirmImport = recordsReadyToConfirm && !hasCriticalImportIssues;
+  // W1.5: multi scope requires a mapped Client / Department column to resolve
+  // ownership per row. Without one, every row would fall back to "Unassigned"
+  // and Confirm Import must stay blocked even before per-row severity scans.
+  const canConfirmImport = recordsReadyToConfirm && !hasCriticalImportIssues && !multiScopeMissingColumn;
+  const multiScopeMissingColumnMessage = multiScopeMissingColumn
+    ? (isInternalIT
+      ? 'Company-wide mode requires a Department / Business Unit column mapping. Map a source column to Client / Department in the Mapping step.'
+      : 'Multi-client mode requires a Client / Account column mapping. Map a source column to Client / Department in the Mapping step.')
+    : '';
   const confirmBlockedMessage = hasCriticalImportIssues
     ? 'Confirm Import is blocked until ' + importSeverityCounts.critical + ' critical issue' + (importSeverityCounts.critical === 1 ? ' is' : 's are') + ' fixed.'
-    : '';
+    : (multiScopeMissingColumn ? multiScopeMissingColumnMessage : '');
   const warningContinueMessage = !hasCriticalImportIssues && (importSeverityCounts.warning || 0) > 0
     ? 'Warnings do not block import, but review them before confirming.'
     : '';
@@ -4376,6 +4423,12 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
       setImportResult(null);
       return;
     }
+    if (multiScopeMissingColumn) {
+      // W1.5 defense-in-depth: even if the button is enabled by mistake,
+      // never write multi-scope rows without resolved ownership.
+      setImportResult(null);
+      return;
+    }
     var licenses = importPreview.records.licenses;
     var hardware = importPreview.records.hardware;
     var contracts = importPreview.records.contracts;
@@ -4432,6 +4485,7 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
       fileName: fileName || '',
       workspaceMode: workspaceMode,
       importContext: {
+        scopeMode: (importContext && importContext.scopeMode) || 'single',
         clientAccount: (importContext && importContext.clientAccount) || '',
         departmentBusinessUnit: (importContext && importContext.departmentBusinessUnit) || '',
         purpose: (importContext && importContext.purpose) || '',
@@ -4539,24 +4593,43 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
       <div className="panelTitle" style={{margin:0,alignItems:'flex-start'}}>
         <div>
           <h2 id="import-context-title">Import Context</h2>
-          <span>{isInternalIT ? 'Set the department scope before uploading internal IT renewal data.' : 'Set the client/account scope before uploading MSP or integrator renewal data.'}</span>
+          <span>{isInternalIT ? 'Set the scope before uploading internal IT renewal data.' : 'Set the scope before uploading MSP or integrator renewal data.'}</span>
         </div>
         <span style={{border:'1px solid #E2E8F0',borderRadius:999,padding:'5px 9px',background:'#F8FAFC',fontSize:11,fontWeight:850,color:'#475569'}}>
           Step 1 · Context
         </span>
       </div>
+      <div style={{display:'grid',gap:8}}>
+        <span style={{fontSize:12,fontWeight:850,color:'#475569'}}>Import scope</span>
+        <div role="radiogroup" aria-label="Import scope mode" style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+          {importScopeModeOptions.map(function(opt) {
+            var active = importContextScopeMode === opt.key;
+            return <label key={opt.key} title={opt.description} style={{display:'inline-flex',alignItems:'center',gap:8,border:'1px solid ' + (active ? '#0D9488' : '#DDE5EF'),borderRadius:10,padding:'8px 12px',background:active ? '#F0FDFA' : '#fff',color:active ? '#0F766E' : '#334155',fontSize:13,fontWeight:700,cursor:'pointer'}}>
+              <input type="radio" name="importScopeMode" value={opt.key} checked={active} onChange={function() { updateImportContext('scopeMode', opt.key); }} style={{accentColor:'#0D9488'}} />
+              <span>{opt.label}</span>
+            </label>;
+          })}
+        </div>
+      </div>
       <div style={{display:'grid',gridTemplateColumns:'minmax(220px,1.15fr) minmax(220px,1fr) minmax(260px,1.25fr)',gap:12,alignItems:'start'}}>
-        <label style={{display:'grid',gap:6,fontSize:12,fontWeight:850,color:'#475569'}}>
-          {importContextScopeLabel}<span style={{color:'#B91C1C',marginLeft:3}}>*</span>
-          <select
-            value={importContextScopeValue}
-            onChange={function(e) { updateImportContext(isInternalIT ? 'departmentBusinessUnit' : 'clientAccount', e.target.value); }}
-            style={{border:'1px solid #DDE5EF',borderRadius:10,padding:'10px 11px',background:'#fff',color:importContextScopeValue ? '#132033' : '#64748B',fontWeight:750}}
-          >
-            <option value="">Select {isInternalIT ? 'department / business unit' : 'client / account'}...</option>
-            {importContextScopeOptions.map(function(option) { return <option key={option} value={option}>{option}</option>; })}
-          </select>
-        </label>
+        {isMultiScope
+          ? <div style={{border:'1px solid #DDE5EF',borderRadius:10,padding:'10px 12px',background:'#F8FAFC',display:'grid',gap:4,minWidth:0}}>
+              <strong style={{fontSize:12,fontWeight:850,color:'#0B1F3A'}}>{isInternalIT ? 'Departments come from the file' : 'Clients come from the file'}</strong>
+              <span style={{fontSize:12,color:'#475569',lineHeight:1.45}}>{isInternalIT
+                ? 'Map Department / Business Unit (and optional Owner / Location) columns during Mapping. Rows that cannot resolve a department will be Blocked.'
+                : 'Map a Client / Account column during Mapping so Opriva can assign each row correctly. Rows that cannot resolve a client will be Blocked.'}</span>
+            </div>
+          : <label style={{display:'grid',gap:6,fontSize:12,fontWeight:850,color:'#475569'}}>
+            {importContextScopeLabel}<span style={{color:'#B91C1C',marginLeft:3}}>*</span>
+            <select
+              value={importContextScopeValue}
+              onChange={function(e) { updateImportContext(isInternalIT ? 'departmentBusinessUnit' : 'clientAccount', e.target.value); }}
+              style={{border:'1px solid #DDE5EF',borderRadius:10,padding:'10px 11px',background:'#fff',color:importContextScopeValue ? '#132033' : '#64748B',fontWeight:750}}
+            >
+              <option value="">Select {isInternalIT ? 'department / business unit' : 'client / account'}...</option>
+              {importContextScopeOptions.map(function(option) { return <option key={option} value={option}>{option}</option>; })}
+            </select>
+          </label>}
         <label style={{display:'grid',gap:6,fontSize:12,fontWeight:850,color:'#475569'}}>
           Import purpose
           <input
@@ -4586,7 +4659,10 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
         </span>
         <span style={{fontSize:12,color:'#64748B',lineHeight:1.45}}>
           {importContextReady
-            ? (isInternalIT ? 'Importing into: ' + importContext.departmentBusinessUnit : 'Importing into: ' + importContext.clientAccount) + (importContext.purpose ? ' · Purpose: ' + importContext.purpose : '')
+            ? (isMultiScope
+              ? (isInternalIT ? 'Company-wide file' : 'Multi-client file')
+              : (isInternalIT ? 'Importing into: ' + importContext.departmentBusinessUnit : 'Importing into: ' + importContext.clientAccount)
+            ) + (importContext.purpose ? ' · Purpose: ' + importContext.purpose : '')
             : importContextDisabledMessage}
         </span>
       </div>
@@ -4701,6 +4777,10 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
         <select value={selectedSheet} onChange={handleSheetChange} style={{border:'1px solid #DDE5EF',borderRadius:10,padding:'8px 10px',fontWeight:700,color:'#132033',background:'#fff'}}>
           {sheetNames.map(function(name) { return <option key={name} value={name}>{name}</option>; })}
         </select>
+      </div>}
+      {showImportStep('mapping') && importContextReady && multiScopeMissingColumn && <div role="alert" style={{border:'1px solid #FECACA',background:'#FEF2F2',borderRadius:12,padding:'10px 12px',display:'grid',gap:4}}>
+        <strong style={{fontSize:13,fontWeight:850,color:'#991B1B'}}>{isInternalIT ? 'Department / Business Unit column required' : 'Client / Account column required'}</strong>
+        <span style={{fontSize:12,color:'#7F1D1D',lineHeight:1.45}}>{multiScopeMissingColumnMessage} Confirm Import stays blocked until a column is mapped.</span>
       </div>}
       {showImportStep('mapping') && importContextReady && headers.length > 0 && <div className="tableWrap">
         <table>
@@ -4866,6 +4946,9 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
         {showImportStep('confirm') && hasCriticalImportIssues && <div className="miniState errorState" role="alert">
           {confirmBlockedMessage} Critical errors include missing required names, client/department scope, or renewal dates that prevent safe record creation.
         </div>}
+        {showImportStep('confirm') && !hasCriticalImportIssues && multiScopeMissingColumn && <div className="miniState errorState" role="alert">
+          {multiScopeMissingColumnMessage}
+        </div>}
         {showImportStep('confirm') && warningContinueMessage && <div className="miniState" role="status">
           {warningContinueMessage}
         </div>}
@@ -4889,9 +4972,13 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
             <thead><tr>{['Batch','File','Context','Rows','Imported','Severity','Status','Action'].map(function(col) { return <th key={col}>{col}</th>; })}</tr></thead>
             <tbody>
               {sessionImportBatches.map(function(batch) {
-                var contextScope = batch.workspaceMode === 'Internal IT'
-                  ? (batch.importContext && batch.importContext.departmentBusinessUnit ? batch.importContext.departmentBusinessUnit : '-')
-                  : (batch.importContext && batch.importContext.clientAccount ? batch.importContext.clientAccount : '-');
+                var batchIsIT = batch.workspaceMode === 'Internal IT';
+                var batchScopeMode = (batch.importContext && batch.importContext.scopeMode) || 'single';
+                var contextScope = batchScopeMode === 'multi'
+                  ? (batchIsIT ? 'Company-wide file' : 'Multi-client file')
+                  : (batchIsIT
+                    ? (batch.importContext && batch.importContext.departmentBusinessUnit ? batch.importContext.departmentBusinessUnit : '-')
+                    : (batch.importContext && batch.importContext.clientAccount ? batch.importContext.clientAccount : '-'));
                 var purpose = batch.importContext && batch.importContext.purpose ? batch.importContext.purpose : '';
                 var batchTime = (function() { try { return new Date(batch.timestamp).toLocaleString(); } catch (err) { return batch.timestamp || ''; } })();
                 var statusLabel = (batch.criticalCount || 0) > 0

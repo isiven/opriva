@@ -3871,7 +3871,17 @@ function buildImportPreview(rowObjects, mappings, sourceType, workspaceMode, imp
 
 function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
   const isInternalIT = workspaceMode === 'Internal IT';
-  const templateHref = '/templates/OPRIVA_IMPORT_TEMPLATE.xlsx';
+  const templateHref = isInternalIT
+    ? '/templates/OPRIVA_IMPORT_TEMPLATE_INTERNAL_IT.xlsx'
+    : '/templates/OPRIVA_IMPORT_TEMPLATE_MSP.xlsx';
+  const templateDownloadName = isInternalIT
+    ? 'OPRIVA_IMPORT_TEMPLATE_INTERNAL_IT.xlsx'
+    : 'OPRIVA_IMPORT_TEMPLATE_MSP.xlsx';
+  const templateButtonLabel = isInternalIT
+    ? 'Download Internal IT Template'
+    : 'Download MSP Template';
+  const canonicalTemplateHref = '/templates/OPRIVA_IMPORT_TEMPLATE_CANONICAL.xlsx';
+  const canonicalTemplateDownloadName = 'OPRIVA_IMPORT_TEMPLATE_CANONICAL.xlsx';
   const historyRows = isInternalIT ? importRows.internalIT : importRows.mspIntegrator;
   const [workbook, setWorkbook] = React.useState(null);
   const [fileName, setFileName] = React.useState('');
@@ -4698,7 +4708,8 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
         }
       </div>
       <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
-        <a href={templateHref} download="OPRIVA_IMPORT_TEMPLATE.xlsx" style={{display:'inline-flex',alignItems:'center',justifyContent:'center',textDecoration:'none',border:'1px solid var(--border)',background:'#fff',color:'#243247',borderRadius:10,padding:'8px 12px',fontWeight:700,fontSize:12}}>Download template</a>
+        <a href={templateHref} download={templateDownloadName} aria-label={templateButtonLabel} style={{display:'inline-flex',alignItems:'center',justifyContent:'center',textDecoration:'none',border:'1px solid var(--border)',background:'#fff',color:'#243247',borderRadius:10,padding:'8px 12px',fontWeight:700,fontSize:12}}>{templateButtonLabel}</a>
+        <a href={canonicalTemplateHref} download={canonicalTemplateDownloadName} aria-label="Download advanced canonical template" title="Full canonical model for expert users or Hybrid workspaces" style={{display:'inline-flex',alignItems:'center',textDecoration:'none',color:'#64748B',fontWeight:600,fontSize:11,padding:'4px 6px'}}>Advanced Canonical Template</a>
         <label
           className="primary"
           htmlFor="opriva-import-file-input"

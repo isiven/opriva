@@ -4497,15 +4497,16 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
   }
 
   return <main className="content">
-    <ScreenHeader active="Data Import" subtitle="Local import sandbox for reading Excel files, reviewing mappings and creating session-only Opriva records." />
-    <section className="panel" aria-labelledby="import-stepper-title" style={{display:'grid',gap:12,padding:'14px'}}>
-      <div className="panelTitle" style={{margin:0,alignItems:'flex-start'}}>
-        <div>
-          <h2 id="import-stepper-title">Bulk Import Workflow</h2>
-          <span>Navigate unlocked steps as the file moves from context to confirmation.</span>
-        </div>
-        <span style={{border:'1px solid #E2E8F0',borderRadius:999,padding:'5px 9px',background:'#F8FAFC',fontSize:11,fontWeight:850,color:'#475569'}}>
-          {importStepDefinitions.filter(function(step) { return step.complete; }).length} / {importStepDefinitions.length} complete
+    {/* Suppress Floating AI auto-tooltips in Data Import only; keep the
+        circular AI button reachable. Scoped to this screen because the
+        agent's persistent text bubble was overlapping Continue buttons
+        and table action cells during the bulk import workflow. */}
+    <style>{`.agentWrap .agentTip,.floatingAgentWrap .agentNudge{display:none!important}`}</style>
+    <ScreenHeader active="Data Import" subtitle="Map vendor exports into canonical Opriva records." />
+    <section className="panel" aria-label="Bulk import workflow stepper" style={{display:'grid',gap:12,padding:'14px'}}>
+      <div style={{display:'flex',justifyContent:'flex-end'}}>
+        <span style={{border:'1px solid #E2E8F0',borderRadius:999,padding:'5px 9px',background:'#F8FAFC',fontSize:11,fontWeight:850,color:'#475569'}} aria-live="polite">
+          Step {importStepDefinitions.findIndex(function(s) { return s.key === currentImportStep.key; }) + 1} of {importStepDefinitions.length}
         </span>
       </div>
       <div className="wizardSteps" role="list" aria-label="Bulk import steps" style={{gridTemplateColumns:'repeat(6,minmax(132px,1fr))',marginBottom:0}}>
@@ -4541,7 +4542,7 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
           <span>{isInternalIT ? 'Set the department scope before uploading internal IT renewal data.' : 'Set the client/account scope before uploading MSP or integrator renewal data.'}</span>
         </div>
         <span style={{border:'1px solid #E2E8F0',borderRadius:999,padding:'5px 9px',background:'#F8FAFC',fontSize:11,fontWeight:850,color:'#475569'}}>
-          Step 0
+          Step 1 · Context
         </span>
       </div>
       <div style={{display:'grid',gridTemplateColumns:'minmax(220px,1.15fr) minmax(220px,1fr) minmax(260px,1.25fr)',gap:12,alignItems:'start'}}>
@@ -4635,8 +4636,7 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
         <button type="button" className="primary" onClick={function() { selectImportStep('mapping'); }}>Continue to Mapping</button>
       </div>}
     </section>}
-    {['mapping','validation','preview','confirm'].indexOf(currentImportStep.key) >= 0 && <section className="panel" style={{display:'grid',gap:14}}>
-      <div className="panelTitle"><h2>Local import sandbox</h2><span>Imported data is stored locally for this MVP session. Backend persistence will be added later.</span></div>
+    {['mapping','validation','preview','confirm'].indexOf(currentImportStep.key) >= 0 && <section className="panel" aria-label="Local import sandbox" style={{display:'grid',gap:14}}>
       {importError && <ErrorState title="Excel import failed" message={importError} />}
       {(showImportStep('validation') || showImportStep('preview') || showImportStep('confirm')) && <div style={{position:'sticky',top:12,zIndex:3,border:'1px solid #CDEDE5',borderRadius:14,background:'#F8FFFD',boxShadow:'0 10px 24px rgba(15, 118, 110, .08)',padding:'14px',display:'grid',gap:12}}>
         <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}>

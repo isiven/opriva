@@ -3288,6 +3288,45 @@ function resolveImportClientDepartment(rowObj, mappings, edit, workspaceMode, im
   return getImportContextClientDepartment(importContext, workspaceMode) || (isIT ? 'Unassigned department' : 'Unassigned client');
 }
 
+// Session-only import batch history. Module-level mutable so the history
+// survives navigation between Data Import and other modules within the same
+// page session, but not a page reload. This matches the existing RECORD_STORE
+// pattern and is intentional for sandbox MVP.
+//
+// TODO backend: replace with persistent import jobs that store the original
+// uploaded file, approved mappings, validation results, created/updated
+// records, severity counts, who performed the import and when. Backend must
+// also support rollback / re-run, secure original-file storage, an audit
+// trail per import, and user/workspace permissions for who can import into
+// which client or department.
+var IMPORT_BATCH_STORE = [];
+
+function createImportBatchId() {
+  return 'batch-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+}
+
+function recordImportBatch(batch) {
+  if (!batch) return;
+  IMPORT_BATCH_STORE.unshift(batch);
+}
+
+function getImportBatches() {
+  return IMPORT_BATCH_STORE.slice();
+}
+
+function filterImportPreviewItem(item, filterKey) {
+  if (!item) return false;
+  if (filterKey === 'all') return true;
+  if (filterKey === 'blocked') return item.status === 'Blocked';
+  if (filterKey === 'needsReview') return item.status === 'Needs review';
+  if (filterKey === 'readyWithSuggestions') return item.status === 'Ready with suggestions';
+  if (filterKey === 'ready') return item.status === 'Ready';
+  if (filterKey === 'critical') return (item.criticalIssues || []).length > 0;
+  if (filterKey === 'warnings') return (item.warningIssues || []).length > 0;
+  if (filterKey === 'suggestions') return (item.suggestionIssues || []).length > 0;
+  return true;
+}
+
 // TODO backend: move severity validation rules into the import job validation engine before corporate MVP.
 function createImportIssue(severity, code, message, field) {
   return {
@@ -3860,6 +3899,10 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
   const [previewDrawerOpen, setPreviewDrawerOpen] = React.useState(false);
   const [previewEditForm, setPreviewEditForm] = React.useState({});
   const [rawDetailsOpen, setRawDetailsOpen] = React.useState(false);
+  const [importPreviewFilter, setImportPreviewFilter] = React.useState('all');
+  // Bumped after a successful Confirm Import so the session history panel
+  // re-reads IMPORT_BATCH_STORE without needing a global subscription.
+  const [importBatchesVersion, setImportBatchesVersion] = React.useState(0);
   const [importStep, setImportStep] = React.useState('context');
   const importContextScopeLabel = isInternalIT ? 'Department / Business Unit' : 'Client / Account';
   const importContextScopeValue = isInternalIT ? importContext.departmentBusinessUnit : importContext.clientAccount;
@@ -4166,6 +4209,39 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
       return issue.code === 'sensitive_contact';
     });
   }).length;
+  // Filter chip definitions for the preview table. Counts are recomputed
+  // whenever importPreview changes. Filtering only affects the visible
+  // preview rows; importPreview, severity totals, confirm gating, parsing,
+  // mapping, drawer/review, duplicate detection and RECORD_STORE are not
+  // affected.
+  const importPreviewFilterDefinitions = React.useMemo(function() {
+    var preview = (importPreview && importPreview.preview) || [];
+    function countBy(predicateKey) {
+      return preview.filter(function(item) { return filterImportPreviewItem(item, predicateKey); }).length;
+    }
+    return [
+      { key: 'all', label: 'All', count: preview.length },
+      { key: 'blocked', label: 'Blocked', count: countBy('blocked') },
+      { key: 'needsReview', label: 'Needs review', count: countBy('needsReview') },
+      { key: 'readyWithSuggestions', label: 'Ready with suggestions', count: countBy('readyWithSuggestions') },
+      { key: 'ready', label: 'Ready', count: countBy('ready') },
+      { key: 'critical', label: 'Critical errors', count: countBy('critical') },
+      { key: 'warnings', label: 'Warnings', count: countBy('warnings') },
+      { key: 'suggestions', label: 'Suggestions', count: countBy('suggestions') }
+    ];
+  }, [importPreview]);
+  const activeImportPreviewFilter = importPreviewFilterDefinitions.find(function(filter) { return filter.key === importPreviewFilter; }) || importPreviewFilterDefinitions[0];
+  const filteredPreviewItems = React.useMemo(function() {
+    return ((importPreview && importPreview.preview) || []).filter(function(item) {
+      return filterImportPreviewItem(item, importPreviewFilter);
+    });
+  }, [importPreview, importPreviewFilter]);
+  // Re-reads IMPORT_BATCH_STORE whenever a new batch is recorded so the
+  // session history panel updates without a global subscription.
+  const sessionImportBatches = React.useMemo(function() {
+    return getImportBatches();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [importBatchesVersion]);
   const formatEntitySummaryMetric = function(entityKey) {
     if (!rowObjects.length || !importSummaryEntity[entityKey]) return 'Not detected yet';
     var entity = importSummaryEntity[entityKey];
@@ -4348,6 +4424,31 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
       duplicates: duplicateCount,
       message: 'Imported records were added to the central local Opriva record store for this session. They can now be opened from relevant modules. Backend persistence is still required for corporate MVP. ' + duplicateCount + ' duplicate-looking record' + (duplicateCount === 1 ? ' was' : 's were') + ' skipped.'
     });
+    // Append a session-only batch to IMPORT_BATCH_STORE for the Import
+    // history panel. Backend will replace this with a persistent import job.
+    recordImportBatch({
+      batchId: createImportBatchId(),
+      timestamp: new Date().toISOString(),
+      fileName: fileName || '',
+      workspaceMode: workspaceMode,
+      importContext: {
+        clientAccount: (importContext && importContext.clientAccount) || '',
+        departmentBusinessUnit: (importContext && importContext.departmentBusinessUnit) || '',
+        purpose: (importContext && importContext.purpose) || '',
+        targetModules: (importContext && Array.isArray(importContext.targetModules)) ? importContext.targetModules.slice() : []
+      },
+      totalRows: rowObjects.length,
+      importedCount: createdRecords.length,
+      skippedCount: (importPreview.stats.skipped || 0) + duplicateCount,
+      criticalCount: importSeverityCounts.critical || 0,
+      warningCount: importSeverityCounts.warning || 0,
+      suggestionCount: importSeverityCounts.suggestion || 0,
+      createdCount: createdRecords.length,
+      duplicatesSkipped: duplicateCount,
+      sourceType: sourceType,
+      importTarget: importTarget
+    });
+    setImportBatchesVersion(function(version) { return version + 1; });
   }
 
   function getImportIssueStyle(severity) {
@@ -4693,11 +4794,40 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
         {importPreview.generalWarnings.length > 0 && <div style={{border:'1px solid #F1E3C8',background:'#FFFDF7',borderRadius:10,padding:'10px 12px',fontSize:12,color:'#7C5A12',lineHeight:1.45}}>
           {importPreview.generalWarnings[0]}
         </div>}
-        <div className="tableWrap">
+        <div role="toolbar" aria-label="Filter preview rows by status or severity" style={{display:'flex',flexWrap:'wrap',gap:6,alignItems:'center'}}>
+          {importPreviewFilterDefinitions.map(function(filter) {
+            var isActive = importPreviewFilter === filter.key;
+            return <button
+              key={filter.key}
+              type="button"
+              onClick={function() { setImportPreviewFilter(filter.key); }}
+              aria-pressed={isActive}
+              title={isActive ? filter.label + ' filter active' : 'Filter rows by ' + filter.label}
+              style={{
+                border: '1px solid ' + (isActive ? '#0D9488' : '#DDE5EF'),
+                background: isActive ? '#0D9488' : '#fff',
+                color: isActive ? '#fff' : '#475569',
+                borderRadius: 999,
+                padding: '5px 11px',
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: 'pointer',
+                lineHeight: 1.2
+              }}>
+              <span>{filter.label}</span>
+              <span style={{marginLeft:5,fontWeight:800,opacity: isActive ? 0.95 : 0.7}}>({filter.count})</span>
+            </button>;
+          })}
+        </div>
+        {filteredPreviewItems.length === 0 && (importPreview.preview || []).length > 0 && <div role="status" style={{padding:'12px 14px',background:'#F8FAFC',border:'1px dashed #DDE5EF',borderRadius:10,color:'#64748B',fontSize:13,lineHeight:1.5,display:'flex',justifyContent:'space-between',gap:10,flexWrap:'wrap',alignItems:'center'}}>
+          <span>No rows match the &ldquo;{activeImportPreviewFilter ? activeImportPreviewFilter.label : 'selected'}&rdquo; filter. {(importPreview.preview || []).length} parsed rows are still being processed and exported on Confirm.</span>
+          <button type="button" onClick={function() { setImportPreviewFilter('all'); }} style={{border:'1px solid #DDE5EF',background:'#fff',borderRadius:8,padding:'5px 10px',fontSize:12,fontWeight:700,color:'#0F766E',cursor:'pointer'}}>Show all rows</button>
+        </div>}
+        {filteredPreviewItems.length > 0 && <div className="tableWrap">
           <table>
             <thead><tr>{['Status','Record preview','Client / Department','Brand / Product','Expiration','Target module','Issues','Action'].map(function(col) { return <th key={col}>{col}</th>; })}</tr></thead>
             <tbody>
-              {importPreview.preview.slice(0, 12).map(function(item) {
+              {filteredPreviewItems.slice(0, 12).map(function(item) {
                 return <tr key={'preview-' + item.rowNumber}>
                   <td><Badge tone={getImportRowStatusTone(item.status)}>{item.status}</Badge></td>
                   <td className="recordCell"><strong>{item.name}</strong><br/><span style={{fontSize:11,color:'#64748B',fontWeight:600}}>{item.createdRecords.join(' + ')}</span></td>
@@ -4711,8 +4841,14 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
               })}
             </tbody>
           </table>
-        </div>
-        {importPreview.preview.length > 12 && <p style={{margin:0,fontSize:12,color:'#64748B',lineHeight:1.45}}>Showing first 12 of {importPreview.preview.length} rows. All {importPreview.preview.length} rows are processed. Open Review on any row to inspect it.</p>}
+        </div>}
+        {filteredPreviewItems.length > 0 && (filteredPreviewItems.length > 12 || importPreviewFilter !== 'all') && <p style={{margin:0,fontSize:12,color:'#64748B',lineHeight:1.45}}>
+          {filteredPreviewItems.length > 12
+            ? 'Showing first 12 of ' + filteredPreviewItems.length + ' matching rows'
+            : 'Showing ' + filteredPreviewItems.length + ' matching row' + (filteredPreviewItems.length === 1 ? '' : 's')}
+          {importPreviewFilter !== 'all' ? ' (' + (importPreview.preview || []).length + ' total parsed)' : ''}
+          . All {(importPreview.preview || []).length} parsed rows are processed; Confirm Import is not affected by this filter. Open Review on any row to inspect it.
+        </p>}
         <button type="button" onClick={function() { setRawDetailsOpen(function(value) { return !value; }); }} style={{justifySelf:'start'}}>View raw row details</button>
         {rawDetailsOpen && <div className="tableWrap">
           <table>
@@ -4744,14 +4880,68 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
     </section>}
     <details style={{border:'1px solid var(--border)',borderRadius:14,background:'#fff',boxShadow:'0 6px 16px rgba(15,35,65,.025)'}}>
       <summary style={{cursor:'pointer',padding:'12px 16px',fontSize:13,fontWeight:700,color:'#475569',userSelect:'none',display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:8}}>
-        <span>Recent imports</span>
-        <span style={{fontSize:11,fontWeight:800,color:'#94A3B8',textTransform:'uppercase',letterSpacing:'.06em'}}>Sample data</span>
+        <span>Recent imports{sessionImportBatches.length > 0 ? ' (' + sessionImportBatches.length + ' this session)' : ''}</span>
+        <span style={{fontSize:11,fontWeight:800,color:'#94A3B8',textTransform:'uppercase',letterSpacing:'.06em'}}>{sessionImportBatches.length > 0 ? 'Session data' : 'Sample data'}</span>
       </summary>
       <div style={{padding:'0 16px 14px',display:'grid',gap:10}}>
-        <span style={{fontSize:12,color:'#64748B',lineHeight:1.45}}>Demo entries shown for layout reference. Real per-import session history will replace this when import batches are recorded.</span>
-        <Table columns={['Import','File','Rows','Duplicate prevention','Status']} rows={historyRows}/>
+        {sessionImportBatches.length > 0 ? <div className="tableWrap">
+          <table>
+            <thead><tr>{['Batch','File','Context','Rows','Imported','Severity','Status','Action'].map(function(col) { return <th key={col}>{col}</th>; })}</tr></thead>
+            <tbody>
+              {sessionImportBatches.map(function(batch) {
+                var contextScope = batch.workspaceMode === 'Internal IT'
+                  ? (batch.importContext && batch.importContext.departmentBusinessUnit ? batch.importContext.departmentBusinessUnit : '-')
+                  : (batch.importContext && batch.importContext.clientAccount ? batch.importContext.clientAccount : '-');
+                var purpose = batch.importContext && batch.importContext.purpose ? batch.importContext.purpose : '';
+                var batchTime = (function() { try { return new Date(batch.timestamp).toLocaleString(); } catch (err) { return batch.timestamp || ''; } })();
+                var statusLabel = (batch.criticalCount || 0) > 0
+                  ? 'Confirmed with critical context'
+                  : (batch.warningCount || 0) > 0
+                    ? 'Confirmed with warnings'
+                    : 'Confirmed';
+                var statusTone = (batch.criticalCount || 0) > 0
+                  ? 'high'
+                  : (batch.warningCount || 0) > 0
+                    ? 'medium'
+                    : 'low';
+                return <tr key={batch.batchId}>
+                  <td className="recordCell">
+                    <strong>{batchTime}</strong>
+                    <br/>
+                    <span style={{fontSize:11,color:'#64748B',fontWeight:600}}>
+                      {batch.batchId}
+                      {batch.sourceType && batch.sourceType !== 'No file loaded' ? ' · ' + batch.sourceType : ''}
+                      {batch.importTarget ? ' · ' + batch.importTarget : ''}
+                    </span>
+                  </td>
+                  <td>{batch.fileName || '-'}</td>
+                  <td>
+                    {contextScope}
+                    {purpose ? <><br/><span style={{fontSize:11,color:'#64748B',fontWeight:600}}>{purpose}</span></> : null}
+                  </td>
+                  <td>{batch.totalRows || 0}</td>
+                  <td>{(batch.importedCount || 0) + ' created · ' + (batch.skippedCount || 0) + ' skipped'}</td>
+                  <td>
+                    <span style={{fontSize:11,fontWeight:800,color:'#475569'}}>
+                      {(batch.criticalCount || 0)} critical · {(batch.warningCount || 0)} warn · {(batch.suggestionCount || 0)} sugg
+                    </span>
+                  </td>
+                  <td><Badge tone={statusTone}>{statusLabel}</Badge></td>
+                  <td className="actionCell"><button type="button" className="rowAction" disabled aria-disabled="true" title="Rollback requires backend import jobs (persistent jobs, audit trail, secure original-file storage, workspace permissions).">Rollback (backend)</button></td>
+                </tr>;
+              })}
+            </tbody>
+          </table>
+        </div> : <>
+          <span style={{fontSize:12,color:'#64748B',lineHeight:1.45}}>Demo entries shown for layout reference. Real session batches will appear here after you Confirm an import.</span>
+          <Table columns={['Import','File','Rows','Duplicate prevention','Status']} rows={historyRows}/>
+        </>}
+        <p style={{margin:0,fontSize:11,color:'#94A3B8',lineHeight:1.5}}>
+          Session-only history. Backend will add persistent import jobs, full audit trail, rollback / re-run, secure original-file storage, and user/workspace permissions for who can import into which client or department.
+        </p>
       </div>
     </details>
+
     {previewDrawerOpen && previewSelectedRecord && (() => {
       var moduleKey = previewSelectedRecord.moduleKey;
       var moduleTitle = moduleKeyToTitle(moduleKey);

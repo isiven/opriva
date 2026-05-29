@@ -1,0 +1,52 @@
+---
+name: opriva-it-procurement-vendor-reviewer
+description: Review Opriva procurement and vendor-management logic, including brand/manufacturer, provider, distributor, reseller/partner, quote, PO, invoice, license certificate, warranties, support coverage, costs, and renewal packages.
+---
+
+# Opriva IT Procurement / Vendor Reviewer
+
+## When To Use
+
+Use this skill when reviewing procurement, purchasing, vendor management, commercial relationships, renewal packages, contract/support coverage, warranties, document evidence, or import mappings for supplier-style data.
+
+## Opriva-Specific Rules
+
+- Do not mix Brand, Provider, Distributor, Reseller/Partner, Client, and Department.
+- Internal IT uses Brand + Provider + Department + Budget / Approval / Risk.
+- MSP / Integrator uses Client + Brand + Product + Distributor/Provider + Sale Value + Vendor Cost + Margin + Owner + Action.
+- Support Coverage is a related contract/coverage record, not a text field inside License or Hardware.
+- Quote, PO, invoice, license certificate, entitlement document, and warranty evidence belong as linked documents/records, not overloaded form text.
+- Margin is calculated from sale value and vendor cost, not manually entered.
+- Import must map procurement columns into canonical fields, not blindly copy spreadsheet columns.
+- Brand / Manufacturer, Product / License Name, Distributor / Provider, Vendor / Provider, Reseller / Partner, Client / Department, Currency, Country, Contract Type, Support Coverage Type, and License Term should be controlled catalogs, not unrestricted free text.
+- New procurement catalog values should be normalized, checked for duplicate-like matches, and created only after user approval.
+- License Contact, Technical Contact, Billing Contact, Renewal Contact, Legal Contact and contact email fields are relationship data. They should be reviewed for Contact creation/linking, not stored as ordinary procurement text.
+- Procurement imports should detect related clients, contacts, brands, products, providers, distributors, resellers, contracts, support coverage and package relationships, not only license or hardware rows.
+
+## Review Checklist
+
+- Brand/manufacturer vs distributor/provider vs reseller/partner clarity.
+- Whether brand, product, provider, distributor, reseller/partner, client/department, currency, country, contract type, support coverage type, and license term fields use select/search/create catalog behavior.
+- Catalog normalization, aliases/synonyms, duplicate detection, merge/deactivate needs, and auditability.
+- Whether imports or bulk defaults can create duplicate procurement catalog values.
+- Quote, PO, invoice, license certificate, entitlement, and warranty evidence relationships.
+- Vendor cost vs sale price/annual value vs annual cost.
+- Renewal package and co-term logic.
+- Contract/support coverage and warranty modeling.
+- Document evidence policies and missing evidence signals.
+- Vendor/provider catalogs and normalization needs.
+- Import mappings for procurement exports and commercial renewal packages.
+- Contact-role handling in renewal exports, including preserving contact context while avoiding blind import of emails or personal data.
+- Whether import preview stages new procurement entities and relationship links for approval before creation.
+- MSP commercial terminology vs Internal IT procurement terminology.
+
+## Required Output Format
+
+1. Executive summary
+2. What is working
+3. Risks / gaps
+4. Recommended changes
+5. Backend implications
+6. MSP / Integrator implications
+7. Internal IT implications
+8. Suggested Codex implementation prompt, if action is needed

@@ -3941,12 +3941,12 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
   // Workspace-aware scope option labels surfaced in the Import Context UI.
   const importScopeModeOptions = isInternalIT
     ? [
-        { key: 'single', label: 'Single department', description: 'One department or business unit for the whole file. Selected scope is used as fallback when a row has no department.' },
-        { key: 'multi', label: 'Company-wide file', description: 'File may contain multiple departments, owners, providers, brands and products. Each row resolves its department from the file or manual edit; no global fallback.' }
+        { key: 'single', label: 'Single department', description: 'All rows belong to one department. Pick it now.' },
+        { key: 'multi', label: 'Multi-department file', description: 'File contains multiple departments. Map Department / Business Unit columns during Mapping.' }
       ]
     : [
-        { key: 'single', label: 'Single client', description: 'One client or account for the whole file. Selected scope is used as fallback when a row has no client.' },
-        { key: 'multi', label: 'Multi-client file', description: 'File contains multiple clients. Each row resolves its client from the file or manual edit; no global fallback.' }
+        { key: 'single', label: 'Single client', description: 'All rows belong to one client. Pick it now.' },
+        { key: 'multi', label: 'Multi-client file', description: 'File contains multiple clients. Map a Client / Account column during Mapping.' }
       ];
   // True when any mapping resolves to Client / Department with Import action.
   // Used by multi-scope to gate Confirm Import and surface a Mapping-step
@@ -4316,7 +4316,7 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
   const canConfirmImport = recordsReadyToConfirm && !hasCriticalImportIssues && !multiScopeMissingColumn;
   const multiScopeMissingColumnMessage = multiScopeMissingColumn
     ? (isInternalIT
-      ? 'Company-wide mode requires a Department / Business Unit column mapping. Map a source column to Client / Department in the Mapping step.'
+      ? 'Multi-department mode requires a Department / Business Unit column mapping. Map a source column to Client / Department in the Mapping step.'
       : 'Multi-client mode requires a Client / Account column mapping. Map a source column to Client / Department in the Mapping step.')
     : '';
   const confirmBlockedMessage = hasCriticalImportIssues
@@ -4589,7 +4589,7 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
         Current step: {currentImportStep.label}. {currentImportStep.helper}
       </div>
     </section>
-    {showImportStep('context') && <section className="panel" aria-labelledby="import-context-title" style={{display:'grid',gap:14,borderColor:importContextReady ? '#DDE6F1' : '#F1E3C8',background:'#fff'}}>
+    {showImportStep('context') && <section className="panel" aria-labelledby="import-context-title" style={{display:'grid',gap:14,borderColor:'#E2E8F0',background:'#fff'}}>
       <div className="panelTitle" style={{margin:0,alignItems:'flex-start'}}>
         <div>
           <h2 id="import-context-title">Import Context</h2>
@@ -4600,73 +4600,87 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
         </span>
       </div>
       <div style={{display:'grid',gap:8}}>
-        <span style={{fontSize:12,fontWeight:850,color:'#475569'}}>Import scope</span>
-        <div role="radiogroup" aria-label="Import scope mode" style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+        <span style={{fontSize:11,fontWeight:700,color:'#64748B',textTransform:'uppercase',letterSpacing:'.06em'}}>Import scope</span>
+        <div role="radiogroup" aria-label="Import scope mode" style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))',gap:10}}>
           {importScopeModeOptions.map(function(opt) {
             var active = importContextScopeMode === opt.key;
-            return <label key={opt.key} title={opt.description} style={{display:'inline-flex',alignItems:'center',gap:8,border:'1px solid ' + (active ? '#0D9488' : '#DDE5EF'),borderRadius:10,padding:'8px 12px',background:active ? '#F0FDFA' : '#fff',color:active ? '#0F766E' : '#334155',fontSize:13,fontWeight:700,cursor:'pointer'}}>
-              <input type="radio" name="importScopeMode" value={opt.key} checked={active} onChange={function() { updateImportContext('scopeMode', opt.key); }} style={{accentColor:'#0D9488'}} />
-              <span>{opt.label}</span>
+            return <label key={opt.key} style={{display:'grid',gap:4,border:'1px solid ' + (active ? '#0D9488' : '#DDE5EF'),borderRadius:12,padding:'12px 14px',background:active ? '#F0FDFA' : '#fff',color:active ? '#0F766E' : '#334155',cursor:'pointer',boxShadow:active ? '0 0 0 2px rgba(13,148,136,0.08)' : 'none'}}>
+              <span style={{display:'flex',alignItems:'center',gap:8}}>
+                <input type="radio" name="importScopeMode" value={opt.key} checked={active} onChange={function() { updateImportContext('scopeMode', opt.key); }} style={{accentColor:'#0D9488',margin:0}} />
+                <strong style={{fontSize:13,fontWeight:800,color:active ? '#0F766E' : '#0B1F3A'}}>{opt.label}</strong>
+              </span>
+              <span style={{fontSize:12,color:active ? '#0F766E' : '#475569',lineHeight:1.45,marginLeft:24}}>{opt.description}</span>
             </label>;
           })}
         </div>
       </div>
-      <div style={{display:'grid',gridTemplateColumns:'minmax(220px,1.15fr) minmax(220px,1fr) minmax(260px,1.25fr)',gap:12,alignItems:'start'}}>
-        {isMultiScope
-          ? <div style={{border:'1px solid #DDE5EF',borderRadius:10,padding:'10px 12px',background:'#F8FAFC',display:'grid',gap:4,minWidth:0}}>
+      {isMultiScope
+        ? <div style={{display:'grid',gap:12}}>
+            <div style={{border:'1px solid #DDE5EF',borderRadius:10,padding:'12px 14px',background:'#F8FAFC',display:'grid',gap:6}}>
               <strong style={{fontSize:12,fontWeight:850,color:'#0B1F3A'}}>{isInternalIT ? 'Departments come from the file' : 'Clients come from the file'}</strong>
-              <span style={{fontSize:12,color:'#475569',lineHeight:1.45}}>{isInternalIT
-                ? 'Map Department / Business Unit (and optional Owner / Location) columns during Mapping. Rows that cannot resolve a department will be Blocked.'
-                : 'Map a Client / Account column during Mapping so Opriva can assign each row correctly. Rows that cannot resolve a client will be Blocked.'}</span>
+              <span style={{fontSize:12,color:'#475569',lineHeight:1.5,maxWidth:760}}>{isInternalIT
+                ? 'Departments come from the file. Map Department / Business Unit, Owner or Location columns during Mapping when available. Other catalog columns such as Brand, Product, Provider and PO can also be mapped. Rows that cannot resolve required ownership will be Blocked.'
+                : 'Clients come from the file. Map a Client / Account column during Mapping so Opriva can assign each row correctly. Other catalog columns such as Brand, Product, Provider and PO can also be mapped. Rows that cannot resolve a client will be Blocked.'}</span>
             </div>
-          : <label style={{display:'grid',gap:6,fontSize:12,fontWeight:850,color:'#475569'}}>
-            {importContextScopeLabel}<span style={{color:'#B91C1C',marginLeft:3}}>*</span>
-            <select
-              value={importContextScopeValue}
-              onChange={function(e) { updateImportContext(isInternalIT ? 'departmentBusinessUnit' : 'clientAccount', e.target.value); }}
-              style={{border:'1px solid #DDE5EF',borderRadius:10,padding:'10px 11px',background:'#fff',color:importContextScopeValue ? '#132033' : '#64748B',fontWeight:750}}
-            >
-              <option value="">Select {isInternalIT ? 'department / business unit' : 'client / account'}...</option>
-              {importContextScopeOptions.map(function(option) { return <option key={option} value={option}>{option}</option>; })}
-            </select>
-          </label>}
-        <label style={{display:'grid',gap:6,fontSize:12,fontWeight:850,color:'#475569'}}>
-          Import purpose
-          <input
-            type="text"
-            value={importContext.purpose}
-            onChange={function(e) { updateImportContext('purpose', e.target.value); }}
-            placeholder={isInternalIT ? 'e.g. Q3 renewal register cleanup' : 'e.g. Client renewal portfolio upload'}
-            style={{border:'1px solid #DDE5EF',borderRadius:10,padding:'10px 11px',background:'#fff',color:'#132033',fontWeight:650}}
-          />
-        </label>
-        <fieldset style={{margin:0,border:'1px solid #DDE5EF',borderRadius:10,padding:'9px 11px',display:'grid',gap:8}}>
-          <legend style={{padding:'0 4px',fontSize:12,fontWeight:850,color:'#475569'}}>Target modules</legend>
-          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-            {importContextTargetModules.map(function(moduleName) {
-              var checked = (importContext.targetModules || []).indexOf(moduleName) >= 0;
-              return <label key={moduleName} style={{display:'inline-flex',alignItems:'center',gap:6,border:'1px solid ' + (checked ? '#CDEDE5' : '#E2E8F0'),borderRadius:999,padding:'6px 9px',background:checked ? '#F8FFFD' : '#fff',color:'#334155',fontSize:12,fontWeight:750}}>
-                <input type="checkbox" checked={checked} onChange={function() { toggleImportTargetModule(moduleName); }} />
-                {moduleName}
-              </label>;
-            })}
+            <label style={{display:'grid',gap:5,fontSize:11,fontWeight:700,color:'#64748B'}}>
+              <span>Purpose <span style={{fontWeight:500,color:'#94A3B8'}}>(optional)</span></span>
+              <input
+                type="text"
+                value={importContext.purpose}
+                onChange={function(e) { updateImportContext('purpose', e.target.value); }}
+                placeholder={isInternalIT ? 'e.g. Q3 renewal register cleanup' : 'e.g. Client renewal portfolio upload'}
+                style={{border:'1px solid #DDE5EF',borderRadius:10,padding:'10px 11px',background:'#fff',color:'#132033',fontWeight:500,fontSize:13}}
+              />
+            </label>
           </div>
-        </fieldset>
+        : <div style={{display:'grid',gridTemplateColumns:'minmax(240px,1.4fr) minmax(220px,1fr)',gap:12,alignItems:'start'}}>
+            <label style={{display:'grid',gap:5,fontSize:12,fontWeight:850,color:'#475569'}}>
+              <span>{importContextScopeLabel}<abbr title="Required" style={{color:'#B91C1C',textDecoration:'none',marginLeft:2}}>*</abbr></span>
+              <select
+                aria-required="true"
+                value={importContextScopeValue}
+                onChange={function(e) { updateImportContext(isInternalIT ? 'departmentBusinessUnit' : 'clientAccount', e.target.value); }}
+                style={{border:'1px solid #DDE5EF',borderRadius:10,padding:'10px 11px',background:'#fff',color:importContextScopeValue ? '#132033' : '#64748B',fontWeight:750}}
+              >
+                <option value="">Select {isInternalIT ? 'department / business unit' : 'client / account'}...</option>
+                {importContextScopeOptions.map(function(option) { return <option key={option} value={option}>{option}</option>; })}
+              </select>
+            </label>
+            <label style={{display:'grid',gap:5,fontSize:11,fontWeight:700,color:'#64748B'}}>
+              <span>Purpose <span style={{fontWeight:500,color:'#94A3B8'}}>(optional)</span></span>
+              <input
+                type="text"
+                value={importContext.purpose}
+                onChange={function(e) { updateImportContext('purpose', e.target.value); }}
+                placeholder={isInternalIT ? 'e.g. Q3 renewal register cleanup' : 'e.g. Client renewal portfolio upload'}
+                style={{border:'1px solid #DDE5EF',borderRadius:10,padding:'10px 11px',background:'#fff',color:'#132033',fontWeight:500,fontSize:13}}
+              />
+            </label>
+          </div>}
+      <div role="group" aria-labelledby="import-target-modules-label" style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+        <span id="import-target-modules-label" style={{fontSize:11,fontWeight:700,color:'#64748B',textTransform:'uppercase',letterSpacing:'.06em',marginRight:4}}>Records to create</span>
+        {importContextTargetModules.map(function(moduleName) {
+          var checked = (importContext.targetModules || []).indexOf(moduleName) >= 0;
+          return <label key={moduleName} style={{display:'inline-flex',alignItems:'center',gap:5,border:'1px solid ' + (checked ? '#0D9488' : '#E2E8F0'),borderRadius:999,padding:'4px 10px',background:checked ? '#F0FDFA' : '#fff',color:checked ? '#0F766E' : '#475569',fontSize:12,fontWeight:700,cursor:'pointer'}}>
+            <input type="checkbox" checked={checked} onChange={function() { toggleImportTargetModule(moduleName); }} style={{accentColor:'#0D9488',margin:0}} />
+            <span>{moduleName}</span>
+          </label>;
+        })}
       </div>
-      <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',borderTop:'1px solid #EEF2F7',paddingTop:10}}>
-        <span style={{border:'1px solid ' + (importContextReady ? '#BBF7D0' : '#FDE68A'),borderRadius:999,padding:'5px 9px',background:importContextReady ? '#F0FDF4' : '#FFFBEB',fontSize:12,fontWeight:800,color:importContextReady ? '#15803D' : '#92400E'}}>
-          {importContextReady ? 'Context ready' : 'Context required'}
-        </span>
-        <span style={{fontSize:12,color:'#64748B',lineHeight:1.45}}>
-          {importContextReady
-            ? (isMultiScope
-              ? (isInternalIT ? 'Company-wide file' : 'Multi-client file')
-              : (isInternalIT ? 'Importing into: ' + importContext.departmentBusinessUnit : 'Importing into: ' + importContext.clientAccount)
-            ) + (importContext.purpose ? ' · Purpose: ' + importContext.purpose : '')
-            : importContextDisabledMessage}
-        </span>
-      </div>
-      <div style={{display:'flex',justifyContent:'flex-end',borderTop:'1px solid #EEF2F7',paddingTop:10}}>
+      <div style={{borderTop:'1px solid #EEF2F7',paddingTop:12,display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+        <div style={{display:'flex',alignItems:'center',gap:8,minWidth:0,flex:'1 1 auto',flexWrap:'wrap'}}>
+          <span role="status" aria-live="polite" style={{border:'1px solid ' + (importContextReady ? '#BBF7D0' : '#FDE68A'),borderRadius:999,padding:'5px 9px',background:importContextReady ? '#F0FDF4' : '#FFFBEB',fontSize:12,fontWeight:800,color:importContextReady ? '#15803D' : '#92400E'}}>
+            {importContextReady ? 'Context ready' : 'Context required'}
+          </span>
+          <span style={{fontSize:12,color:'#64748B',lineHeight:1.45}}>
+            {importContextReady
+              ? (isMultiScope
+                ? (isInternalIT ? 'Multi-department file' : 'Multi-client file')
+                : (isInternalIT ? '→ ' + importContext.departmentBusinessUnit : '→ ' + importContext.clientAccount)
+              ) + (importContext.purpose ? ' · Purpose: ' + importContext.purpose : '')
+              : importContextDisabledMessage}
+          </span>
+        </div>
         <button type="button" className="primary" disabled={!importContextReady} title={importContextReady ? 'Continue to upload' : importContextDisabledMessage} onClick={function() { selectImportStep('upload'); }}>
           Continue to Upload
         </button>
@@ -4975,7 +4989,7 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
                 var batchIsIT = batch.workspaceMode === 'Internal IT';
                 var batchScopeMode = (batch.importContext && batch.importContext.scopeMode) || 'single';
                 var contextScope = batchScopeMode === 'multi'
-                  ? (batchIsIT ? 'Company-wide file' : 'Multi-client file')
+                  ? (batchIsIT ? 'Multi-department file' : 'Multi-client file')
                   : (batchIsIT
                     ? (batch.importContext && batch.importContext.departmentBusinessUnit ? batch.importContext.departmentBusinessUnit : '-')
                     : (batch.importContext && batch.importContext.clientAccount ? batch.importContext.clientAccount : '-'));

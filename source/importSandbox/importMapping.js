@@ -267,7 +267,17 @@ export function suggestImportField(header, sourceType, importTarget, workspaceMo
     [['quantity','cantidad','licenses #','users #','sockets #','vms #','servers #','workstations #','volume','qty','seats'], 'Quantity / Seats'],
     [['entitlement metric','metric','metrica'], 'Entitlement Metric'],
     [['con start date','subscription start date','start date','fecha inicio'], 'Start Date'],
-    [['con end date','subscription end date','end date','vencimiento licencia','expiration date','renewal date','fecha vencimiento'], 'Expiration / Renewal Date'],
+    // Expiration / Renewal Date — direct list uses exact-match against the
+    // normalized header. The asymmetry with TARGET_MAPPING_RULES (which uses
+    // substring match) was leaving compound headers like
+    // "Expiration / Renewal Date" -> "expiration renewal date" stuck on Review
+    // in Mixed mode. Patterns below cover EN + ES variants plus the literal
+    // canonical name. Order matters: coverage entries below in this same
+    // direct list (Warranty End Date, Support End Date, Maintenance End Date)
+    // remain the first match for their respective compound headers because
+    // their exact patterns (e.g. 'warranty expiration', 'support end date')
+    // don't appear here.
+    [['con end date','subscription end date','end date','expiration date','renewal date','expiration renewal date','renewal expiration date','vencimiento licencia','fecha vencimiento','fecha de vencimiento','fecha de expiracion','fecha de renovacion','expiracion','renovacion','expiration','renewal','vencimiento'], 'Expiration / Renewal Date'],
     [['con number','contract number','contrato'], 'Contract Number'],
     [['po number','order id','# oc','oc partner','numero','número','order reference'], 'PO / Order Reference'],
     [['contract status','subscription status','status','estado'], 'Source Status / Vendor Status'],
@@ -303,7 +313,18 @@ export function suggestImportField(header, sourceType, importTarget, workspaceMo
       return withConfidence(workspaceContextSuggestion({ target: direct[i][1], action: 'Import', reason: 'Header match' }, normalized, workspaceMode), 'Medium');
     }
   }
-  if (normalized.indexOf('end date') >= 0 || normalized.indexOf('vencimiento') >= 0) return withConfidence({ target: 'Expiration / Renewal Date', action: 'Import', reason: 'Date keyword match' }, 'Medium');
+  // Expiration / Renewal Date fallback — substring match for date keywords.
+  // Coverage-specific compound headers (Warranty End Date, Support End Date,
+  // Maintenance End Date, plus the *Expiration variants) match earlier in
+  // the direct list above, so we never reach this fallback for them. The
+  // substrings here are only triggered by generic date headers that the
+  // direct exact-match path missed.
+  if (normalized.indexOf('end date') >= 0
+      || normalized.indexOf('expiration date') >= 0
+      || normalized.indexOf('renewal date') >= 0
+      || normalized.indexOf('vencimiento') >= 0
+      || normalized.indexOf('expiracion') >= 0
+      || normalized.indexOf('renovacion') >= 0) return withConfidence({ target: 'Expiration / Renewal Date', action: 'Import', reason: 'Date keyword match' }, 'Medium');
   if (normalized.indexOf('start date') >= 0 || normalized.indexOf('inicio') >= 0) return withConfidence({ target: 'Start Date', action: 'Import', reason: 'Date keyword match' }, 'Medium');
   if (normalized.indexOf('serial') >= 0) return withConfidence({ target: 'Serial Number', action: 'Import', reason: 'Serial keyword match' }, 'Medium');
   if (normalized.indexOf('support') >= 0 || normalized.indexOf('soporte') >= 0) return withConfidence({ target: 'Support', action: 'Import', reason: 'Support keyword match' }, 'Medium');

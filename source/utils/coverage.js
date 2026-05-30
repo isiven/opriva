@@ -407,3 +407,188 @@ export function inferMaintenanceCoverage(input) {
 
   return null;
 }
+
+// -------------------------------------------------------------------------
+// Coverage Import C3 — preview wrappers (data-layer only)
+// -------------------------------------------------------------------------
+//
+// buildSuggestedCoveragesForLicense and buildSuggestedCoveragesForHardware
+// produce a Coverage-suggestion array for a single import preview row.
+//
+// They call the C2 inference helpers above and enrich each suggestion with
+// catalog metadata (Coverage Type, Provider, Support Level, Reference)
+// extracted from the row's mapped fields. They do NOT create Coverage
+// records — Phase C5 will materialise them at confirm.
+//
+// The wrappers accept already-extracted raw values from the caller; the
+// caller is responsible for reading mappings via getMappedImportValue and
+// passing the values in. This keeps the helpers pure and testable.
+//
+// Output shape per suggestion:
+//   {
+//     coverageKind: 'Warranty' | 'Support' | 'Maintenance',
+//     coverageType: string,         // 'Manufacturer Warranty' | 'Vendor Support' | ...
+//     startDate: 'YYYY-MM-DD' | '',
+//     endDate: 'YYYY-MM-DD',
+//     suggestionBasis: 'file' | 'inferred:purchase+term' | 'inferred:license-term' | 'inferred:maintenance-term',
+//     provider: string,             // '' when unknown
+//     supportLevel: string,         // '' when unknown
+//     reference: string             // '' when unknown
+//   }
+
+function enrichCoverageSuggestion(base, extras) {
+  if (!base) return null;
+  return {
+    coverageKind: base.coverageKind,
+    coverageType: extras.coverageType || '',
+    startDate: base.startDate || '',
+    endDate: base.endDate,
+    suggestionBasis: base.suggestionBasis,
+    provider: extras.provider || '',
+    supportLevel: extras.supportLevel || '',
+    reference: extras.reference || ''
+  };
+}
+
+/**
+ * Build Coverage suggestions for a license preview row.
+ *
+ * @param {object} fields - mapped values for the row
+ * @param {string} fields.coverageType        - mapped Coverage Type value
+ * @param {string} fields.coverageReference   - mapped Coverage Reference value
+ * @param {string} fields.supportProvider     - mapped Support Provider value
+ * @param {string} fields.supportLevel        - mapped Support Level value
+ * @param {string} fields.supportReference    - mapped Support Reference value
+ * @param {string} fields.supportStartDate    - mapped Support Start Date value
+ * @param {string} fields.supportEndDate      - mapped Support End Date value
+ * @param {string} fields.supportTerm         - mapped Support Term value
+ * @param {string} fields.supportIncluded     - mapped Support Included value (also accepts legacy 'Support' text)
+ * @param {string} fields.maintenanceStartDate - mapped Maintenance Start Date value
+ * @param {string} fields.maintenanceEndDate  - mapped Maintenance End Date value
+ * @param {string} fields.maintenanceTerm     - mapped Maintenance Term value
+ * @param {string} fields.licenseStartDate    - already-normalized License Start (precomputed by buildImportPreview)
+ * @param {string} fields.licenseEndDate      - already-normalized License Expiration (precomputed by buildImportPreview)
+ * @param {string} fields.parentBrand         - the license's resolved Brand (used as provider fallback)
+ *
+ * @returns {Array} 0-2 Coverage suggestions (Support + Maintenance).
+ */
+export function buildSuggestedCoveragesForLicense(fields) {
+  var data = fields || {};
+  var suggestions = [];
+
+  var support = inferSupportCoverageFromLicense({
+    licenseStartDate: data.licenseStartDate,
+    licenseEndDate: data.licenseEndDate,
+    supportStartDate: data.supportStartDate,
+    supportEndDate: data.supportEndDate,
+    supportTerm: data.supportTerm,
+    supportIncluded: data.supportIncluded
+  });
+  if (support) {
+    suggestions.push(enrichCoverageSuggestion(support, {
+      coverageType: data.coverageType || 'Vendor Support',
+      provider: data.supportProvider || data.parentBrand || '',
+      supportLevel: data.supportLevel || '',
+      reference: data.supportReference || data.coverageReference || ''
+    }));
+  }
+
+  var maintenance = inferMaintenanceCoverage({
+    maintenanceStartDate: data.maintenanceStartDate,
+    maintenanceEndDate: data.maintenanceEndDate,
+    maintenanceTerm: data.maintenanceTerm
+  });
+  if (maintenance) {
+    suggestions.push(enrichCoverageSuggestion(maintenance, {
+      coverageType: data.coverageType || 'Maintenance Agreement',
+      provider: data.supportProvider || data.parentBrand || '',
+      supportLevel: '',
+      reference: data.coverageReference || ''
+    }));
+  }
+
+  return suggestions;
+}
+
+/**
+ * Build Coverage suggestions for a hardware preview row.
+ *
+ * Hardware can produce up to three suggestions (Warranty + Support +
+ * Maintenance). Hardware Support is only surfaced when an explicit Support
+ * End Date is present in the file — there is no Hardware-anchored Support
+ * inference rule in the spec; that path runs through
+ * inferSupportCoverageFromLicense with no license dates so only the file
+ * branch fires.
+ *
+ * @param {object} fields - mapped values for the row
+ * @param {string} fields.coverageType        - mapped Coverage Type value
+ * @param {string} fields.coverageReference   - mapped Coverage Reference value
+ * @param {string} fields.warrantyProvider    - mapped Warranty Provider value
+ * @param {string} fields.warrantyStartDate   - mapped Warranty Start Date value
+ * @param {string} fields.warrantyEndDate     - mapped Warranty End Date (precomputed and normalized)
+ * @param {string} fields.warrantyTerm        - mapped Warranty Term value
+ * @param {string} fields.supportProvider     - mapped Support Provider value
+ * @param {string} fields.supportLevel        - mapped Support Level value
+ * @param {string} fields.supportReference    - mapped Support Reference value
+ * @param {string} fields.supportStartDate    - mapped Support Start Date value
+ * @param {string} fields.supportEndDate      - mapped Support End Date value
+ * @param {string} fields.maintenanceStartDate - mapped Maintenance Start Date value
+ * @param {string} fields.maintenanceEndDate  - mapped Maintenance End Date value
+ * @param {string} fields.maintenanceTerm     - mapped Maintenance Term value
+ * @param {string} fields.purchaseDate        - already-normalized Purchase Date
+ * @param {string} fields.parentBrand         - the hardware's resolved Brand (used as provider fallback)
+ *
+ * @returns {Array} 0-3 Coverage suggestions (Warranty + Support + Maintenance).
+ */
+export function buildSuggestedCoveragesForHardware(fields) {
+  var data = fields || {};
+  var suggestions = [];
+
+  var warranty = inferWarrantyCoverage({
+    purchaseDate: data.purchaseDate,
+    warrantyEndDate: data.warrantyEndDate,
+    warrantyStartDate: data.warrantyStartDate,
+    warrantyTerm: data.warrantyTerm
+  });
+  if (warranty) {
+    suggestions.push(enrichCoverageSuggestion(warranty, {
+      coverageType: data.coverageType || 'Manufacturer Warranty',
+      provider: data.warrantyProvider || data.parentBrand || '',
+      supportLevel: '',
+      reference: data.coverageReference || ''
+    }));
+  }
+
+  // Hardware Support: only surface file-provided end date — no inference path
+  // is defined for hardware-anchored Support coverage. Pass no license
+  // anchors / no supportIncluded / no supportTerm so only the file branch
+  // inside inferSupportCoverageFromLicense fires.
+  var support = inferSupportCoverageFromLicense({
+    supportEndDate: data.supportEndDate,
+    supportStartDate: data.supportStartDate
+  });
+  if (support) {
+    suggestions.push(enrichCoverageSuggestion(support, {
+      coverageType: data.coverageType || 'Vendor Support',
+      provider: data.supportProvider || data.parentBrand || '',
+      supportLevel: data.supportLevel || '',
+      reference: data.supportReference || data.coverageReference || ''
+    }));
+  }
+
+  var maintenance = inferMaintenanceCoverage({
+    maintenanceStartDate: data.maintenanceStartDate,
+    maintenanceEndDate: data.maintenanceEndDate,
+    maintenanceTerm: data.maintenanceTerm
+  });
+  if (maintenance) {
+    suggestions.push(enrichCoverageSuggestion(maintenance, {
+      coverageType: data.coverageType || 'Maintenance Agreement',
+      provider: data.warrantyProvider || data.supportProvider || data.parentBrand || '',
+      supportLevel: '',
+      reference: data.coverageReference || ''
+    }));
+  }
+
+  return suggestions;
+}

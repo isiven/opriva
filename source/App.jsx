@@ -34,6 +34,7 @@ import { detectImportTarget, suggestImportTargetFromSource } from './importSandb
 import { detectImportSourceType, normalizeImportText } from './importSandbox/importText.js';
 import { getImportSheetData } from './importSandbox/workbookParsing.js';
 import { calcExpirationState, inferLicenseTerm, suggestRenewalDate } from './utils/dates.js';
+import { buildSuggestedCoveragesForLicense, buildSuggestedCoveragesForHardware } from './utils/coverage.js';
 import { autoFillDocName, extractFileMetadata, fmtFileSize, fmtUploadedAt } from './utils/files.js';
 import { calcMargin } from './utils/money.js';
 import { asArray, cx, riskClass, safeText } from './utils/text.js';
@@ -3644,6 +3645,11 @@ function buildImportPreview(rowObjects, mappings, sourceType, workspaceMode, imp
   rowObjects.forEach(function(rowObj, index) {
     var target = detectImportTarget(rowObj, mappings, sourceType, importTarget);
     var issues = [];
+    // Coverage Import C3a — per-row Coverage suggestion array. Populated for
+    // license and hardware targets only; contracts and other targets
+    // remain [] so consumers (preview row badge, drawer details) can
+    // safely read .length without optional chaining.
+    var rowSuggestedCoverages = [];
     function pushIssue(severity, code, message, field) {
       issues.push(createImportIssue(severity, code, message, field));
     }
@@ -3726,6 +3732,29 @@ function buildImportPreview(rowObjects, mappings, sourceType, workspaceMode, imp
       stats.licenses += 1;
       var licenseIssueViews = buildImportIssueViews(issues);
       addImportRowStatus(stats, licenseIssueViews);
+      // Coverage Import C3a — compute Suggested Coverage records (Support /
+      // Maintenance) for this license row using mapped C1 canonical fields.
+      // Data layer only — Coverage records are NOT created here; later
+      // phases (C4 approve/edit/skip, C5 confirm-time creation) consume
+      // this array. Suggestions never become issues and never affect
+      // severity counts or confirm gating.
+      var licenseSuggestedCoverages = buildSuggestedCoveragesForLicense({
+        coverageType: getMappedImportValue(rowObj, mappings, 'Coverage Type'),
+        coverageReference: getMappedImportValue(rowObj, mappings, 'Coverage Reference'),
+        supportProvider: getMappedImportValue(rowObj, mappings, 'Support Provider'),
+        supportLevel: getMappedImportValue(rowObj, mappings, 'Support Level'),
+        supportReference: getMappedImportValue(rowObj, mappings, 'Support Reference'),
+        supportStartDate: getMappedImportValue(rowObj, mappings, 'Support Start Date'),
+        supportEndDate: getMappedImportValue(rowObj, mappings, 'Support End Date'),
+        supportTerm: getMappedImportValue(rowObj, mappings, 'Support Term'),
+        supportIncluded: getMappedImportValue(rowObj, mappings, 'Support Included') || getMappedImportValue(rowObj, mappings, 'Support'),
+        maintenanceStartDate: getMappedImportValue(rowObj, mappings, 'Maintenance Start Date'),
+        maintenanceEndDate: getMappedImportValue(rowObj, mappings, 'Maintenance End Date'),
+        maintenanceTerm: getMappedImportValue(rowObj, mappings, 'Maintenance Term'),
+        licenseStartDate: previewStart,
+        licenseEndDate: previewRenewal,
+        parentBrand: previewBrand && previewBrand !== '-' ? previewBrand : ''
+      });
       preview.push({
         rowNumber: index + 2,
         moduleLabel: target.label,
@@ -3733,6 +3762,7 @@ function buildImportPreview(rowObjects, mappings, sourceType, workspaceMode, imp
         clientDepartment: previewClient || '-',
         brandProduct: [previewBrand && previewBrand !== '-' ? previewBrand : '', previewProduct].filter(Boolean).join(' / ') || '-',
         expiration: previewRenewal || '-',
+        suggestedCoverages: licenseSuggestedCoverages,
         createdRecords: ['License'].concat(previewContract ? ['Contract reference'] : []).concat(importTarget === 'Renewal Package' || importTarget === 'Renewal Package / Bundle' ? ['Renewal Package / Bundle context'] : []),
         canonical: {
           brandManufacturer: previewBrand && previewBrand !== '-' ? previewBrand : '',
@@ -3794,6 +3824,29 @@ function buildImportPreview(rowObjects, mappings, sourceType, workspaceMode, imp
       addKeysToSet(hardwareDuplicateKeys, seenImportKeys);
       records.hardware.push(record);
       stats.hardware += 1;
+      // Coverage Import C3a — compute Suggested Coverage records (Warranty +
+      // optional file-provided Support + Maintenance) for this hardware
+      // row. Data-layer only; assigned to a local var consumed by the
+      // general preview.push() below.
+      var hardwareSuggestedCoverages = buildSuggestedCoveragesForHardware({
+        coverageType: getMappedImportValue(rowObj, mappings, 'Coverage Type'),
+        coverageReference: getMappedImportValue(rowObj, mappings, 'Coverage Reference'),
+        warrantyProvider: getMappedImportValue(rowObj, mappings, 'Warranty Provider'),
+        warrantyStartDate: getMappedImportValue(rowObj, mappings, 'Warranty Start Date'),
+        warrantyEndDate: hardwareWarrantyEnd || getMappedImportValue(rowObj, mappings, 'Warranty End Date'),
+        warrantyTerm: getMappedImportValue(rowObj, mappings, 'Warranty Term'),
+        supportProvider: getMappedImportValue(rowObj, mappings, 'Support Provider'),
+        supportLevel: getMappedImportValue(rowObj, mappings, 'Support Level'),
+        supportReference: getMappedImportValue(rowObj, mappings, 'Support Reference'),
+        supportStartDate: getMappedImportValue(rowObj, mappings, 'Support Start Date'),
+        supportEndDate: getMappedImportValue(rowObj, mappings, 'Support End Date'),
+        maintenanceStartDate: getMappedImportValue(rowObj, mappings, 'Maintenance Start Date'),
+        maintenanceEndDate: getMappedImportValue(rowObj, mappings, 'Maintenance End Date'),
+        maintenanceTerm: getMappedImportValue(rowObj, mappings, 'Maintenance Term'),
+        purchaseDate: normalizeImportDate(getMappedImportValue(rowObj, mappings, 'Purchase Date')),
+        parentBrand: hardwareBrand && hardwareBrand !== '-' ? hardwareBrand : ''
+      });
+      rowSuggestedCoverages = hardwareSuggestedCoverages;
     } else if (target.moduleKey === 'contracts') {
       var contractEdit = (importContext && importContext.recordEdits && importContext.recordEdits[index + 2]) || {};
       var previewContractNumber = contractEdit.contractNumber || getMappedImportValue(rowObj, mappings, 'Contract Number');
@@ -3837,6 +3890,7 @@ function buildImportPreview(rowObjects, mappings, sourceType, workspaceMode, imp
       clientDepartment: record && record.meta ? (record.meta.clientDepartment || '-') : '-',
       brandProduct: record && record.meta ? ([record.meta.brandManufacturer, record.meta.productLicenseName].filter(Boolean).join(' / ') || '-') : '-',
       expiration: record && record.meta ? (record.meta.expirationRenewalDate || '-') : '-',
+      suggestedCoverages: rowSuggestedCoverages,
       createdRecords: [target.label],
       canonical: record && record.meta ? {
         brandManufacturer: record.meta.brandManufacturer || '',
@@ -4175,7 +4229,11 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
       localRowIndex: -1,
       meta: record.meta,
       isImportPreview: true,
-      importRowNumber: item.rowNumber
+      importRowNumber: item.rowNumber,
+      // Coverage Import C3c — surface inferred Coverage suggestions inside
+      // the existing Review drawer. Read-only; no Approve/Edit/Skip actions
+      // in C3. Phase C4 will add per-suggestion approval gating.
+      suggestedCoverages: Array.isArray(item.suggestedCoverages) ? item.suggestedCoverages : []
     };
     setPreviewSelectedRecord(selected);
     setPreviewEditForm(buildEditForm(selected, fieldSpecs, workspaceMode));
@@ -4962,7 +5020,14 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
                   <td>{item.brandProduct || '-'}</td>
                   <td>{item.expiration || '-'}</td>
                   <td>{item.moduleLabel}</td>
-                  <td>{renderImportIssueBadges(item)}</td>
+                  <td>
+                    {renderImportIssueBadges(item)}
+                    {item.suggestedCoverages && item.suggestedCoverages.length > 0 && <span
+                      title="Open Review to see warranty/support/maintenance suggestions"
+                      aria-label={'Open Review to see ' + item.suggestedCoverages.length + ' coverage suggestion' + (item.suggestedCoverages.length === 1 ? '' : 's')}
+                      style={{display:'inline-flex',alignItems:'center',marginLeft:6,border:'1px solid #FDE68A',background:'#FFFBEB',color:'#92400E',borderRadius:999,padding:'2px 8px',fontSize:11,fontWeight:700,lineHeight:1.2,verticalAlign:'middle'}}
+                    >+{item.suggestedCoverages.length} coverage{item.suggestedCoverages.length === 1 ? '' : 's'}</span>}
+                  </td>
                   <td className="actionCell"><button type="button" className="rowAction" onClick={function() { openImportReviewDrawer(item); }}>Review</button></td>
                 </tr>;
               })}
@@ -5142,6 +5207,46 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
                 </>}
                 {noteF.length > 0 && <div style={{display:'grid',gap:12}}>{noteF.map(renderField)}</div>}
               </>;
+            })()}
+            {/* Coverage Import C3c — Suggested Coverage Records.
+                Native <details> collapsed by default per AGENTS.md §16
+                Helper Text Rule (Progressive Guidance). Read-only display
+                in C3 — no Approve/Edit/Skip actions yet. Phase C4 will
+                add per-suggestion approval gating. */}
+            {previewSelectedRecord.suggestedCoverages && previewSelectedRecord.suggestedCoverages.length > 0 && (function() {
+              var covs = previewSelectedRecord.suggestedCoverages;
+              var kindBg = { Warranty: '#F0FDFA', Support: '#EFF6FF', Maintenance: '#FAF5FF' };
+              var kindBorder = { Warranty: '#CCFBEF', Support: '#BFDBFE', Maintenance: '#E9D5FF' };
+              var kindText = { Warranty: '#0F766E', Support: '#1D4ED8', Maintenance: '#7C3AED' };
+              return <details style={{border:'1px solid #FDE68A',borderRadius:10,background:'#FFFBEB',padding:'4px 12px',marginTop:4}}>
+                <summary style={{cursor:'pointer',padding:'6px 0',fontSize:12,fontWeight:800,color:'#92400E',listStyle:'revert'}}>
+                  Suggested coverage records ({covs.length})
+                </summary>
+                <ul role="list" style={{listStyle:'none',padding:0,margin:'6px 0 8px',display:'grid',gap:8}}>
+                  {covs.map(function(cov, idx) {
+                    var basisLabel = cov.suggestionBasis === 'file' ? 'From file' : 'Suggested';
+                    var basisTone = cov.suggestionBasis === 'file' ? { bg: '#F0FDF4', border: '#BBF7D0', text: '#15803D' } : { bg: '#FEF3C7', border: '#FDE68A', text: '#92400E' };
+                    return <li key={'cov-' + idx} role="listitem" style={{border:'1px solid #FEF3C7',background:'#fff',borderRadius:8,padding:'8px 10px',display:'grid',gap:4,fontSize:12,lineHeight:1.45}}>
+                      <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+                        <span style={{display:'inline-flex',alignItems:'center',border:'1px solid ' + (kindBorder[cov.coverageKind] || '#E2E8F0'),background:kindBg[cov.coverageKind] || '#F8FAFC',color:kindText[cov.coverageKind] || '#475569',borderRadius:999,padding:'2px 8px',fontSize:11,fontWeight:800}}>{cov.coverageKind}</span>
+                        <strong style={{color:'#0B1F3A',fontWeight:800}}>{cov.coverageType || '-'}</strong>
+                        <span style={{display:'inline-flex',alignItems:'center',border:'1px solid ' + basisTone.border,background:basisTone.bg,color:basisTone.text,borderRadius:999,padding:'2px 8px',fontSize:10,fontWeight:700,marginLeft:'auto'}}>{basisLabel}</span>
+                      </div>
+                      <div style={{color:'#475569',fontSize:11.5}}>
+                        <span style={{color:'#94A3B8'}}>Start </span>{cov.startDate || '—'}
+                        <span style={{margin:'0 6px',color:'#CBD5E1'}}>·</span>
+                        <span style={{color:'#94A3B8'}}>End </span><strong style={{color:'#0B1F3A',fontWeight:700}}>{cov.endDate || '—'}</strong>
+                      </div>
+                      {(cov.provider || cov.supportLevel || cov.reference) && <div style={{color:'#64748B',fontSize:11,display:'flex',gap:10,flexWrap:'wrap'}}>
+                        {cov.provider && <span><span style={{color:'#94A3B8'}}>Provider </span>{cov.provider}</span>}
+                        {cov.supportLevel && <span><span style={{color:'#94A3B8'}}>Level </span>{cov.supportLevel}</span>}
+                        {cov.reference && <span><span style={{color:'#94A3B8'}}>Ref </span>{cov.reference}</span>}
+                      </div>}
+                    </li>;
+                  })}
+                </ul>
+                <p style={{margin:'4px 0 6px',fontSize:11,lineHeight:1.4,color:'#92400E'}}>Read-only preview. Coverage records are not created yet — approval and creation arrive in a later phase.</p>
+              </details>;
             })()}
           </div>
           <div style={{padding:'10px 16px',borderTop:'1px solid #EEF2F7',display:'flex',justifyContent:'flex-end',gap:8,flexShrink:0,background:'#fff'}}>

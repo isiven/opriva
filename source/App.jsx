@@ -3981,6 +3981,32 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
   // re-reads IMPORT_BATCH_STORE without needing a global subscription.
   const [importBatchesVersion, setImportBatchesVersion] = React.useState(0);
   const [importStep, setImportStep] = React.useState('context');
+  // Coverage Import C4 — per-suggestion decisions (approve / edit / skip).
+  // Keyed by `${rowNumber}::${coverageKind}`. Shape per entry:
+  //   { status: 'approved' | 'edited' | 'skipped', edits: { coverageType?, startDate?, endDate?, provider?, supportLevel?, reference? } }
+  // Missing key = 'pending' (blocks Confirm). 'pending' is the absence of an
+  // entry, not a stored status, so undo simply deletes the key.
+  // TODO backend: persist decisions to a coverage_approval_event table per
+  // import batch with decidedBy / decidedAt. Corporate MVP requires
+  // permission gating (who can approve), audit trail and re-import
+  // reconciliation when the same source file is re-uploaded.
+  const [coverageDecisions, setCoverageDecisions] = React.useState({});
+  // Single suggestion being edited at any time in the drawer. Key shape
+  // matches coverageDecisions. null when no edit form is open.
+  const [editingCoverageKey, setEditingCoverageKey] = React.useState(null);
+  // Transient draft for the inline edit form — committed to coverageDecisions
+  // on Save, discarded on Cancel.
+  const [editCoverageDraft, setEditCoverageDraft] = React.useState({});
+  // Reset decisions and any open edit form when the workbook or mappings
+  // change. Preview regenerates with potentially different suggestions, so
+  // existing keys could point at non-existent rows or coverages. This
+  // mirrors the existing `setImportResult(null)` reset pattern used after
+  // mapping changes.
+  React.useEffect(function() {
+    setCoverageDecisions({});
+    setEditingCoverageKey(null);
+    setEditCoverageDraft({});
+  }, [workbook, mappings]);
   const importContextScopeLabel = isInternalIT ? 'Department / Business Unit' : 'Client / Account';
   const importContextScopeValue = isInternalIT ? importContext.departmentBusinessUnit : importContext.clientAccount;
   const importContextScopeOptions = isInternalIT ? MASTER_DATA.departments : MASTER_DATA.companies;
@@ -4244,6 +4270,11 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
     setPreviewDrawerOpen(false);
     setPreviewSelectedRecord(null);
     setPreviewEditForm({});
+    // Coverage Import C4 — discard any in-progress edit form on drawer close.
+    // The decision state itself (coverageDecisions) persists across drawer
+    // open/close so the user does not lose Approve/Skip choices.
+    setEditingCoverageKey(null);
+    setEditCoverageDraft({});
   }
 
   // Save preview-mode edits to recordEdits only. Never writes to RECORD_STORE
@@ -4396,18 +4427,39 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
     (importPreview.records.hardware || []).length +
     (importPreview.records.contracts || []).length) > 0;
   const hasCriticalImportIssues = (importSeverityCounts.critical || 0) > 0;
+  // Coverage Import C4 — derive pending suggestion count across all preview
+  // rows. A suggestion is pending when no decision entry exists for its key.
+  // Approved / edited / skipped suggestions are NOT pending.
+  const pendingCoverageCount = React.useMemo(function() {
+    var count = 0;
+    ((importPreview && importPreview.preview) || []).forEach(function(item) {
+      (item.suggestedCoverages || []).forEach(function(cov) {
+        var key = item.rowNumber + '::' + cov.coverageKind;
+        var decision = coverageDecisions[key];
+        if (!decision || decision.status === 'pending') count += 1;
+      });
+    });
+    return count;
+  }, [importPreview, coverageDecisions]);
+  const hasPendingCoverageSuggestions = pendingCoverageCount > 0;
   // W1.5: multi scope requires a mapped Client / Department column to resolve
   // ownership per row. Without one, every row would fall back to "Unassigned"
   // and Confirm Import must stay blocked even before per-row severity scans.
-  const canConfirmImport = recordsReadyToConfirm && !hasCriticalImportIssues && !multiScopeMissingColumn;
+  // Coverage Import C4: pending coverage suggestions also gate Confirm.
+  const canConfirmImport = recordsReadyToConfirm && !hasCriticalImportIssues && !multiScopeMissingColumn && !hasPendingCoverageSuggestions;
   const multiScopeMissingColumnMessage = multiScopeMissingColumn
     ? (isInternalIT
       ? 'Multi-department mode requires a Department / Business Unit column mapping. Map a source column to Client / Department in the Mapping step.'
       : 'Multi-client mode requires a Client / Account column mapping. Map a source column to Client / Department in the Mapping step.')
     : '';
+  // Coverage Import C4 — confirm-blocking copy when pending suggestions are
+  // the only blocker.
+  const pendingCoverageMessage = hasPendingCoverageSuggestions
+    ? pendingCoverageCount + ' coverage suggestion' + (pendingCoverageCount === 1 ? '' : 's') + ' need' + (pendingCoverageCount === 1 ? 's' : '') + ' approval, edit or skip before Confirm Import.'
+    : '';
   const confirmBlockedMessage = hasCriticalImportIssues
     ? 'Confirm Import is blocked until ' + importSeverityCounts.critical + ' critical issue' + (importSeverityCounts.critical === 1 ? ' is' : 's are') + ' fixed.'
-    : (multiScopeMissingColumn ? multiScopeMissingColumnMessage : '');
+    : (multiScopeMissingColumn ? multiScopeMissingColumnMessage : (hasPendingCoverageSuggestions ? pendingCoverageMessage : ''));
   const warningContinueMessage = !hasCriticalImportIssues && (importSeverityCounts.warning || 0) > 0
     ? 'Warnings do not block import, but review them before confirming.'
     : '';
@@ -4512,6 +4564,13 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
     if (multiScopeMissingColumn) {
       // W1.5 defense-in-depth: even if the button is enabled by mistake,
       // never write multi-scope rows without resolved ownership.
+      setImportResult(null);
+      return;
+    }
+    if (hasPendingCoverageSuggestions) {
+      // Coverage Import C4 defense-in-depth: never confirm while coverage
+      // suggestions are pending. C5 will materialise approved / edited
+      // suggestions into Coverage records; until then the gate stays.
       setImportResult(null);
       return;
     }
@@ -5058,6 +5117,10 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
         {showImportStep('confirm') && hasCriticalImportIssues && <div className="miniState errorState" role="alert">
           {confirmBlockedMessage} Critical errors include missing required names, client/department scope, or renewal dates that prevent safe record creation.
         </div>}
+        {showImportStep('confirm') && !hasCriticalImportIssues && !multiScopeMissingColumn && hasPendingCoverageSuggestions && <div className="miniState errorState" role="alert">
+          <strong>Coverage suggestions need review.</strong>{' '}
+          <span>{pendingCoverageMessage} Open each Review drawer to Approve, Edit or Skip per suggestion.</span>
+        </div>}
         {showImportStep('confirm') && !hasCriticalImportIssues && multiScopeMissingColumn && <div className="miniState errorState" role="alert">
           {multiScopeMissingColumnMessage}
         </div>}
@@ -5208,44 +5271,172 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
                 {noteF.length > 0 && <div style={{display:'grid',gap:12}}>{noteF.map(renderField)}</div>}
               </>;
             })()}
-            {/* Coverage Import C3c — Suggested Coverage Records.
-                Native <details> collapsed by default per AGENTS.md §16
-                Helper Text Rule (Progressive Guidance). Read-only display
-                in C3 — no Approve/Edit/Skip actions yet. Phase C4 will
-                add per-suggestion approval gating. */}
+            {/* Coverage Import C4 — Suggested Coverage Records with
+                per-suggestion Approve / Edit / Skip / Undo. Native <details>
+                collapsed by default per AGENTS.md §16 (Progressive Guidance).
+                Decisions are captured in coverageDecisions session state and
+                block Confirm Import while any suggestion remains pending.
+                Records are NOT yet created — C5 will materialise approved /
+                edited suggestions into Coverage records in RECORD_STORE. */}
             {previewSelectedRecord.suggestedCoverages && previewSelectedRecord.suggestedCoverages.length > 0 && (function() {
               var covs = previewSelectedRecord.suggestedCoverages;
+              var rowNumber = previewSelectedRecord.importRowNumber;
+              var parentBlocked = !!(previewSelectedRecord && previewSelectedRecord.meta && previewSelectedRecord.meta.rowNumber && /* if parent row had critical issues we leave Approve allowed; W3 critical already blocks confirm at the row level */ false);
+              // Catalogs (local — Coverage Type expanded to spec v2.0 §16.4;
+              // Support Level new in v2.0). Closed enums per the Controlled
+              // Catalog rule (AGENTS.md §17): simple <select> is acceptable
+              // because the lists do not grow per workspace. SearchableSelect
+              // (Phase S1) will replace them when high-cardinality entity
+              // fields like Provider migrate.
+              var COVERAGE_TYPE_DROPDOWN = ['Manufacturer Warranty','Extended Warranty','Care Pack','SmartNet','Vendor Support','Managed Support','Subscription Support','Software Assurance','SLA Coverage','Maintenance Agreement','Other'];
+              var SUPPORT_LEVEL_DROPDOWN = ['Bronze','Silver','Gold','Platinum','Standard','Premium','Mission Critical','Other'];
               var kindBg = { Warranty: '#F0FDFA', Support: '#EFF6FF', Maintenance: '#FAF5FF' };
               var kindBorder = { Warranty: '#CCFBEF', Support: '#BFDBFE', Maintenance: '#E9D5FF' };
               var kindText = { Warranty: '#0F766E', Support: '#1D4ED8', Maintenance: '#7C3AED' };
+              function decisionKey(kind) { return rowNumber + '::' + kind; }
+              function effectiveCov(cov) {
+                var dec = coverageDecisions[decisionKey(cov.coverageKind)];
+                if (dec && dec.status === 'edited' && dec.edits) return Object.assign({}, cov, dec.edits);
+                return cov;
+              }
+              function applyDecision(kind, status, edits) {
+                setCoverageDecisions(function(prev) {
+                  var next = Object.assign({}, prev);
+                  var k = rowNumber + '::' + kind;
+                  if (status === 'pending') { delete next[k]; }
+                  else { next[k] = { status: status, edits: edits || (prev[k] && prev[k].edits) || {} }; }
+                  return next;
+                });
+              }
+              function startEdit(cov) {
+                var eff = effectiveCov(cov);
+                setEditCoverageDraft({
+                  coverageType: eff.coverageType || '',
+                  startDate: eff.startDate || '',
+                  endDate: eff.endDate || '',
+                  provider: eff.provider || '',
+                  supportLevel: eff.supportLevel || '',
+                  reference: eff.reference || ''
+                });
+                setEditingCoverageKey(decisionKey(cov.coverageKind));
+              }
+              function saveEdit(kind) {
+                applyDecision(kind, 'edited', Object.assign({}, editCoverageDraft));
+                setEditingCoverageKey(null);
+                setEditCoverageDraft({});
+              }
+              function cancelEdit() {
+                setEditingCoverageKey(null);
+                setEditCoverageDraft({});
+              }
+              var statusTone = {
+                pending:  { label: 'Pending review', bg: '#FEF3C7', border: '#FDE68A', text: '#92400E' },
+                approved: { label: 'Approved',       bg: '#F0FDF4', border: '#BBF7D0', text: '#15803D' },
+                edited:   { label: 'Edited',         bg: '#ECFEFF', border: '#A5F3FC', text: '#0E7490' },
+                skipped:  { label: 'Won’t be created', bg: '#F1F5F9', border: '#CBD5E1', text: '#64748B' }
+              };
+              var fileTone = { label: 'From file', bg: '#F0FDF4', border: '#BBF7D0', text: '#15803D' };
+              var smallBtn = {border:'1px solid #DDE5EF',background:'#fff',color:'#243247',borderRadius:6,padding:'4px 8px',fontSize:11,fontWeight:700,cursor:'pointer',lineHeight:1.2};
+              var primaryBtn = {border:'1px solid #0D9488',background:'#0D9488',color:'#fff',borderRadius:6,padding:'4px 8px',fontSize:11,fontWeight:700,cursor:'pointer',lineHeight:1.2};
+              var skipBtn = {border:'1px solid #E2E8F0',background:'#fff',color:'#64748B',borderRadius:6,padding:'4px 8px',fontSize:11,fontWeight:700,cursor:'pointer',lineHeight:1.2};
+              var undoBtn = {border:'none',background:'transparent',color:'#0D9488',fontSize:11,fontWeight:700,cursor:'pointer',padding:'2px 6px',textDecoration:'underline'};
+              var editFieldStyle = {border:'1px solid #DDE5EF',borderRadius:6,padding:'5px 7px',fontSize:11,width:'100%',fontFamily:'inherit',boxSizing:'border-box',background:'#fff',color:'#132033'};
+              var editLabelStyle = {display:'block',marginBottom:3,fontSize:10,fontWeight:800,color:'#64748B',textTransform:'uppercase',letterSpacing:'.06em'};
               return <details style={{border:'1px solid #FDE68A',borderRadius:10,background:'#FFFBEB',padding:'4px 12px',marginTop:4}}>
                 <summary style={{cursor:'pointer',padding:'6px 0',fontSize:12,fontWeight:800,color:'#92400E',listStyle:'revert'}}>
                   Suggested coverage records ({covs.length})
                 </summary>
                 <ul role="list" style={{listStyle:'none',padding:0,margin:'6px 0 8px',display:'grid',gap:8}}>
                   {covs.map(function(cov, idx) {
-                    var basisLabel = cov.suggestionBasis === 'file' ? 'From file' : 'Suggested';
-                    var basisTone = cov.suggestionBasis === 'file' ? { bg: '#F0FDF4', border: '#BBF7D0', text: '#15803D' } : { bg: '#FEF3C7', border: '#FDE68A', text: '#92400E' };
-                    return <li key={'cov-' + idx} role="listitem" style={{border:'1px solid #FEF3C7',background:'#fff',borderRadius:8,padding:'8px 10px',display:'grid',gap:4,fontSize:12,lineHeight:1.45}}>
+                    var dKey = decisionKey(cov.coverageKind);
+                    var decision = coverageDecisions[dKey] || { status: 'pending', edits: {} };
+                    var status = decision.status || 'pending';
+                    var eff = effectiveCov(cov);
+                    var isEditing = editingCoverageKey === dKey;
+                    var sTone = statusTone[status] || statusTone.pending;
+                    var basisIsFile = cov.suggestionBasis === 'file';
+                    var statusBadge = status === 'pending' && basisIsFile ? fileTone : sTone;
+                    var statusLabel = status === 'pending' && basisIsFile ? 'From file' : sTone.label;
+                    var rowDimmed = status === 'skipped' ? { opacity: 0.65 } : {};
+                    return <li key={'cov-' + idx} role="listitem" style={Object.assign({border:'1px solid #FEF3C7',background:'#fff',borderRadius:8,padding:'8px 10px',display:'grid',gap:6,fontSize:12,lineHeight:1.45}, rowDimmed)}>
                       <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
                         <span style={{display:'inline-flex',alignItems:'center',border:'1px solid ' + (kindBorder[cov.coverageKind] || '#E2E8F0'),background:kindBg[cov.coverageKind] || '#F8FAFC',color:kindText[cov.coverageKind] || '#475569',borderRadius:999,padding:'2px 8px',fontSize:11,fontWeight:800}}>{cov.coverageKind}</span>
-                        <strong style={{color:'#0B1F3A',fontWeight:800}}>{cov.coverageType || '-'}</strong>
-                        <span style={{display:'inline-flex',alignItems:'center',border:'1px solid ' + basisTone.border,background:basisTone.bg,color:basisTone.text,borderRadius:999,padding:'2px 8px',fontSize:10,fontWeight:700,marginLeft:'auto'}}>{basisLabel}</span>
+                        <strong style={{color:'#0B1F3A',fontWeight:800}}>{eff.coverageType || '-'}</strong>
+                        <span role="status" aria-live="polite" aria-label={'Coverage suggestion status: ' + statusLabel} style={{display:'inline-flex',alignItems:'center',border:'1px solid ' + statusBadge.border,background:statusBadge.bg,color:statusBadge.text,borderRadius:999,padding:'2px 8px',fontSize:10,fontWeight:700,marginLeft:'auto'}}>{statusLabel}</span>
                       </div>
-                      <div style={{color:'#475569',fontSize:11.5}}>
-                        <span style={{color:'#94A3B8'}}>Start </span>{cov.startDate || '—'}
-                        <span style={{margin:'0 6px',color:'#CBD5E1'}}>·</span>
-                        <span style={{color:'#94A3B8'}}>End </span><strong style={{color:'#0B1F3A',fontWeight:700}}>{cov.endDate || '—'}</strong>
-                      </div>
-                      {(cov.provider || cov.supportLevel || cov.reference) && <div style={{color:'#64748B',fontSize:11,display:'flex',gap:10,flexWrap:'wrap'}}>
-                        {cov.provider && <span><span style={{color:'#94A3B8'}}>Provider </span>{cov.provider}</span>}
-                        {cov.supportLevel && <span><span style={{color:'#94A3B8'}}>Level </span>{cov.supportLevel}</span>}
-                        {cov.reference && <span><span style={{color:'#94A3B8'}}>Ref </span>{cov.reference}</span>}
+                      {!isEditing && <>
+                        <div style={{color:'#475569',fontSize:11.5}}>
+                          <span style={{color:'#94A3B8'}}>Start </span>{eff.startDate || '—'}
+                          <span style={{margin:'0 6px',color:'#CBD5E1'}}>·</span>
+                          <span style={{color:'#94A3B8'}}>End </span><strong style={{color:'#0B1F3A',fontWeight:700}}>{eff.endDate || '—'}</strong>
+                        </div>
+                        {(eff.provider || eff.supportLevel || eff.reference) && <div style={{color:'#64748B',fontSize:11,display:'flex',gap:10,flexWrap:'wrap'}}>
+                          {eff.provider && <span><span style={{color:'#94A3B8'}}>Provider </span>{eff.provider}</span>}
+                          {eff.supportLevel && <span><span style={{color:'#94A3B8'}}>Level </span>{eff.supportLevel}</span>}
+                          {eff.reference && <span><span style={{color:'#94A3B8'}}>Ref </span>{eff.reference}</span>}
+                        </div>}
+                        <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap',marginTop:2}}>
+                          {status === 'pending' && <>
+                            <button type="button" style={primaryBtn} aria-label={'Approve ' + cov.coverageKind + ' coverage for row ' + rowNumber} onClick={function() { applyDecision(cov.coverageKind, 'approved'); }}>Approve</button>
+                            <button type="button" style={smallBtn} aria-label={'Edit ' + cov.coverageKind + ' coverage for row ' + rowNumber} onClick={function() { startEdit(cov); }}>Edit</button>
+                            <button type="button" style={skipBtn} aria-label={'Skip ' + cov.coverageKind + ' coverage for row ' + rowNumber + ' so it will not be created'} onClick={function() { applyDecision(cov.coverageKind, 'skipped'); }}>Skip</button>
+                          </>}
+                          {status === 'approved' && <>
+                            <button type="button" style={smallBtn} aria-label={'Edit ' + cov.coverageKind + ' coverage for row ' + rowNumber} onClick={function() { startEdit(cov); }}>Edit</button>
+                            <button type="button" style={undoBtn} aria-label={'Undo approval of ' + cov.coverageKind + ' coverage for row ' + rowNumber} onClick={function() { applyDecision(cov.coverageKind, 'pending'); }}>Undo</button>
+                          </>}
+                          {status === 'edited' && <>
+                            <button type="button" style={smallBtn} aria-label={'Re-edit ' + cov.coverageKind + ' coverage for row ' + rowNumber} onClick={function() { startEdit(cov); }}>Edit</button>
+                            <button type="button" style={undoBtn} aria-label={'Undo edit of ' + cov.coverageKind + ' coverage for row ' + rowNumber} onClick={function() { applyDecision(cov.coverageKind, 'pending'); }}>Undo</button>
+                          </>}
+                          {status === 'skipped' && <>
+                            <button type="button" style={undoBtn} aria-label={'Undo skip of ' + cov.coverageKind + ' coverage for row ' + rowNumber} onClick={function() { applyDecision(cov.coverageKind, 'pending'); }}>Undo</button>
+                          </>}
+                        </div>
+                      </>}
+                      {isEditing && <div style={{display:'grid',gap:8,background:'#F8FAFC',border:'1px solid #DDE5EF',borderRadius:8,padding:'8px 10px'}}>
+                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                          <div>
+                            <label style={editLabelStyle} htmlFor={'cov-type-' + idx}>Coverage Type</label>
+                            <select id={'cov-type-' + idx} style={editFieldStyle} value={editCoverageDraft.coverageType || ''} onChange={function(e) { setEditCoverageDraft(function(p) { return Object.assign({}, p, { coverageType: e.target.value }); }); }}>
+                              <option value="">Select...</option>
+                              {COVERAGE_TYPE_DROPDOWN.map(function(o) { return <option key={o} value={o}>{o}</option>; })}
+                            </select>
+                          </div>
+                          <div>
+                            <label style={editLabelStyle} htmlFor={'cov-level-' + idx}>Support Level</label>
+                            <select id={'cov-level-' + idx} style={editFieldStyle} value={editCoverageDraft.supportLevel || ''} onChange={function(e) { setEditCoverageDraft(function(p) { return Object.assign({}, p, { supportLevel: e.target.value }); }); }}>
+                              <option value="">Select...</option>
+                              {SUPPORT_LEVEL_DROPDOWN.map(function(o) { return <option key={o} value={o}>{o}</option>; })}
+                            </select>
+                          </div>
+                          <div>
+                            <label style={editLabelStyle} htmlFor={'cov-start-' + idx}>Start Date</label>
+                            <input id={'cov-start-' + idx} type="date" style={editFieldStyle} value={editCoverageDraft.startDate || ''} onChange={function(e) { setEditCoverageDraft(function(p) { return Object.assign({}, p, { startDate: e.target.value }); }); }}/>
+                          </div>
+                          <div>
+                            <label style={editLabelStyle} htmlFor={'cov-end-' + idx}>End Date</label>
+                            <input id={'cov-end-' + idx} type="date" style={editFieldStyle} value={editCoverageDraft.endDate || ''} onChange={function(e) { setEditCoverageDraft(function(p) { return Object.assign({}, p, { endDate: e.target.value }); }); }}/>
+                          </div>
+                          <div>
+                            <label style={editLabelStyle} htmlFor={'cov-provider-' + idx}>Provider</label>
+                            {/* TODO Phase S1-S2: SearchableSelect with provider catalog when SearchableSelect primitive lands. */}
+                            <input id={'cov-provider-' + idx} type="text" style={editFieldStyle} value={editCoverageDraft.provider || ''} onChange={function(e) { setEditCoverageDraft(function(p) { return Object.assign({}, p, { provider: e.target.value }); }); }} placeholder="Free text in MVP"/>
+                          </div>
+                          <div>
+                            <label style={editLabelStyle} htmlFor={'cov-ref-' + idx}>Reference</label>
+                            <input id={'cov-ref-' + idx} type="text" style={editFieldStyle} value={editCoverageDraft.reference || ''} onChange={function(e) { setEditCoverageDraft(function(p) { return Object.assign({}, p, { reference: e.target.value }); }); }} placeholder="Contract / PO / SKU"/>
+                          </div>
+                        </div>
+                        <div style={{display:'flex',gap:6,justifyContent:'flex-end'}}>
+                          <button type="button" style={smallBtn} onClick={cancelEdit} aria-label="Cancel coverage edit">Cancel</button>
+                          <button type="button" style={primaryBtn} onClick={function() { saveEdit(cov.coverageKind); }} aria-label={'Save edited ' + cov.coverageKind + ' coverage for row ' + rowNumber}>Save changes</button>
+                        </div>
                       </div>}
                     </li>;
                   })}
                 </ul>
-                <p style={{margin:'4px 0 6px',fontSize:11,lineHeight:1.4,color:'#92400E'}}>Read-only preview. Coverage records are not created yet — approval and creation arrive in a later phase.</p>
+                <p style={{margin:'4px 0 6px',fontSize:11,lineHeight:1.4,color:'#92400E'}}>Approved or edited suggestions become Coverage records when import is confirmed. Skipped suggestions will not be created.</p>
               </details>;
             })()}
           </div>

@@ -2348,9 +2348,35 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
                     </section>
                 }
                 {isLicHw && (() => {
-                  var linkedCoverage = sessionSupportCoverage.filter(function(c) {
-                    return c.coveredRecordId === selectedRecord.id && c.coveredModule === selectedRecord.moduleKey;
-                  });
+                  // Coverage Import C5.1 — read Support Coverage records
+                  // directly from RECORD_STORE.contracts (single source of
+                  // truth). Both manual coverages from openSupportCoverage
+                  // and C5 imported coverages live here with
+                  // meta.source === 'supportCoverage', so the same filter
+                  // shows both. The legacy sessionSupportCoverage state is
+                  // kept inert for now (openSupportCoverage still writes to
+                  // it for backward-compat); cleanup is C5.1.1 follow-up.
+                  var linkedCoverage = (RECORD_STORE.contracts || [])
+                    .filter(function(c) {
+                      return c && c.meta
+                        && c.meta.source === 'supportCoverage'
+                        && c.meta.coveredRecordId === selectedRecord.id
+                        && c.meta.coveredModule === selectedRecord.moduleKey;
+                    })
+                    .map(function(c) { return c.meta; });
+                  var kindPalettes = {
+                    Warranty:    { bg: '#F0FDFA', border: '#CCFBEF', text: '#0F766E' },
+                    Support:     { bg: '#EFF6FF', border: '#BFDBFE', text: '#1D4ED8' },
+                    Maintenance: { bg: '#FAF5FF', border: '#E9D5FF', text: '#7C3AED' }
+                  };
+                  var kindBadge = function(kind) {
+                    var p = kindPalettes[kind] || { bg: '#F8FAFC', border: '#E2E8F0', text: '#475569' };
+                    return { fontSize: 10, fontWeight: 800, color: p.text, background: p.bg, border: '1px solid ' + p.border, borderRadius: 999, padding: '2px 7px', whiteSpace: 'nowrap' };
+                  };
+                  var typePillStyle = { fontSize: 11, fontWeight: 700, color: '#0F766E', background: '#F0FDF9', border: '1px solid #CCFBEF', borderRadius: 6, padding: '2px 7px', whiteSpace: 'nowrap' };
+                  var importedBadgeStyle = { fontSize: 10, fontWeight: 700, color: '#475569', background: '#F1F5F9', border: '1px solid #E2E8F0', borderRadius: 999, padding: '2px 7px', whiteSpace: 'nowrap' };
+                  var suggestedBadgeStyle = { fontSize: 10, fontWeight: 700, color: '#92400E', background: '#FEF3C7', border: '1px solid #FDE68A', borderRadius: 999, padding: '2px 7px', whiteSpace: 'nowrap' };
+                  var fromFileBadgeStyle = { fontSize: 10, fontWeight: 700, color: '#15803D', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 999, padding: '2px 7px', whiteSpace: 'nowrap' };
                   return <section style={{background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'}}>
                     <div style={{padding:'12px 14px',borderBottom:'1px solid #EEF2F7',background:'#FAFCFF'}}>
                       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
@@ -2365,16 +2391,26 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
                       {linkedCoverage.length === 0
                         ? <span style={{color:'#64748B',fontSize:12,lineHeight:1.45}}>No support coverage record linked yet.</span>
                         : linkedCoverage.map(function(cov) {
+                            var isImported = cov.importedFrom === 'importSandbox';
+                            var hasBasis = !!cov.suggestionBasis;
                             return <div key={cov.id} style={{border:'1px solid #EEF2F7',borderRadius:10,padding:'12px 14px',background:'#FAFCFF',display:'grid',gap:6}}>
-                              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8}}>
-                                <strong style={{fontSize:13,color:'#0B1F3A',fontWeight:700,lineHeight:1.3}}>{cov.name}</strong>
-                                <span style={{fontSize:11,fontWeight:700,color:'#0F766E',background:'#F0FDF9',border:'1px solid #CCFBEF',borderRadius:6,padding:'2px 7px',flexShrink:0,whiteSpace:'nowrap'}}>{cov.coverageType}</span>
+                              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8,flexWrap:'wrap'}}>
+                                <strong style={{fontSize:13,color:'#0B1F3A',fontWeight:700,lineHeight:1.3,minWidth:0,flex:'1 1 auto'}}>{cov.name}</strong>
+                                <div style={{display:'flex',gap:4,flexWrap:'wrap',flexShrink:0,alignItems:'center'}}>
+                                  {cov.coverageKind && <span style={kindBadge(cov.coverageKind)}>{cov.coverageKind}</span>}
+                                  {cov.coverageType && <span style={typePillStyle}>{cov.coverageType}</span>}
+                                  {isImported && <span style={importedBadgeStyle} title="Created via Data Import">Imported</span>}
+                                  {hasBasis && cov.suggestionBasis === 'file' && <span style={fromFileBadgeStyle} title="Value came from the source file">From file</span>}
+                                  {hasBasis && cov.suggestionBasis !== 'file' && <span style={suggestedBadgeStyle} title={'Inferred at import (' + cov.suggestionBasis + ')'}>Suggested</span>}
+                                </div>
                               </div>
                               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'4px 12px',fontSize:12,color:'#475569'}}>
                                 {cov.provider && <span><span style={{color:'#94A3B8',fontWeight:700}}>Provider: </span>{cov.provider}</span>}
                                 {cov.startDate && <span><span style={{color:'#94A3B8',fontWeight:700}}>Start: </span>{cov.startDate}</span>}
                                 {cov.endDate && <span><span style={{color:'#94A3B8',fontWeight:700}}>Ends: </span>{cov.endDate}</span>}
                                 {cov.owner && <span><span style={{color:'#94A3B8',fontWeight:700}}>Coverage Owner: </span>{cov.owner}</span>}
+                                {cov.supportLevel && <span><span style={{color:'#94A3B8',fontWeight:700}}>Level: </span>{cov.supportLevel}</span>}
+                                {cov.reference && <span><span style={{color:'#94A3B8',fontWeight:700}}>Ref: </span>{cov.reference}</span>}
                                 {cov.alertPolicy && <span><span style={{color:'#94A3B8',fontWeight:700}}>Alerts: </span>{cov.alertPolicy}</span>}
                                 {cov.value && <span style={{gridColumn:'1 / -1'}}><span style={{color:'#94A3B8',fontWeight:700}}>{workspaceMode === 'Internal IT' ? 'Annual Cost: ' : 'Annual Value: '}</span>{'$' + Number(cov.value).toLocaleString()}</span>}
                               </div>

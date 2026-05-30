@@ -34,7 +34,7 @@ import { detectImportTarget, suggestImportTargetFromSource } from './importSandb
 import { detectImportSourceType, normalizeImportText } from './importSandbox/importText.js';
 import { getImportSheetData } from './importSandbox/workbookParsing.js';
 import { calcExpirationState, inferLicenseTerm, suggestRenewalDate } from './utils/dates.js';
-import { buildSuggestedCoveragesForLicense, buildSuggestedCoveragesForHardware } from './utils/coverage.js';
+import { buildSuggestedCoveragesForLicense, buildSuggestedCoveragesForHardware, buildCoverageRecordsForBatch } from './utils/coverage.js';
 import { autoFillDocName, extractFileMetadata, fmtFileSize, fmtUploadedAt } from './utils/files.js';
 import { calcMargin } from './utils/money.js';
 import { asArray, cx, riskClass, safeText } from './utils/text.js';
@@ -4581,16 +4581,46 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
       setImportResult({ processed: rowObjects.length, licenses: 0, hardware: 0, contracts: 0, skipped: rowObjects.length, review: importPreview.stats.review, message: 'No records were ready to create.' });
       return;
     }
+    // Coverage Import C5 — generate batch ID up-front so coverage records
+    // can reference it (importBatchId in their meta) and the IMPORT_BATCH_STORE
+    // snapshot can reuse the same ID. Previously generated inside
+    // recordImportBatch() but C5 needs it earlier.
+    var batchId = createImportBatchId();
     var licenseInsert = insertImportedRecords('licenses', licenses);
     var hardwareInsert = insertImportedRecords('hardware', hardware);
     var contractInsert = insertImportedRecords('contracts', contracts);
-    var createdRecords = licenseInsert.created.concat(hardwareInsert.created).concat(contractInsert.created);
-    var duplicateCount = licenseInsert.duplicates + hardwareInsert.duplicates + contractInsert.duplicates;
+    // Coverage Import C5 — materialise approved / edited coverage decisions
+    // into Coverage records linked to the just-created parent License/Hardware
+    // records. Skipped + pending decisions produce nothing. Orphans (when
+    // parent was dedup-skipped) are also suppressed by the helper. The
+    // resulting coverages flow through the same insertImportedRecords pipeline
+    // as contracts so cross-source dedup against existing RECORD_STORE.contracts
+    // happens for free via meta.duplicateKeys. C4's pending-suggestion gate
+    // already prevented confirm if any decision was still pending.
+    var coverageRecords = buildCoverageRecordsForBatch({
+      previewItems: importPreview.preview,
+      decisions: coverageDecisions,
+      licenseCreated: licenseInsert.created,
+      hardwareCreated: hardwareInsert.created,
+      batchId: batchId,
+      fileName: fileName || '',
+      workspaceMode: workspaceMode
+    });
+    var coverageInsert = coverageRecords.length
+      ? insertImportedRecords('contracts', coverageRecords)
+      : { created: [], duplicates: 0 };
+    var coverageCount = coverageInsert.created.length;
+    var coverageDuplicateCount = coverageInsert.duplicates;
+    var createdRecords = licenseInsert.created.concat(hardwareInsert.created).concat(contractInsert.created).concat(coverageInsert.created);
+    var duplicateCount = licenseInsert.duplicates + hardwareInsert.duplicates + contractInsert.duplicates + coverageDuplicateCount;
     var clientSync = ensureImportedClientRecords(createdRecords, workspaceMode);
+    var coverageDescription = coverageCount > 0
+      ? ' (incl ' + coverageCount + ' linked coverage record' + (coverageCount === 1 ? '' : 's') + ')'
+      : '';
     addActivityEvent({
       eventType: 'import_completed',
       title: 'Import completed',
-      description: fileName + ' created ' + createdRecords.length + ' first-class local Opriva records and matched ' + clientSync.matched + ' clients/departments.',
+      description: fileName + ' created ' + createdRecords.length + ' first-class local Opriva records' + coverageDescription + ' and matched ' + clientSync.matched + ' clients/departments.',
       sourceModule: 'data-import',
       sourceRecordName: fileName,
       source: 'importSandbox',
@@ -4614,18 +4644,23 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
       licenses: licenseInsert.created.length,
       hardware: hardwareInsert.created.length,
       contracts: contractInsert.created.length,
+      coverages: coverageCount,
       clientsCreated: clientSync.created,
       clientsMatched: clientSync.matched,
       entitySummary: importPreview.entitySummary,
       skipped: importPreview.stats.skipped + duplicateCount,
       review: importPreview.stats.review,
       duplicates: duplicateCount,
-      message: 'Imported records were added to the central local Opriva record store for this session. They can now be opened from relevant modules. Backend persistence is still required for corporate MVP. ' + duplicateCount + ' duplicate-looking record' + (duplicateCount === 1 ? ' was' : 's were') + ' skipped.'
+      message: 'Imported records were added to the central local Opriva record store for this session. They can now be opened from relevant modules. Backend persistence is still required for corporate MVP. '
+        + duplicateCount + ' duplicate-looking record' + (duplicateCount === 1 ? ' was' : 's were') + ' skipped.'
+        + (coverageCount > 0 ? ' ' + coverageCount + ' linked coverage record' + (coverageCount === 1 ? ' was' : 's were') + ' created from approved suggestions.' : '')
     });
     // Append a session-only batch to IMPORT_BATCH_STORE for the Import
     // history panel. Backend will replace this with a persistent import job.
+    // Reuses the batchId generated at the start so the snapshot matches the
+    // importBatchId stamped on every coverage record (C5).
     recordImportBatch({
-      batchId: createImportBatchId(),
+      batchId: batchId,
       timestamp: new Date().toISOString(),
       fileName: fileName || '',
       workspaceMode: workspaceMode,
@@ -4638,6 +4673,7 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
       },
       totalRows: rowObjects.length,
       importedCount: createdRecords.length,
+      coverageCount: coverageCount,
       skippedCount: (importPreview.stats.skipped || 0) + duplicateCount,
       criticalCount: importSeverityCounts.critical || 0,
       warningCount: importSeverityCounts.warning || 0,
@@ -5182,7 +5218,7 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
                     {purpose ? <><br/><span style={{fontSize:11,color:'#64748B',fontWeight:600}}>{purpose}</span></> : null}
                   </td>
                   <td>{batch.totalRows || 0}</td>
-                  <td>{(batch.importedCount || 0) + ' created · ' + (batch.skippedCount || 0) + ' skipped'}</td>
+                  <td>{(batch.importedCount || 0) + ' created · ' + (batch.skippedCount || 0) + ' skipped' + ((batch.coverageCount || 0) > 0 ? ' · +' + batch.coverageCount + ' coverage' + (batch.coverageCount === 1 ? '' : 's') : '')}</td>
                   <td>
                     <span style={{fontSize:11,fontWeight:800,color:'#475569'}}>
                       {(batch.criticalCount || 0)} critical · {(batch.warningCount || 0)} warn · {(batch.suggestionCount || 0)} sugg

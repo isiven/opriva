@@ -592,3 +592,161 @@ export function buildSuggestedCoveragesForHardware(fields) {
 
   return suggestions;
 }
+
+// -------------------------------------------------------------------------
+// Coverage Import C5 — materialise approved / edited suggestions into
+// Coverage records at confirm time.
+// -------------------------------------------------------------------------
+//
+// buildCoverageRecordsForBatch consumes the C3 suggestedCoverages on each
+// preview item + the C4 coverageDecisions map and produces an array of
+// Coverage records ready to be inserted into RECORD_STORE.contracts via the
+// existing insertImportedRecords pipeline.
+//
+// Rules
+//   - Only 'approved' or 'edited' decisions produce records. 'pending' and
+//     'skipped' produce nothing.
+//   - Orphan suppression: if the parent License/Hardware was dedup-skipped at
+//     insert time (i.e. not in licenseCreated / hardwareCreated), the
+//     coverage is skipped too — no orphans without a parent.
+//   - Edited values win over original suggestion values per field.
+//   - Duplicate detection key shape:
+//       'coverage|<coveredModule>|<coveredRecordId>|<coverageKind>|<endDate>'
+//     so re-imports and cross-source duplicates are caught by
+//     insertImportedRecords's existing knownKeys dedup logic.
+//   - Contracts target rows never produce coverages (C3 producer already
+//     enforces this; this builder also guards by parentModule).
+//
+// TODO backend Phase 2:
+//   - Persist to a dedicated coverage_records table (vs reusing contracts).
+//   - Emit a coverage_create_event per coverage with decidedBy / decidedAt /
+//     suggestionBasis / decisionStatus / editedFields[] for audit trail.
+//   - RBAC gate for who can confirm imports that create coverages.
+//   - Re-import reconciliation: detect existing coverages by hash and offer
+//     merge / replace / duplicate per row.
+//   - Manual coverage parity: openSupportCoverage save should set the same
+//     duplicateKeys shape so manual + imported coverages dedupe against each
+//     other across sources.
+
+function buildCoverageDuplicateKeys(coveredModule, coveredRecordId, coverageKind, endDate) {
+  if (!coveredModule || !coveredRecordId || !coverageKind || !endDate) return [];
+  return ['coverage|' + coveredModule + '|' + coveredRecordId + '|' + coverageKind + '|' + endDate];
+}
+
+function noticeFromAlertPolicy(ap) {
+  if (ap === '90 / 60 / 30 days') return '90 days';
+  if (ap === '60 / 30 / 7 days')  return '60 days';
+  if (ap === '30 / 7 / 1 days')   return '30 days';
+  if (ap === 'Workspace default') return 'Workspace default';
+  if (ap === 'Custom')            return 'Custom';
+  return '-';
+}
+
+function buildCoverageContractsRow(cov, workspaceMode) {
+  var isIT = workspaceMode === 'Internal IT';
+  var cols = isIT
+    ? ['Contract','Type','Department','Provider','Owner','Document','Renewal','Notice','Approval status','Next action','Risk']
+    : ['Contract','Type','Client','Provider / Distributor','Owner','Document','Renewal','Notice','Legal status','Next action','Risk'];
+  var valueMap = isIT
+    ? { 'Contract': cov.name, 'Type': 'Support Coverage', 'Department': cov.coveredClientOrDepartment || '-', 'Provider': cov.provider || '-', 'Owner': cov.owner || 'Unassigned', 'Document': '-', 'Renewal': cov.endDate || '-', 'Notice': noticeFromAlertPolicy(cov.alertPolicy), 'Approval status': 'Pending', 'Next action': 'Review coverage', 'Risk': '-' }
+    : { 'Contract': cov.name, 'Type': 'Support Coverage', 'Client': cov.coveredClientOrDepartment || '-', 'Provider / Distributor': cov.provider || '-', 'Owner': cov.owner || 'Unassigned', 'Document': '-', 'Renewal': cov.endDate || '-', 'Notice': noticeFromAlertPolicy(cov.alertPolicy), 'Legal status': 'Active', 'Next action': 'Review coverage', 'Risk': '-' };
+  return cols.map(function(c) { return valueMap[c] !== undefined ? valueMap[c] : '-'; });
+}
+
+function buildOneCoverageRecord(parent, parentModule, effective, decision, rowNumber, idx, params) {
+  var coveredRecordName = (parent && parent.meta && parent.meta.displayName) || (parent && parent.row && parent.row[0]) || '';
+  var coveredClientOrDepartment = (parent && parent.meta && parent.meta.clientDepartment) || '';
+  var coveredBrand = (parent && parent.meta && parent.meta.brandManufacturer) || '';
+  var nowISO = new Date().toISOString();
+  var id = 'imp-cov-' + nowISO.replace(/[^0-9]/g, '').slice(0, 14) + '-' + rowNumber + '-' + (effective.coverageKind || 'unk') + '-' + idx + '-' + Math.random().toString(36).slice(2, 7);
+  var coverageName = (effective.coverageType || 'Support Coverage') + ' — ' + (coveredRecordName || 'Imported record');
+  var cov = {
+    id: id,
+    moduleKey: 'contracts',
+    contractType: 'Support Coverage',
+    source: 'supportCoverage',
+    importedFrom: 'importSandbox',
+    name: coverageName,
+    coverageKind: effective.coverageKind,
+    coverageType: effective.coverageType || '',
+    startDate: effective.startDate || '',
+    endDate: effective.endDate || '',
+    provider: effective.provider || '',
+    supportLevel: effective.supportLevel || '',
+    reference: effective.reference || '',
+    suggestionBasis: effective.suggestionBasis || '',
+    decisionStatus: decision.status,
+    coveredModule: parentModule,
+    coveredRecordId: parent.id,
+    coveredRecordName: coveredRecordName,
+    coveredClientOrDepartment: coveredClientOrDepartment,
+    coveredBrand: coveredBrand,
+    importBatchId: params.batchId || '',
+    rowNumber: rowNumber,
+    importFileName: params.fileName || '',
+    workspaceMode: params.workspaceMode || '',
+    importedAt: nowISO,
+    createdAt: nowISO.slice(0, 10),
+    owner: 'Unassigned',
+    alertPolicy: 'Workspace default',
+    value: '',
+    notes: 'Imported from ' + (params.fileName || 'file') + ' row ' + rowNumber + '.',
+    duplicateKeys: buildCoverageDuplicateKeys(parentModule, parent.id, effective.coverageKind, effective.endDate || '')
+  };
+  return {
+    id: id,
+    row: buildCoverageContractsRow(cov, params.workspaceMode || ''),
+    meta: cov
+  };
+}
+
+/**
+ * Build all Coverage records for a Confirm Import call.
+ *
+ * @param {object} params
+ * @param {Array} params.previewItems      - importPreview.preview array
+ * @param {object} params.decisions        - coverageDecisions state
+ * @param {Array} params.licenseCreated    - licenseInsert.created (post-dedup)
+ * @param {Array} params.hardwareCreated   - hardwareInsert.created (post-dedup)
+ * @param {string} params.batchId          - shared import batch ID for traceability
+ * @param {string} params.fileName         - source file name
+ * @param {string} params.workspaceMode    - 'MSP / Integrator' | 'Internal IT'
+ *
+ * @returns {Array} Coverage records (each with id, row, meta) ready for
+ *                  insertImportedRecords('contracts', ...).
+ */
+export function buildCoverageRecordsForBatch(params) {
+  var data = params || {};
+  var preview = data.previewItems || [];
+  var decisions = data.decisions || {};
+  var licenseCreated = data.licenseCreated || [];
+  var hardwareCreated = data.hardwareCreated || [];
+  var coverages = [];
+  preview.forEach(function(item) {
+    if (!item || !item.suggestedCoverages || !item.suggestedCoverages.length) return;
+    // Determine parent module from preview item's moduleLabel. C3 producer
+    // only emits suggestedCoverages for license and hardware targets, so
+    // contracts / review / package targets are guarded here defensively.
+    var parentModule;
+    if (item.moduleLabel === 'Hardware / Warranty') parentModule = 'hardware';
+    else if (item.moduleLabel === 'License') parentModule = 'licenses';
+    else return;
+    var pool = parentModule === 'hardware' ? hardwareCreated : licenseCreated;
+    var parent = pool.find(function(r) {
+      return r && r.meta && r.meta.rowNumber === item.rowNumber;
+    });
+    if (!parent) return; // parent was dedup-skipped — no orphan coverage
+    item.suggestedCoverages.forEach(function(cov, idx) {
+      var key = item.rowNumber + '::' + cov.coverageKind;
+      var decision = decisions[key];
+      if (!decision) return;
+      if (decision.status !== 'approved' && decision.status !== 'edited') return;
+      var effective = (decision.status === 'edited' && decision.edits)
+        ? Object.assign({}, cov, decision.edits)
+        : cov;
+      if (!effective.endDate) return; // malformed suggestion (no end date) — skip
+      coverages.push(buildOneCoverageRecord(parent, parentModule, effective, decision, item.rowNumber, idx, data));
+    });
+  });
+  return coverages;
+}

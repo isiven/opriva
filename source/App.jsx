@@ -34,6 +34,7 @@ import { detectImportTarget, suggestImportTargetFromSource } from './importSandb
 import { detectImportSourceType, normalizeImportText } from './importSandbox/importText.js';
 import { getImportSheetData } from './importSandbox/workbookParsing.js';
 import { calcExpirationState, inferLicenseTerm, suggestRenewalDate } from './utils/dates.js';
+import { buildSuggestedCoveragesForLicense, buildSuggestedCoveragesForHardware, buildCoverageRecordsForBatch } from './utils/coverage.js';
 import { autoFillDocName, extractFileMetadata, fmtFileSize, fmtUploadedAt } from './utils/files.js';
 import { calcMargin } from './utils/money.js';
 import { asArray, cx, riskClass, safeText } from './utils/text.js';
@@ -2347,9 +2348,35 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
                     </section>
                 }
                 {isLicHw && (() => {
-                  var linkedCoverage = sessionSupportCoverage.filter(function(c) {
-                    return c.coveredRecordId === selectedRecord.id && c.coveredModule === selectedRecord.moduleKey;
-                  });
+                  // Coverage Import C5.1 — read Support Coverage records
+                  // directly from RECORD_STORE.contracts (single source of
+                  // truth). Both manual coverages from openSupportCoverage
+                  // and C5 imported coverages live here with
+                  // meta.source === 'supportCoverage', so the same filter
+                  // shows both. The legacy sessionSupportCoverage state is
+                  // kept inert for now (openSupportCoverage still writes to
+                  // it for backward-compat); cleanup is C5.1.1 follow-up.
+                  var linkedCoverage = (RECORD_STORE.contracts || [])
+                    .filter(function(c) {
+                      return c && c.meta
+                        && c.meta.source === 'supportCoverage'
+                        && c.meta.coveredRecordId === selectedRecord.id
+                        && c.meta.coveredModule === selectedRecord.moduleKey;
+                    })
+                    .map(function(c) { return c.meta; });
+                  var kindPalettes = {
+                    Warranty:    { bg: '#F0FDFA', border: '#CCFBEF', text: '#0F766E' },
+                    Support:     { bg: '#EFF6FF', border: '#BFDBFE', text: '#1D4ED8' },
+                    Maintenance: { bg: '#FAF5FF', border: '#E9D5FF', text: '#7C3AED' }
+                  };
+                  var kindBadge = function(kind) {
+                    var p = kindPalettes[kind] || { bg: '#F8FAFC', border: '#E2E8F0', text: '#475569' };
+                    return { fontSize: 10, fontWeight: 800, color: p.text, background: p.bg, border: '1px solid ' + p.border, borderRadius: 999, padding: '2px 7px', whiteSpace: 'nowrap' };
+                  };
+                  var typePillStyle = { fontSize: 11, fontWeight: 700, color: '#0F766E', background: '#F0FDF9', border: '1px solid #CCFBEF', borderRadius: 6, padding: '2px 7px', whiteSpace: 'nowrap' };
+                  var importedBadgeStyle = { fontSize: 10, fontWeight: 700, color: '#475569', background: '#F1F5F9', border: '1px solid #E2E8F0', borderRadius: 999, padding: '2px 7px', whiteSpace: 'nowrap' };
+                  var suggestedBadgeStyle = { fontSize: 10, fontWeight: 700, color: '#92400E', background: '#FEF3C7', border: '1px solid #FDE68A', borderRadius: 999, padding: '2px 7px', whiteSpace: 'nowrap' };
+                  var fromFileBadgeStyle = { fontSize: 10, fontWeight: 700, color: '#15803D', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 999, padding: '2px 7px', whiteSpace: 'nowrap' };
                   return <section style={{background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'}}>
                     <div style={{padding:'12px 14px',borderBottom:'1px solid #EEF2F7',background:'#FAFCFF'}}>
                       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
@@ -2364,16 +2391,26 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
                       {linkedCoverage.length === 0
                         ? <span style={{color:'#64748B',fontSize:12,lineHeight:1.45}}>No support coverage record linked yet.</span>
                         : linkedCoverage.map(function(cov) {
+                            var isImported = cov.importedFrom === 'importSandbox';
+                            var hasBasis = !!cov.suggestionBasis;
                             return <div key={cov.id} style={{border:'1px solid #EEF2F7',borderRadius:10,padding:'12px 14px',background:'#FAFCFF',display:'grid',gap:6}}>
-                              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8}}>
-                                <strong style={{fontSize:13,color:'#0B1F3A',fontWeight:700,lineHeight:1.3}}>{cov.name}</strong>
-                                <span style={{fontSize:11,fontWeight:700,color:'#0F766E',background:'#F0FDF9',border:'1px solid #CCFBEF',borderRadius:6,padding:'2px 7px',flexShrink:0,whiteSpace:'nowrap'}}>{cov.coverageType}</span>
+                              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8,flexWrap:'wrap'}}>
+                                <strong style={{fontSize:13,color:'#0B1F3A',fontWeight:700,lineHeight:1.3,minWidth:0,flex:'1 1 auto'}}>{cov.name}</strong>
+                                <div style={{display:'flex',gap:4,flexWrap:'wrap',flexShrink:0,alignItems:'center'}}>
+                                  {cov.coverageKind && <span style={kindBadge(cov.coverageKind)}>{cov.coverageKind}</span>}
+                                  {cov.coverageType && <span style={typePillStyle}>{cov.coverageType}</span>}
+                                  {isImported && <span style={importedBadgeStyle} title="Created via Data Import">Imported</span>}
+                                  {hasBasis && cov.suggestionBasis === 'file' && <span style={fromFileBadgeStyle} title="Value came from the source file">From file</span>}
+                                  {hasBasis && cov.suggestionBasis !== 'file' && <span style={suggestedBadgeStyle} title={'Inferred at import (' + cov.suggestionBasis + ')'}>Suggested</span>}
+                                </div>
                               </div>
                               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'4px 12px',fontSize:12,color:'#475569'}}>
                                 {cov.provider && <span><span style={{color:'#94A3B8',fontWeight:700}}>Provider: </span>{cov.provider}</span>}
                                 {cov.startDate && <span><span style={{color:'#94A3B8',fontWeight:700}}>Start: </span>{cov.startDate}</span>}
                                 {cov.endDate && <span><span style={{color:'#94A3B8',fontWeight:700}}>Ends: </span>{cov.endDate}</span>}
                                 {cov.owner && <span><span style={{color:'#94A3B8',fontWeight:700}}>Coverage Owner: </span>{cov.owner}</span>}
+                                {cov.supportLevel && <span><span style={{color:'#94A3B8',fontWeight:700}}>Level: </span>{cov.supportLevel}</span>}
+                                {cov.reference && <span><span style={{color:'#94A3B8',fontWeight:700}}>Ref: </span>{cov.reference}</span>}
                                 {cov.alertPolicy && <span><span style={{color:'#94A3B8',fontWeight:700}}>Alerts: </span>{cov.alertPolicy}</span>}
                                 {cov.value && <span style={{gridColumn:'1 / -1'}}><span style={{color:'#94A3B8',fontWeight:700}}>{workspaceMode === 'Internal IT' ? 'Annual Cost: ' : 'Annual Value: '}</span>{'$' + Number(cov.value).toLocaleString()}</span>}
                               </div>
@@ -3644,6 +3681,11 @@ function buildImportPreview(rowObjects, mappings, sourceType, workspaceMode, imp
   rowObjects.forEach(function(rowObj, index) {
     var target = detectImportTarget(rowObj, mappings, sourceType, importTarget);
     var issues = [];
+    // Coverage Import C3a — per-row Coverage suggestion array. Populated for
+    // license and hardware targets only; contracts and other targets
+    // remain [] so consumers (preview row badge, drawer details) can
+    // safely read .length without optional chaining.
+    var rowSuggestedCoverages = [];
     function pushIssue(severity, code, message, field) {
       issues.push(createImportIssue(severity, code, message, field));
     }
@@ -3726,6 +3768,29 @@ function buildImportPreview(rowObjects, mappings, sourceType, workspaceMode, imp
       stats.licenses += 1;
       var licenseIssueViews = buildImportIssueViews(issues);
       addImportRowStatus(stats, licenseIssueViews);
+      // Coverage Import C3a — compute Suggested Coverage records (Support /
+      // Maintenance) for this license row using mapped C1 canonical fields.
+      // Data layer only — Coverage records are NOT created here; later
+      // phases (C4 approve/edit/skip, C5 confirm-time creation) consume
+      // this array. Suggestions never become issues and never affect
+      // severity counts or confirm gating.
+      var licenseSuggestedCoverages = buildSuggestedCoveragesForLicense({
+        coverageType: getMappedImportValue(rowObj, mappings, 'Coverage Type'),
+        coverageReference: getMappedImportValue(rowObj, mappings, 'Coverage Reference'),
+        supportProvider: getMappedImportValue(rowObj, mappings, 'Support Provider'),
+        supportLevel: getMappedImportValue(rowObj, mappings, 'Support Level'),
+        supportReference: getMappedImportValue(rowObj, mappings, 'Support Reference'),
+        supportStartDate: getMappedImportValue(rowObj, mappings, 'Support Start Date'),
+        supportEndDate: getMappedImportValue(rowObj, mappings, 'Support End Date'),
+        supportTerm: getMappedImportValue(rowObj, mappings, 'Support Term'),
+        supportIncluded: getMappedImportValue(rowObj, mappings, 'Support Included') || getMappedImportValue(rowObj, mappings, 'Support'),
+        maintenanceStartDate: getMappedImportValue(rowObj, mappings, 'Maintenance Start Date'),
+        maintenanceEndDate: getMappedImportValue(rowObj, mappings, 'Maintenance End Date'),
+        maintenanceTerm: getMappedImportValue(rowObj, mappings, 'Maintenance Term'),
+        licenseStartDate: previewStart,
+        licenseEndDate: previewRenewal,
+        parentBrand: previewBrand && previewBrand !== '-' ? previewBrand : ''
+      });
       preview.push({
         rowNumber: index + 2,
         moduleLabel: target.label,
@@ -3733,6 +3798,7 @@ function buildImportPreview(rowObjects, mappings, sourceType, workspaceMode, imp
         clientDepartment: previewClient || '-',
         brandProduct: [previewBrand && previewBrand !== '-' ? previewBrand : '', previewProduct].filter(Boolean).join(' / ') || '-',
         expiration: previewRenewal || '-',
+        suggestedCoverages: licenseSuggestedCoverages,
         createdRecords: ['License'].concat(previewContract ? ['Contract reference'] : []).concat(importTarget === 'Renewal Package' || importTarget === 'Renewal Package / Bundle' ? ['Renewal Package / Bundle context'] : []),
         canonical: {
           brandManufacturer: previewBrand && previewBrand !== '-' ? previewBrand : '',
@@ -3794,6 +3860,29 @@ function buildImportPreview(rowObjects, mappings, sourceType, workspaceMode, imp
       addKeysToSet(hardwareDuplicateKeys, seenImportKeys);
       records.hardware.push(record);
       stats.hardware += 1;
+      // Coverage Import C3a — compute Suggested Coverage records (Warranty +
+      // optional file-provided Support + Maintenance) for this hardware
+      // row. Data-layer only; assigned to a local var consumed by the
+      // general preview.push() below.
+      var hardwareSuggestedCoverages = buildSuggestedCoveragesForHardware({
+        coverageType: getMappedImportValue(rowObj, mappings, 'Coverage Type'),
+        coverageReference: getMappedImportValue(rowObj, mappings, 'Coverage Reference'),
+        warrantyProvider: getMappedImportValue(rowObj, mappings, 'Warranty Provider'),
+        warrantyStartDate: getMappedImportValue(rowObj, mappings, 'Warranty Start Date'),
+        warrantyEndDate: hardwareWarrantyEnd || getMappedImportValue(rowObj, mappings, 'Warranty End Date'),
+        warrantyTerm: getMappedImportValue(rowObj, mappings, 'Warranty Term'),
+        supportProvider: getMappedImportValue(rowObj, mappings, 'Support Provider'),
+        supportLevel: getMappedImportValue(rowObj, mappings, 'Support Level'),
+        supportReference: getMappedImportValue(rowObj, mappings, 'Support Reference'),
+        supportStartDate: getMappedImportValue(rowObj, mappings, 'Support Start Date'),
+        supportEndDate: getMappedImportValue(rowObj, mappings, 'Support End Date'),
+        maintenanceStartDate: getMappedImportValue(rowObj, mappings, 'Maintenance Start Date'),
+        maintenanceEndDate: getMappedImportValue(rowObj, mappings, 'Maintenance End Date'),
+        maintenanceTerm: getMappedImportValue(rowObj, mappings, 'Maintenance Term'),
+        purchaseDate: normalizeImportDate(getMappedImportValue(rowObj, mappings, 'Purchase Date')),
+        parentBrand: hardwareBrand && hardwareBrand !== '-' ? hardwareBrand : ''
+      });
+      rowSuggestedCoverages = hardwareSuggestedCoverages;
     } else if (target.moduleKey === 'contracts') {
       var contractEdit = (importContext && importContext.recordEdits && importContext.recordEdits[index + 2]) || {};
       var previewContractNumber = contractEdit.contractNumber || getMappedImportValue(rowObj, mappings, 'Contract Number');
@@ -3837,6 +3926,7 @@ function buildImportPreview(rowObjects, mappings, sourceType, workspaceMode, imp
       clientDepartment: record && record.meta ? (record.meta.clientDepartment || '-') : '-',
       brandProduct: record && record.meta ? ([record.meta.brandManufacturer, record.meta.productLicenseName].filter(Boolean).join(' / ') || '-') : '-',
       expiration: record && record.meta ? (record.meta.expirationRenewalDate || '-') : '-',
+      suggestedCoverages: rowSuggestedCoverages,
       createdRecords: [target.label],
       canonical: record && record.meta ? {
         brandManufacturer: record.meta.brandManufacturer || '',
@@ -3927,6 +4017,32 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
   // re-reads IMPORT_BATCH_STORE without needing a global subscription.
   const [importBatchesVersion, setImportBatchesVersion] = React.useState(0);
   const [importStep, setImportStep] = React.useState('context');
+  // Coverage Import C4 — per-suggestion decisions (approve / edit / skip).
+  // Keyed by `${rowNumber}::${coverageKind}`. Shape per entry:
+  //   { status: 'approved' | 'edited' | 'skipped', edits: { coverageType?, startDate?, endDate?, provider?, supportLevel?, reference? } }
+  // Missing key = 'pending' (blocks Confirm). 'pending' is the absence of an
+  // entry, not a stored status, so undo simply deletes the key.
+  // TODO backend: persist decisions to a coverage_approval_event table per
+  // import batch with decidedBy / decidedAt. Corporate MVP requires
+  // permission gating (who can approve), audit trail and re-import
+  // reconciliation when the same source file is re-uploaded.
+  const [coverageDecisions, setCoverageDecisions] = React.useState({});
+  // Single suggestion being edited at any time in the drawer. Key shape
+  // matches coverageDecisions. null when no edit form is open.
+  const [editingCoverageKey, setEditingCoverageKey] = React.useState(null);
+  // Transient draft for the inline edit form — committed to coverageDecisions
+  // on Save, discarded on Cancel.
+  const [editCoverageDraft, setEditCoverageDraft] = React.useState({});
+  // Reset decisions and any open edit form when the workbook or mappings
+  // change. Preview regenerates with potentially different suggestions, so
+  // existing keys could point at non-existent rows or coverages. This
+  // mirrors the existing `setImportResult(null)` reset pattern used after
+  // mapping changes.
+  React.useEffect(function() {
+    setCoverageDecisions({});
+    setEditingCoverageKey(null);
+    setEditCoverageDraft({});
+  }, [workbook, mappings]);
   const importContextScopeLabel = isInternalIT ? 'Department / Business Unit' : 'Client / Account';
   const importContextScopeValue = isInternalIT ? importContext.departmentBusinessUnit : importContext.clientAccount;
   const importContextScopeOptions = isInternalIT ? MASTER_DATA.departments : MASTER_DATA.companies;
@@ -3965,6 +4081,24 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
     return m.action === 'Import' && m.suggestedField === 'Client / Department';
   });
   const multiScopeMissingColumn = isMultiScope && rowObjects.length > 0 && !hasClientDepartmentMapping;
+
+  // Coverage Import C1 — detection only. When any mapping resolves to a
+  // warranty/support/maintenance/coverage canonical field with an active
+  // action (Import or Review), surface a small helper banner in the Mapping
+  // step so the user knows Opriva detected coverage-related data. No
+  // Coverage records are created yet; later phases (C2-C5) will materialise
+  // them via inference, preview suggestions, approval and creation.
+  const COVERAGE_RELATED_IMPORT_FIELDS = [
+    'Support', 'Warranty End Date',
+    'Warranty Start Date', 'Warranty Term', 'Warranty Provider',
+    'Support Start Date', 'Support End Date', 'Support Term', 'Support Provider',
+    'Support Level', 'Support Reference',
+    'Maintenance Start Date', 'Maintenance End Date', 'Maintenance Term',
+    'Coverage Type', 'Coverage Reference', 'Support Included'
+  ];
+  const hasCoverageRelatedMappings = (mappings || []).some(function(m) {
+    return m.action !== 'Skip' && COVERAGE_RELATED_IMPORT_FIELDS.indexOf(m.suggestedField) >= 0;
+  });
 
   function updateImportContext(key, value) {
     setImportContext(function(prev) {
@@ -4157,7 +4291,11 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
       localRowIndex: -1,
       meta: record.meta,
       isImportPreview: true,
-      importRowNumber: item.rowNumber
+      importRowNumber: item.rowNumber,
+      // Coverage Import C3c — surface inferred Coverage suggestions inside
+      // the existing Review drawer. Read-only; no Approve/Edit/Skip actions
+      // in C3. Phase C4 will add per-suggestion approval gating.
+      suggestedCoverages: Array.isArray(item.suggestedCoverages) ? item.suggestedCoverages : []
     };
     setPreviewSelectedRecord(selected);
     setPreviewEditForm(buildEditForm(selected, fieldSpecs, workspaceMode));
@@ -4168,6 +4306,11 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
     setPreviewDrawerOpen(false);
     setPreviewSelectedRecord(null);
     setPreviewEditForm({});
+    // Coverage Import C4 — discard any in-progress edit form on drawer close.
+    // The decision state itself (coverageDecisions) persists across drawer
+    // open/close so the user does not lose Approve/Skip choices.
+    setEditingCoverageKey(null);
+    setEditCoverageDraft({});
   }
 
   // Save preview-mode edits to recordEdits only. Never writes to RECORD_STORE
@@ -4320,18 +4463,39 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
     (importPreview.records.hardware || []).length +
     (importPreview.records.contracts || []).length) > 0;
   const hasCriticalImportIssues = (importSeverityCounts.critical || 0) > 0;
+  // Coverage Import C4 — derive pending suggestion count across all preview
+  // rows. A suggestion is pending when no decision entry exists for its key.
+  // Approved / edited / skipped suggestions are NOT pending.
+  const pendingCoverageCount = React.useMemo(function() {
+    var count = 0;
+    ((importPreview && importPreview.preview) || []).forEach(function(item) {
+      (item.suggestedCoverages || []).forEach(function(cov) {
+        var key = item.rowNumber + '::' + cov.coverageKind;
+        var decision = coverageDecisions[key];
+        if (!decision || decision.status === 'pending') count += 1;
+      });
+    });
+    return count;
+  }, [importPreview, coverageDecisions]);
+  const hasPendingCoverageSuggestions = pendingCoverageCount > 0;
   // W1.5: multi scope requires a mapped Client / Department column to resolve
   // ownership per row. Without one, every row would fall back to "Unassigned"
   // and Confirm Import must stay blocked even before per-row severity scans.
-  const canConfirmImport = recordsReadyToConfirm && !hasCriticalImportIssues && !multiScopeMissingColumn;
+  // Coverage Import C4: pending coverage suggestions also gate Confirm.
+  const canConfirmImport = recordsReadyToConfirm && !hasCriticalImportIssues && !multiScopeMissingColumn && !hasPendingCoverageSuggestions;
   const multiScopeMissingColumnMessage = multiScopeMissingColumn
     ? (isInternalIT
       ? 'Multi-department mode requires a Department / Business Unit column mapping. Map a source column to Client / Department in the Mapping step.'
       : 'Multi-client mode requires a Client / Account column mapping. Map a source column to Client / Department in the Mapping step.')
     : '';
+  // Coverage Import C4 — confirm-blocking copy when pending suggestions are
+  // the only blocker.
+  const pendingCoverageMessage = hasPendingCoverageSuggestions
+    ? pendingCoverageCount + ' coverage suggestion' + (pendingCoverageCount === 1 ? '' : 's') + ' need' + (pendingCoverageCount === 1 ? 's' : '') + ' approval, edit or skip before Confirm Import.'
+    : '';
   const confirmBlockedMessage = hasCriticalImportIssues
     ? 'Confirm Import is blocked until ' + importSeverityCounts.critical + ' critical issue' + (importSeverityCounts.critical === 1 ? ' is' : 's are') + ' fixed.'
-    : (multiScopeMissingColumn ? multiScopeMissingColumnMessage : '');
+    : (multiScopeMissingColumn ? multiScopeMissingColumnMessage : (hasPendingCoverageSuggestions ? pendingCoverageMessage : ''));
   const warningContinueMessage = !hasCriticalImportIssues && (importSeverityCounts.warning || 0) > 0
     ? 'Warnings do not block import, but review them before confirming.'
     : '';
@@ -4439,6 +4603,13 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
       setImportResult(null);
       return;
     }
+    if (hasPendingCoverageSuggestions) {
+      // Coverage Import C4 defense-in-depth: never confirm while coverage
+      // suggestions are pending. C5 will materialise approved / edited
+      // suggestions into Coverage records; until then the gate stays.
+      setImportResult(null);
+      return;
+    }
     var licenses = importPreview.records.licenses;
     var hardware = importPreview.records.hardware;
     var contracts = importPreview.records.contracts;
@@ -4446,16 +4617,46 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
       setImportResult({ processed: rowObjects.length, licenses: 0, hardware: 0, contracts: 0, skipped: rowObjects.length, review: importPreview.stats.review, message: 'No records were ready to create.' });
       return;
     }
+    // Coverage Import C5 — generate batch ID up-front so coverage records
+    // can reference it (importBatchId in their meta) and the IMPORT_BATCH_STORE
+    // snapshot can reuse the same ID. Previously generated inside
+    // recordImportBatch() but C5 needs it earlier.
+    var batchId = createImportBatchId();
     var licenseInsert = insertImportedRecords('licenses', licenses);
     var hardwareInsert = insertImportedRecords('hardware', hardware);
     var contractInsert = insertImportedRecords('contracts', contracts);
-    var createdRecords = licenseInsert.created.concat(hardwareInsert.created).concat(contractInsert.created);
-    var duplicateCount = licenseInsert.duplicates + hardwareInsert.duplicates + contractInsert.duplicates;
+    // Coverage Import C5 — materialise approved / edited coverage decisions
+    // into Coverage records linked to the just-created parent License/Hardware
+    // records. Skipped + pending decisions produce nothing. Orphans (when
+    // parent was dedup-skipped) are also suppressed by the helper. The
+    // resulting coverages flow through the same insertImportedRecords pipeline
+    // as contracts so cross-source dedup against existing RECORD_STORE.contracts
+    // happens for free via meta.duplicateKeys. C4's pending-suggestion gate
+    // already prevented confirm if any decision was still pending.
+    var coverageRecords = buildCoverageRecordsForBatch({
+      previewItems: importPreview.preview,
+      decisions: coverageDecisions,
+      licenseCreated: licenseInsert.created,
+      hardwareCreated: hardwareInsert.created,
+      batchId: batchId,
+      fileName: fileName || '',
+      workspaceMode: workspaceMode
+    });
+    var coverageInsert = coverageRecords.length
+      ? insertImportedRecords('contracts', coverageRecords)
+      : { created: [], duplicates: 0 };
+    var coverageCount = coverageInsert.created.length;
+    var coverageDuplicateCount = coverageInsert.duplicates;
+    var createdRecords = licenseInsert.created.concat(hardwareInsert.created).concat(contractInsert.created).concat(coverageInsert.created);
+    var duplicateCount = licenseInsert.duplicates + hardwareInsert.duplicates + contractInsert.duplicates + coverageDuplicateCount;
     var clientSync = ensureImportedClientRecords(createdRecords, workspaceMode);
+    var coverageDescription = coverageCount > 0
+      ? ' (incl ' + coverageCount + ' linked coverage record' + (coverageCount === 1 ? '' : 's') + ')'
+      : '';
     addActivityEvent({
       eventType: 'import_completed',
       title: 'Import completed',
-      description: fileName + ' created ' + createdRecords.length + ' first-class local Opriva records and matched ' + clientSync.matched + ' clients/departments.',
+      description: fileName + ' created ' + createdRecords.length + ' first-class local Opriva records' + coverageDescription + ' and matched ' + clientSync.matched + ' clients/departments.',
       sourceModule: 'data-import',
       sourceRecordName: fileName,
       source: 'importSandbox',
@@ -4479,18 +4680,23 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
       licenses: licenseInsert.created.length,
       hardware: hardwareInsert.created.length,
       contracts: contractInsert.created.length,
+      coverages: coverageCount,
       clientsCreated: clientSync.created,
       clientsMatched: clientSync.matched,
       entitySummary: importPreview.entitySummary,
       skipped: importPreview.stats.skipped + duplicateCount,
       review: importPreview.stats.review,
       duplicates: duplicateCount,
-      message: 'Imported records were added to the central local Opriva record store for this session. They can now be opened from relevant modules. Backend persistence is still required for corporate MVP. ' + duplicateCount + ' duplicate-looking record' + (duplicateCount === 1 ? ' was' : 's were') + ' skipped.'
+      message: 'Imported records were added to the central local Opriva record store for this session. They can now be opened from relevant modules. Backend persistence is still required for corporate MVP. '
+        + duplicateCount + ' duplicate-looking record' + (duplicateCount === 1 ? ' was' : 's were') + ' skipped.'
+        + (coverageCount > 0 ? ' ' + coverageCount + ' linked coverage record' + (coverageCount === 1 ? ' was' : 's were') + ' created from approved suggestions.' : '')
     });
     // Append a session-only batch to IMPORT_BATCH_STORE for the Import
     // history panel. Backend will replace this with a persistent import job.
+    // Reuses the batchId generated at the start so the snapshot matches the
+    // importBatchId stamped on every coverage record (C5).
     recordImportBatch({
-      batchId: createImportBatchId(),
+      batchId: batchId,
       timestamp: new Date().toISOString(),
       fileName: fileName || '',
       workspaceMode: workspaceMode,
@@ -4503,6 +4709,7 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
       },
       totalRows: rowObjects.length,
       importedCount: createdRecords.length,
+      coverageCount: coverageCount,
       skippedCount: (importPreview.stats.skipped || 0) + duplicateCount,
       criticalCount: importSeverityCounts.critical || 0,
       warningCount: importSeverityCounts.warning || 0,
@@ -4807,6 +5014,10 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
         <strong style={{fontSize:13,fontWeight:850,color:'#991B1B'}}>{isInternalIT ? 'Department / Business Unit column required' : 'Client / Account column required'}</strong>
         <span style={{fontSize:12,color:'#7F1D1D',lineHeight:1.45}}>{multiScopeMissingColumnMessage} Confirm Import stays blocked until a column is mapped.</span>
       </div>}
+      {showImportStep('mapping') && importContextReady && hasCoverageRelatedMappings && <div role="note" style={{border:'1px solid #FDE68A',background:'#FFFBEB',borderRadius:10,padding:'8px 12px',display:'flex',alignItems:'flex-start',gap:8,fontSize:12,lineHeight:1.45,color:'#92400E'}}>
+        <strong style={{fontWeight:850}}>Coverage-related columns detected.</strong>
+        <span>Opriva can map warranty/support data for review.</span>
+      </div>}
       {showImportStep('mapping') && importContextReady && headers.length > 0 && <div className="tableWrap">
         <table>
           <thead><tr>{['Source Column','Suggested Opriva Field','Action','Sample Value'].map(function(col) { return <th key={col}>{col}</th>; })}</tr></thead>
@@ -4940,7 +5151,14 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
                   <td>{item.brandProduct || '-'}</td>
                   <td>{item.expiration || '-'}</td>
                   <td>{item.moduleLabel}</td>
-                  <td>{renderImportIssueBadges(item)}</td>
+                  <td>
+                    {renderImportIssueBadges(item)}
+                    {item.suggestedCoverages && item.suggestedCoverages.length > 0 && <span
+                      title="Open Review to see warranty/support/maintenance suggestions"
+                      aria-label={'Open Review to see ' + item.suggestedCoverages.length + ' coverage suggestion' + (item.suggestedCoverages.length === 1 ? '' : 's')}
+                      style={{display:'inline-flex',alignItems:'center',marginLeft:6,border:'1px solid #FDE68A',background:'#FFFBEB',color:'#92400E',borderRadius:999,padding:'2px 8px',fontSize:11,fontWeight:700,lineHeight:1.2,verticalAlign:'middle'}}
+                    >+{item.suggestedCoverages.length} coverage{item.suggestedCoverages.length === 1 ? '' : 's'}</span>}
+                  </td>
                   <td className="actionCell"><button type="button" className="rowAction" onClick={function() { openImportReviewDrawer(item); }}>Review</button></td>
                 </tr>;
               })}
@@ -4970,6 +5188,10 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
         </div>}
         {showImportStep('confirm') && hasCriticalImportIssues && <div className="miniState errorState" role="alert">
           {confirmBlockedMessage} Critical errors include missing required names, client/department scope, or renewal dates that prevent safe record creation.
+        </div>}
+        {showImportStep('confirm') && !hasCriticalImportIssues && !multiScopeMissingColumn && hasPendingCoverageSuggestions && <div className="miniState errorState" role="alert">
+          <strong>Coverage suggestions need review.</strong>{' '}
+          <span>{pendingCoverageMessage} Open each Review drawer to Approve, Edit or Skip per suggestion.</span>
         </div>}
         {showImportStep('confirm') && !hasCriticalImportIssues && multiScopeMissingColumn && <div className="miniState errorState" role="alert">
           {multiScopeMissingColumnMessage}
@@ -5032,7 +5254,7 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
                     {purpose ? <><br/><span style={{fontSize:11,color:'#64748B',fontWeight:600}}>{purpose}</span></> : null}
                   </td>
                   <td>{batch.totalRows || 0}</td>
-                  <td>{(batch.importedCount || 0) + ' created · ' + (batch.skippedCount || 0) + ' skipped'}</td>
+                  <td>{(batch.importedCount || 0) + ' created · ' + (batch.skippedCount || 0) + ' skipped' + ((batch.coverageCount || 0) > 0 ? ' · +' + batch.coverageCount + ' coverage' + (batch.coverageCount === 1 ? '' : 's') : '')}</td>
                   <td>
                     <span style={{fontSize:11,fontWeight:800,color:'#475569'}}>
                       {(batch.criticalCount || 0)} critical · {(batch.warningCount || 0)} warn · {(batch.suggestionCount || 0)} sugg
@@ -5120,6 +5342,174 @@ function DataImportScreen({ workspaceMode = 'MSP / Integrator' }){
                 </>}
                 {noteF.length > 0 && <div style={{display:'grid',gap:12}}>{noteF.map(renderField)}</div>}
               </>;
+            })()}
+            {/* Coverage Import C4 — Suggested Coverage Records with
+                per-suggestion Approve / Edit / Skip / Undo. Native <details>
+                collapsed by default per AGENTS.md §16 (Progressive Guidance).
+                Decisions are captured in coverageDecisions session state and
+                block Confirm Import while any suggestion remains pending.
+                Records are NOT yet created — C5 will materialise approved /
+                edited suggestions into Coverage records in RECORD_STORE. */}
+            {previewSelectedRecord.suggestedCoverages && previewSelectedRecord.suggestedCoverages.length > 0 && (function() {
+              var covs = previewSelectedRecord.suggestedCoverages;
+              var rowNumber = previewSelectedRecord.importRowNumber;
+              var parentBlocked = !!(previewSelectedRecord && previewSelectedRecord.meta && previewSelectedRecord.meta.rowNumber && /* if parent row had critical issues we leave Approve allowed; W3 critical already blocks confirm at the row level */ false);
+              // Catalogs (local — Coverage Type expanded to spec v2.0 §16.4;
+              // Support Level new in v2.0). Closed enums per the Controlled
+              // Catalog rule (AGENTS.md §17): simple <select> is acceptable
+              // because the lists do not grow per workspace. SearchableSelect
+              // (Phase S1) will replace them when high-cardinality entity
+              // fields like Provider migrate.
+              var COVERAGE_TYPE_DROPDOWN = ['Manufacturer Warranty','Extended Warranty','Care Pack','SmartNet','Vendor Support','Managed Support','Subscription Support','Software Assurance','SLA Coverage','Maintenance Agreement','Other'];
+              var SUPPORT_LEVEL_DROPDOWN = ['Bronze','Silver','Gold','Platinum','Standard','Premium','Mission Critical','Other'];
+              var kindBg = { Warranty: '#F0FDFA', Support: '#EFF6FF', Maintenance: '#FAF5FF' };
+              var kindBorder = { Warranty: '#CCFBEF', Support: '#BFDBFE', Maintenance: '#E9D5FF' };
+              var kindText = { Warranty: '#0F766E', Support: '#1D4ED8', Maintenance: '#7C3AED' };
+              function decisionKey(kind) { return rowNumber + '::' + kind; }
+              function effectiveCov(cov) {
+                var dec = coverageDecisions[decisionKey(cov.coverageKind)];
+                if (dec && dec.status === 'edited' && dec.edits) return Object.assign({}, cov, dec.edits);
+                return cov;
+              }
+              function applyDecision(kind, status, edits) {
+                setCoverageDecisions(function(prev) {
+                  var next = Object.assign({}, prev);
+                  var k = rowNumber + '::' + kind;
+                  if (status === 'pending') { delete next[k]; }
+                  else { next[k] = { status: status, edits: edits || (prev[k] && prev[k].edits) || {} }; }
+                  return next;
+                });
+              }
+              function startEdit(cov) {
+                var eff = effectiveCov(cov);
+                setEditCoverageDraft({
+                  coverageType: eff.coverageType || '',
+                  startDate: eff.startDate || '',
+                  endDate: eff.endDate || '',
+                  provider: eff.provider || '',
+                  supportLevel: eff.supportLevel || '',
+                  reference: eff.reference || ''
+                });
+                setEditingCoverageKey(decisionKey(cov.coverageKind));
+              }
+              function saveEdit(kind) {
+                applyDecision(kind, 'edited', Object.assign({}, editCoverageDraft));
+                setEditingCoverageKey(null);
+                setEditCoverageDraft({});
+              }
+              function cancelEdit() {
+                setEditingCoverageKey(null);
+                setEditCoverageDraft({});
+              }
+              var statusTone = {
+                pending:  { label: 'Pending review', bg: '#FEF3C7', border: '#FDE68A', text: '#92400E' },
+                approved: { label: 'Approved',       bg: '#F0FDF4', border: '#BBF7D0', text: '#15803D' },
+                edited:   { label: 'Edited',         bg: '#ECFEFF', border: '#A5F3FC', text: '#0E7490' },
+                skipped:  { label: 'Won’t be created', bg: '#F1F5F9', border: '#CBD5E1', text: '#64748B' }
+              };
+              var fileTone = { label: 'From file', bg: '#F0FDF4', border: '#BBF7D0', text: '#15803D' };
+              var smallBtn = {border:'1px solid #DDE5EF',background:'#fff',color:'#243247',borderRadius:6,padding:'4px 8px',fontSize:11,fontWeight:700,cursor:'pointer',lineHeight:1.2};
+              var primaryBtn = {border:'1px solid #0D9488',background:'#0D9488',color:'#fff',borderRadius:6,padding:'4px 8px',fontSize:11,fontWeight:700,cursor:'pointer',lineHeight:1.2};
+              var skipBtn = {border:'1px solid #E2E8F0',background:'#fff',color:'#64748B',borderRadius:6,padding:'4px 8px',fontSize:11,fontWeight:700,cursor:'pointer',lineHeight:1.2};
+              var undoBtn = {border:'none',background:'transparent',color:'#0D9488',fontSize:11,fontWeight:700,cursor:'pointer',padding:'2px 6px',textDecoration:'underline'};
+              var editFieldStyle = {border:'1px solid #DDE5EF',borderRadius:6,padding:'5px 7px',fontSize:11,width:'100%',fontFamily:'inherit',boxSizing:'border-box',background:'#fff',color:'#132033'};
+              var editLabelStyle = {display:'block',marginBottom:3,fontSize:10,fontWeight:800,color:'#64748B',textTransform:'uppercase',letterSpacing:'.06em'};
+              return <details style={{border:'1px solid #FDE68A',borderRadius:10,background:'#FFFBEB',padding:'4px 12px',marginTop:4}}>
+                <summary style={{cursor:'pointer',padding:'6px 0',fontSize:12,fontWeight:800,color:'#92400E',listStyle:'revert'}}>
+                  Suggested coverage records ({covs.length})
+                </summary>
+                <ul role="list" style={{listStyle:'none',padding:0,margin:'6px 0 8px',display:'grid',gap:8}}>
+                  {covs.map(function(cov, idx) {
+                    var dKey = decisionKey(cov.coverageKind);
+                    var decision = coverageDecisions[dKey] || { status: 'pending', edits: {} };
+                    var status = decision.status || 'pending';
+                    var eff = effectiveCov(cov);
+                    var isEditing = editingCoverageKey === dKey;
+                    var sTone = statusTone[status] || statusTone.pending;
+                    var basisIsFile = cov.suggestionBasis === 'file';
+                    var statusBadge = status === 'pending' && basisIsFile ? fileTone : sTone;
+                    var statusLabel = status === 'pending' && basisIsFile ? 'From file' : sTone.label;
+                    var rowDimmed = status === 'skipped' ? { opacity: 0.65 } : {};
+                    return <li key={'cov-' + idx} role="listitem" style={Object.assign({border:'1px solid #FEF3C7',background:'#fff',borderRadius:8,padding:'8px 10px',display:'grid',gap:6,fontSize:12,lineHeight:1.45}, rowDimmed)}>
+                      <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+                        <span style={{display:'inline-flex',alignItems:'center',border:'1px solid ' + (kindBorder[cov.coverageKind] || '#E2E8F0'),background:kindBg[cov.coverageKind] || '#F8FAFC',color:kindText[cov.coverageKind] || '#475569',borderRadius:999,padding:'2px 8px',fontSize:11,fontWeight:800}}>{cov.coverageKind}</span>
+                        <strong style={{color:'#0B1F3A',fontWeight:800}}>{eff.coverageType || '-'}</strong>
+                        <span role="status" aria-live="polite" aria-label={'Coverage suggestion status: ' + statusLabel} style={{display:'inline-flex',alignItems:'center',border:'1px solid ' + statusBadge.border,background:statusBadge.bg,color:statusBadge.text,borderRadius:999,padding:'2px 8px',fontSize:10,fontWeight:700,marginLeft:'auto'}}>{statusLabel}</span>
+                      </div>
+                      {!isEditing && <>
+                        <div style={{color:'#475569',fontSize:11.5}}>
+                          <span style={{color:'#94A3B8'}}>Start </span>{eff.startDate || '—'}
+                          <span style={{margin:'0 6px',color:'#CBD5E1'}}>·</span>
+                          <span style={{color:'#94A3B8'}}>End </span><strong style={{color:'#0B1F3A',fontWeight:700}}>{eff.endDate || '—'}</strong>
+                        </div>
+                        {(eff.provider || eff.supportLevel || eff.reference) && <div style={{color:'#64748B',fontSize:11,display:'flex',gap:10,flexWrap:'wrap'}}>
+                          {eff.provider && <span><span style={{color:'#94A3B8'}}>Provider </span>{eff.provider}</span>}
+                          {eff.supportLevel && <span><span style={{color:'#94A3B8'}}>Level </span>{eff.supportLevel}</span>}
+                          {eff.reference && <span><span style={{color:'#94A3B8'}}>Ref </span>{eff.reference}</span>}
+                        </div>}
+                        <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap',marginTop:2}}>
+                          {status === 'pending' && <>
+                            <button type="button" style={primaryBtn} aria-label={'Approve ' + cov.coverageKind + ' coverage for row ' + rowNumber} onClick={function() { applyDecision(cov.coverageKind, 'approved'); }}>Approve</button>
+                            <button type="button" style={smallBtn} aria-label={'Edit ' + cov.coverageKind + ' coverage for row ' + rowNumber} onClick={function() { startEdit(cov); }}>Edit</button>
+                            <button type="button" style={skipBtn} aria-label={'Skip ' + cov.coverageKind + ' coverage for row ' + rowNumber + ' so it will not be created'} onClick={function() { applyDecision(cov.coverageKind, 'skipped'); }}>Skip</button>
+                          </>}
+                          {status === 'approved' && <>
+                            <button type="button" style={smallBtn} aria-label={'Edit ' + cov.coverageKind + ' coverage for row ' + rowNumber} onClick={function() { startEdit(cov); }}>Edit</button>
+                            <button type="button" style={undoBtn} aria-label={'Undo approval of ' + cov.coverageKind + ' coverage for row ' + rowNumber} onClick={function() { applyDecision(cov.coverageKind, 'pending'); }}>Undo</button>
+                          </>}
+                          {status === 'edited' && <>
+                            <button type="button" style={smallBtn} aria-label={'Re-edit ' + cov.coverageKind + ' coverage for row ' + rowNumber} onClick={function() { startEdit(cov); }}>Edit</button>
+                            <button type="button" style={undoBtn} aria-label={'Undo edit of ' + cov.coverageKind + ' coverage for row ' + rowNumber} onClick={function() { applyDecision(cov.coverageKind, 'pending'); }}>Undo</button>
+                          </>}
+                          {status === 'skipped' && <>
+                            <button type="button" style={undoBtn} aria-label={'Undo skip of ' + cov.coverageKind + ' coverage for row ' + rowNumber} onClick={function() { applyDecision(cov.coverageKind, 'pending'); }}>Undo</button>
+                          </>}
+                        </div>
+                      </>}
+                      {isEditing && <div style={{display:'grid',gap:8,background:'#F8FAFC',border:'1px solid #DDE5EF',borderRadius:8,padding:'8px 10px'}}>
+                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                          <div>
+                            <label style={editLabelStyle} htmlFor={'cov-type-' + idx}>Coverage Type</label>
+                            <select id={'cov-type-' + idx} style={editFieldStyle} value={editCoverageDraft.coverageType || ''} onChange={function(e) { setEditCoverageDraft(function(p) { return Object.assign({}, p, { coverageType: e.target.value }); }); }}>
+                              <option value="">Select...</option>
+                              {COVERAGE_TYPE_DROPDOWN.map(function(o) { return <option key={o} value={o}>{o}</option>; })}
+                            </select>
+                          </div>
+                          <div>
+                            <label style={editLabelStyle} htmlFor={'cov-level-' + idx}>Support Level</label>
+                            <select id={'cov-level-' + idx} style={editFieldStyle} value={editCoverageDraft.supportLevel || ''} onChange={function(e) { setEditCoverageDraft(function(p) { return Object.assign({}, p, { supportLevel: e.target.value }); }); }}>
+                              <option value="">Select...</option>
+                              {SUPPORT_LEVEL_DROPDOWN.map(function(o) { return <option key={o} value={o}>{o}</option>; })}
+                            </select>
+                          </div>
+                          <div>
+                            <label style={editLabelStyle} htmlFor={'cov-start-' + idx}>Start Date</label>
+                            <input id={'cov-start-' + idx} type="date" style={editFieldStyle} value={editCoverageDraft.startDate || ''} onChange={function(e) { setEditCoverageDraft(function(p) { return Object.assign({}, p, { startDate: e.target.value }); }); }}/>
+                          </div>
+                          <div>
+                            <label style={editLabelStyle} htmlFor={'cov-end-' + idx}>End Date</label>
+                            <input id={'cov-end-' + idx} type="date" style={editFieldStyle} value={editCoverageDraft.endDate || ''} onChange={function(e) { setEditCoverageDraft(function(p) { return Object.assign({}, p, { endDate: e.target.value }); }); }}/>
+                          </div>
+                          <div>
+                            <label style={editLabelStyle} htmlFor={'cov-provider-' + idx}>Provider</label>
+                            {/* TODO Phase S1-S2: SearchableSelect with provider catalog when SearchableSelect primitive lands. */}
+                            <input id={'cov-provider-' + idx} type="text" style={editFieldStyle} value={editCoverageDraft.provider || ''} onChange={function(e) { setEditCoverageDraft(function(p) { return Object.assign({}, p, { provider: e.target.value }); }); }} placeholder="Free text in MVP"/>
+                          </div>
+                          <div>
+                            <label style={editLabelStyle} htmlFor={'cov-ref-' + idx}>Reference</label>
+                            <input id={'cov-ref-' + idx} type="text" style={editFieldStyle} value={editCoverageDraft.reference || ''} onChange={function(e) { setEditCoverageDraft(function(p) { return Object.assign({}, p, { reference: e.target.value }); }); }} placeholder="Contract / PO / SKU"/>
+                          </div>
+                        </div>
+                        <div style={{display:'flex',gap:6,justifyContent:'flex-end'}}>
+                          <button type="button" style={smallBtn} onClick={cancelEdit} aria-label="Cancel coverage edit">Cancel</button>
+                          <button type="button" style={primaryBtn} onClick={function() { saveEdit(cov.coverageKind); }} aria-label={'Save edited ' + cov.coverageKind + ' coverage for row ' + rowNumber}>Save changes</button>
+                        </div>
+                      </div>}
+                    </li>;
+                  })}
+                </ul>
+                <p style={{margin:'4px 0 6px',fontSize:11,lineHeight:1.4,color:'#92400E'}}>Approved or edited suggestions become Coverage records when import is confirmed. Skipped suggestions will not be created.</p>
+              </details>;
             })()}
           </div>
           <div style={{padding:'10px 16px',borderTop:'1px solid #EEF2F7',display:'flex',justifyContent:'flex-end',gap:8,flexShrink:0,background:'#fff'}}>

@@ -95,6 +95,22 @@ const TARGET_MAPPING_RULES = {
     profileRule('PO / Order Reference', 'Import', 'License target: order or PO reference', ['po number', 'order id', '# oc', 'oc partner', 'numero', 'número', 'order reference']),
     profileRule('Contract Number', 'Import', 'License target: contract/reference context', ['con number', 'contract number', 'contrato', '# registro', 'registro']),
     profileRule('Support', 'Review', 'Support coverage may need a related contract/coverage record', ['support', 'soporte']),
+    // Coverage Import C1 — license-side support / maintenance / coverage detection.
+    // Builders do not yet create Coverage records; values flow through Mapping
+    // only so the user can see coverage-related columns. Later phases (C2-C5)
+    // will materialise the relationship to a Coverage entity.
+    profileRule('Support Start Date', 'Import', 'License target: support start date', ['support start', 'support start date', 'fecha inicio soporte', 'soporte inicio', 'sa start', 'software assurance start', 'subscription support start']),
+    profileRule('Support End Date', 'Import', 'License target: support end/expiration date', ['support end', 'support end date', 'support expiration', 'fecha fin soporte', 'soporte fin', 'sa end', 'software assurance end', 'subscription support end', 'veeam support end', 'vmware support end']),
+    profileRule('Support Term', 'Import', 'License target: support term/duration', ['support term', 'support duration', 'plazo soporte', 'soporte plazo']),
+    profileRule('Support Provider', 'Import', 'License target: support provider', ['support provider', 'proveedor soporte']),
+    profileRule('Support Level', 'Import', 'License target: support level / SLA tier', ['support level', 'sla', 'sla level', 'service level', 'nivel soporte', 'nivel servicio']),
+    profileRule('Support Reference', 'Import', 'License target: support contract reference', ['support reference', 'support contract', 'support contract number', 'support id']),
+    profileRule('Maintenance Start Date', 'Import', 'License target: maintenance start date', ['maintenance start', 'maintenance start date', 'fecha inicio mantenimiento', 'mantenimiento inicio']),
+    profileRule('Maintenance End Date', 'Import', 'License target: maintenance end date', ['maintenance end', 'maintenance end date', 'maintenance expiration', 'fecha fin mantenimiento', 'mantenimiento fin']),
+    profileRule('Maintenance Term', 'Import', 'License target: maintenance term/duration', ['maintenance term', 'maintenance duration', 'plazo mantenimiento']),
+    profileRule('Coverage Type', 'Import', 'License target: coverage type', ['coverage type', 'tipo cobertura', 'tipo de cobertura', 'software assurance', 'subscription support', 'vendor support', 'managed support', 'veeam support', 'vmware support', 'vmware support and subscription']),
+    profileRule('Coverage Reference', 'Import', 'License target: coverage reference', ['coverage reference', 'coverage id', 'coverage ref', 'cobertura referencia', 'referencia cobertura']),
+    profileRule('Support Included', 'Import', 'License target: support inclusion flag', ['support included', 'soporte incluido', 'with support', 'includes support', 'support yes no']),
     profileRule('Sale Price / Annual Value', 'Review', 'Commercial value requires user review', ['annual value', 'monto total', 'value', 'amount', 'importe', 'sale price', 'precio venta', 'incumbent total']),
     profileRule('Vendor Cost', 'Review', 'Vendor cost requires user review', ['vendor cost', 'cost', 'costo', 'purchase cost']),
   ],
@@ -116,7 +132,24 @@ const TARGET_MAPPING_RULES = {
     profileRule('Client / Department', 'Import', 'Hardware target: client or department context', ['customer', 'customer name', 'cliente', 'client', 'department', 'departamento']),
     profileRule('Quantity / Seats', 'Import', 'Hardware target: asset quantity', ['quantity', 'cantidad', 'qty']),
     profileRule('Purchase Date', 'Import', 'Hardware target: purchase or transaction date', ['purchase date', 'fecha de la transaccion', 'fecha de la transacción', 'transaction date']),
-    profileRule('Warranty End Date', 'Import', 'Hardware target: warranty end date', ['warranty end', 'warranty end date', 'fecha fin garantia', 'fecha fin garantía']),
+    profileRule('Warranty End Date', 'Import', 'Hardware target: warranty end date', ['warranty end', 'warranty end date', 'warranty expiration', 'fecha fin garantia', 'fecha fin garantía', 'garantia fin', 'garantía fin', 'fecha vencimiento garantia', 'fecha vencimiento garantía']),
+    // Coverage Import C1 — warranty / support / maintenance / coverage detection.
+    // Captured here so the Mapping step can surface coverage-related columns;
+    // builders do not yet promote these into Coverage records (later phases).
+    profileRule('Warranty Start Date', 'Import', 'Hardware target: warranty start date', ['warranty start', 'warranty start date', 'fecha inicio garantia', 'fecha inicio garantía', 'garantia inicio', 'garantía inicio']),
+    profileRule('Warranty Term', 'Import', 'Hardware target: warranty term/duration', ['warranty term', 'warranty period', 'warranty duration', 'plazo garantia', 'plazo garantía', 'periodo garantia', 'periodo garantía', 'duracion garantia', 'duración garantía']),
+    profileRule('Warranty Provider', 'Import', 'Hardware target: warranty provider', ['warranty provider', 'proveedor garantia', 'proveedor garantía']),
+    profileRule('Support Start Date', 'Import', 'Hardware target: support start date', ['support start', 'support start date', 'fecha inicio soporte', 'soporte inicio', 'forticare start', 'smartnet start']),
+    profileRule('Support End Date', 'Import', 'Hardware target: support end/expiration date', ['support end', 'support end date', 'support expiration', 'fecha fin soporte', 'soporte fin', 'forticare end', 'smartnet end', 'fortiguard end', 'care pack end']),
+    profileRule('Support Term', 'Import', 'Hardware target: support term/duration', ['support term', 'support duration', 'plazo soporte', 'soporte plazo']),
+    profileRule('Support Provider', 'Import', 'Hardware target: support provider', ['support provider', 'proveedor soporte']),
+    profileRule('Support Level', 'Import', 'Hardware target: support level / SLA tier', ['support level', 'sla', 'sla level', 'service level', 'nivel soporte', 'nivel servicio']),
+    profileRule('Support Reference', 'Import', 'Hardware target: support contract reference', ['support reference', 'support contract', 'support contract number', 'support id', 'smartnet', 'forticare', 'fortiguard', 'care pack', 'smartnet contract']),
+    profileRule('Maintenance Start Date', 'Import', 'Hardware target: maintenance start date', ['maintenance start', 'maintenance start date', 'fecha inicio mantenimiento', 'mantenimiento inicio']),
+    profileRule('Maintenance End Date', 'Import', 'Hardware target: maintenance end date', ['maintenance end', 'maintenance end date', 'maintenance expiration', 'fecha fin mantenimiento', 'mantenimiento fin']),
+    profileRule('Maintenance Term', 'Import', 'Hardware target: maintenance term/duration', ['maintenance term', 'maintenance duration', 'plazo mantenimiento']),
+    profileRule('Coverage Type', 'Import', 'Hardware target: coverage type', ['coverage type', 'tipo cobertura', 'tipo de cobertura', 'manufacturer warranty', 'extended warranty', 'care pack type', 'smartnet type']),
+    profileRule('Coverage Reference', 'Import', 'Hardware target: coverage reference', ['coverage reference', 'coverage id', 'coverage ref', 'cobertura referencia', 'referencia cobertura']),
     profileRule('Expiration / Renewal Date', 'Review', 'Hardware target: review whether this is warranty, support or renewal date', ['end date', 'expiration date', 'renewal date', 'vencimiento licencia', 'fecha vencimiento']),
     profileRule('Provider / Distributor', 'Import', 'Hardware target: provider/distributor context', ['distributor', 'distribuidor', 'provider', 'vendor', 'supplier', 'proveedor', 'partner']),
     profileRule('Brand / Manufacturer', 'Import', 'Hardware target: brand/manufacturer context', ['brand', 'marca', 'manufacturer', 'fabricante']),
@@ -234,7 +267,17 @@ export function suggestImportField(header, sourceType, importTarget, workspaceMo
     [['quantity','cantidad','licenses #','users #','sockets #','vms #','servers #','workstations #','volume','qty','seats'], 'Quantity / Seats'],
     [['entitlement metric','metric','metrica'], 'Entitlement Metric'],
     [['con start date','subscription start date','start date','fecha inicio'], 'Start Date'],
-    [['con end date','subscription end date','end date','vencimiento licencia','expiration date','renewal date','fecha vencimiento'], 'Expiration / Renewal Date'],
+    // Expiration / Renewal Date — direct list uses exact-match against the
+    // normalized header. The asymmetry with TARGET_MAPPING_RULES (which uses
+    // substring match) was leaving compound headers like
+    // "Expiration / Renewal Date" -> "expiration renewal date" stuck on Review
+    // in Mixed mode. Patterns below cover EN + ES variants plus the literal
+    // canonical name. Order matters: coverage entries below in this same
+    // direct list (Warranty End Date, Support End Date, Maintenance End Date)
+    // remain the first match for their respective compound headers because
+    // their exact patterns (e.g. 'warranty expiration', 'support end date')
+    // don't appear here.
+    [['con end date','subscription end date','end date','expiration date','renewal date','expiration renewal date','renewal expiration date','vencimiento licencia','fecha vencimiento','fecha de vencimiento','fecha de expiracion','fecha de renovacion','expiracion','renovacion','expiration','renewal','vencimiento'], 'Expiration / Renewal Date'],
     [['con number','contract number','contrato'], 'Contract Number'],
     [['po number','order id','# oc','oc partner','numero','número','order reference'], 'PO / Order Reference'],
     [['contract status','subscription status','status','estado'], 'Source Status / Vendor Status'],
@@ -246,7 +289,22 @@ export function suggestImportField(header, sourceType, importTarget, workspaceMo
     [['invoice date','fecha factura','billing date','fecha facturacion','fecha facturación'], 'Invoice Date'],
     [['invoice','invoice number','billing reference','billing ref','referencia factura','factura'], 'Invoice / Billing Reference'],
     [['serial','serial number','serie'], 'Serial Number'],
-    [['warranty end','warranty end date','fecha fin garantia','fecha fin garantía'], 'Warranty End Date'],
+    [['warranty end','warranty end date','warranty expiration','fecha fin garantia','fecha fin garantía','garantia fin','garantía fin'], 'Warranty End Date'],
+    [['warranty start','warranty start date','fecha inicio garantia','fecha inicio garantía','garantia inicio','garantía inicio'], 'Warranty Start Date'],
+    [['warranty term','warranty period','warranty duration','plazo garantia','plazo garantía','periodo garantia','periodo garantía','duracion garantia','duración garantía'], 'Warranty Term'],
+    [['warranty provider','proveedor garantia','proveedor garantía'], 'Warranty Provider'],
+    [['support start','support start date','fecha inicio soporte','soporte inicio','sa start','software assurance start','subscription support start','forticare start','smartnet start'], 'Support Start Date'],
+    [['support end','support end date','support expiration','fecha fin soporte','soporte fin','sa end','software assurance end','subscription support end','veeam support end','vmware support end','forticare end','smartnet end','fortiguard end','care pack end'], 'Support End Date'],
+    [['support term','support duration','plazo soporte','soporte plazo'], 'Support Term'],
+    [['support provider','proveedor soporte'], 'Support Provider'],
+    [['support level','sla','sla level','service level','nivel soporte','nivel servicio'], 'Support Level'],
+    [['support reference','support contract','support contract number','support id','smartnet','forticare','fortiguard','care pack','smartnet contract'], 'Support Reference'],
+    [['maintenance start','maintenance start date','mantenimiento inicio','fecha inicio mantenimiento'], 'Maintenance Start Date'],
+    [['maintenance end','maintenance end date','maintenance expiration','mantenimiento fin','fecha fin mantenimiento'], 'Maintenance End Date'],
+    [['maintenance term','maintenance duration','plazo mantenimiento'], 'Maintenance Term'],
+    [['coverage type','tipo cobertura','tipo de cobertura','manufacturer warranty','extended warranty','care pack type','smartnet type','software assurance','subscription support','vendor support','managed support','veeam support','vmware support','vmware support and subscription'], 'Coverage Type'],
+    [['coverage reference','coverage id','coverage ref','cobertura referencia','referencia cobertura'], 'Coverage Reference'],
+    [['support included','soporte incluido','with support','includes support','support yes no'], 'Support Included'],
     [['purchase date','fecha de la transaccion','fecha de la transacción','transaction date'], 'Purchase Date'],
     [['notes','note','observaciones','comments','comentarios'], 'Notes']
   ];
@@ -255,7 +313,18 @@ export function suggestImportField(header, sourceType, importTarget, workspaceMo
       return withConfidence(workspaceContextSuggestion({ target: direct[i][1], action: 'Import', reason: 'Header match' }, normalized, workspaceMode), 'Medium');
     }
   }
-  if (normalized.indexOf('end date') >= 0 || normalized.indexOf('vencimiento') >= 0) return withConfidence({ target: 'Expiration / Renewal Date', action: 'Import', reason: 'Date keyword match' }, 'Medium');
+  // Expiration / Renewal Date fallback — substring match for date keywords.
+  // Coverage-specific compound headers (Warranty End Date, Support End Date,
+  // Maintenance End Date, plus the *Expiration variants) match earlier in
+  // the direct list above, so we never reach this fallback for them. The
+  // substrings here are only triggered by generic date headers that the
+  // direct exact-match path missed.
+  if (normalized.indexOf('end date') >= 0
+      || normalized.indexOf('expiration date') >= 0
+      || normalized.indexOf('renewal date') >= 0
+      || normalized.indexOf('vencimiento') >= 0
+      || normalized.indexOf('expiracion') >= 0
+      || normalized.indexOf('renovacion') >= 0) return withConfidence({ target: 'Expiration / Renewal Date', action: 'Import', reason: 'Date keyword match' }, 'Medium');
   if (normalized.indexOf('start date') >= 0 || normalized.indexOf('inicio') >= 0) return withConfidence({ target: 'Start Date', action: 'Import', reason: 'Date keyword match' }, 'Medium');
   if (normalized.indexOf('serial') >= 0) return withConfidence({ target: 'Serial Number', action: 'Import', reason: 'Serial keyword match' }, 'Medium');
   if (normalized.indexOf('support') >= 0 || normalized.indexOf('soporte') >= 0) return withConfidence({ target: 'Support', action: 'Import', reason: 'Support keyword match' }, 'Medium');

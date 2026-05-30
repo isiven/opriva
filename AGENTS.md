@@ -145,3 +145,98 @@ Opriva is developed across multiple AI agents. Any external design, UX, taste or
 When the user states that work is continuing in Codex, remind the user to replicate or adapt approved Claude Code skills for Codex parity before proceeding with non-trivial work.
 
 Three external design-skill sources are currently under research only (no install, no adapt approved): see `OPRIVA_AI_DEVELOPMENT_TEAM.md` §10.1 for the full source list, formats, licenses and Codex-compatibility status. The cross-agent parity rule lives in §10.2, and the likely Codex target locations to inspect before any adaptation (`.codex/`, `.agents/`, the existing `skills/` directory, `AGENTS.md`) are documented there.
+
+## 16. Helper Text Rule
+
+When modifying any Opriva UI — especially Data Import, Mapping, Validation, Preview, Confirm, Documents, Coverage and Dashboards — apply progressive guidance.
+
+### Do not add long permanent texts without justification
+
+Educational content cannot live as a wall of text on the screen. If the explanation is more than one short sentence, it must be:
+
+- Wrapped in `<details>` / dismissible / tooltip / collapsed by default; or
+- Moved to an Opriva AI surface (Ask Opriva button, AI side panel, contextual chat); or
+- Triggered on demand, not on render.
+
+### Always inline and visible (critical surfaces)
+
+These cannot be hidden, dismissed or moved to AI — they prevent incorrect import or destructive action:
+
+- Confirm-blocking reasons (critical issue counts, missing-column gate, etc.)
+- Missing required ownership (Client / Department / Owner)
+- Critical validation errors (W3 severity = critical)
+- Duplicate or data-integrity warnings
+- Security / PII warnings (Contact Email, Vendor Cost, Custom Fields safety)
+- Documents metadata-only warning (files are uploaded separately)
+
+### Compactable or move to Opriva AI (educational surfaces)
+
+These should be designed as compactable from day one:
+
+- "What is Coverage?" (warranty / support / maintenance explanation)
+- "Which template should I use?" (MSP / Internal IT / Canonical)
+- "How do I map this column?" (mapping suggestions context)
+- "Why is this row suggested?" (inference basis for coverage suggestions)
+- Sandbox / local-state caveats
+- Vendor-specific guidance (Microsoft CSP, Veeam, Cisco SmartNet, HPE Care Pack, Fortinet, VMware, distributor reports)
+
+### Progressive disclosure pattern
+
+- **Inline and always visible**: critical
+- **Tooltip / cell comment / dismissible banner**: educational, short
+- **Opriva AI / Help / Ask Opriva button**: educational, long or context-dependent
+
+### MVP exception
+
+While Opriva is in local / sandbox testing, more educational helper text is allowed to validate user understanding. Every helper added during MVP must still be structured so it can be compacted later without breaking the surrounding layout — single conditional, no internal state, easy to swap to tooltip or Opriva AI link.
+
+See `MEMORY.md §21` for the full Progressive Guidance Model product decision and the long-term Guidance Mode setting (Guided, Compact, Expert, Ask Opriva AI). Both documents must stay in sync.
+
+## 17. Controlled Catalog and Searchable Combobox Rule
+
+When modifying forms, drawers, imports, mappings, templates, documents, coverage, tasks or dashboards — and any other surface that asks the user to pick a value — apply the following rule.
+
+### Review before adding any input
+
+For each field, ask: does this value represent an entity backed by a controlled catalog or a future database table?
+
+- If yes, and the catalog can grow per workspace, vendor or industry → use a **searchable combobox / autocomplete selector**.
+- If no, and the values are a small closed enum that does not grow → a plain `<select>` is acceptable.
+- Never accept silent free text for a critical entity.
+
+### Always searchable combobox
+
+Apply searchable combobox to (at minimum) Linked Record, Owner, Client / Account, Department / Business Unit, Brand / Manufacturer, Product / License, Provider / Vendor, Distributor, Reseller / Partner, Location, Cost Center, Alert Policy, Document Type, Coverage Type, Support Level, Country, Currency, and any other catalog-managed entity. See `MEMORY.md §22` for the full list and rationale.
+
+### May remain simple `<select>`
+
+Closed small enums that are stable by design: Coverage Kind, Asset Type, Approval Status, Business Criticality, Priority, Task Status, Renewal Stage, Risk Level, Notice Period, Billing Cycle, Entitlement Metric, Field Type, Relationship Type, Suggestion Basis, Record Type, Import Scope Mode.
+
+### "Create new" behavior
+
+- MVP / local: simulated. New value is added to the local / session catalog so the user can complete the form.
+- Backend: permission-aware. "Create new" is gated by role (workspace admin, ops / procurement admin, finance admin, etc.). The UI must be designed so a future permission check can hide the affordance without redesign.
+- Duplicate detection must run before create — case-insensitive and accent-insensitive, reusing `normalizeImportText` or equivalent.
+
+### Import behavior
+
+- Imports must match source values against the existing catalog before treating them as new entities.
+- Unmatched values become **suggested / new entities for review** in the import preview — never created silently.
+- Possible duplicates ("Banisi" vs "Banisi " vs "Banisí") must show a warning before create.
+- The user must explicitly approve, edit, merge into an existing entity, or skip each staged entity.
+
+### Accessibility
+
+- ARIA combobox pattern is mandatory: `role="combobox" aria-expanded aria-controls aria-activedescendant` on the input, `role="listbox"` on the popup, `role="option" aria-selected` on each item.
+- Keyboard navigation must work: Up / Down to move, Enter to select, Escape to close, Home / End to jump, type-to-search.
+- Do not rely solely on the mouse. Touch users on small catalogs may degrade gracefully to a native `<select>`.
+
+### Free text is not allowed for critical entities
+
+Storing a critical entity as silent free text in a record meta or column is forbidden. The catalog owns the identity. Free text remains acceptable only for instance-specific labels (Asset Name, Notes) and for primary identifiers (Serial Number) that are deduplicated at write time.
+
+### Do not over-migrate
+
+Do not replace small closed enums with a combobox where a simple `<select>` is clearer and faster. The rule targets entities that grow; it does not target every dropdown.
+
+See `MEMORY.md §22` for the full Searchable Combobox / Controlled Catalog Model product decision, the per-field categorisation, MVP vs commercial backend behavior, and the six-phase implementation plan (S1 primitive, S2 entity fields, S3 controlled catalogs, S4 import integration, S5 duplicate / alias detection, S6 backend RBAC and audit). Both documents must stay in sync.

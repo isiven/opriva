@@ -31,6 +31,26 @@ export const IMPORT_CANONICAL_FIELDS = [
   'Serial Number',
   'Warranty End Date',
   'Purchase Date',
+  // Coverage Import C1 — detection-only canonical fields.
+  // Mapping captures these from source files so the user can see them in the
+  // Mapping step UI. Builders do NOT create Coverage records yet; the values
+  // currently flow as metadata only. Later phases (C2 inference, C3 preview,
+  // C4 approval, C5 creation) will materialise Coverage records.
+  'Warranty Start Date',
+  'Warranty Term',
+  'Warranty Provider',
+  'Support Start Date',
+  'Support End Date',
+  'Support Term',
+  'Support Provider',
+  'Support Level',
+  'Support Reference',
+  'Maintenance Start Date',
+  'Maintenance End Date',
+  'Maintenance Term',
+  'Coverage Type',
+  'Coverage Reference',
+  'Support Included',
   'Notes'
 ];
 

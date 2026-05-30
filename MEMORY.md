@@ -1275,6 +1275,187 @@ Phase 2 should include:
 
 ---
 
+## 21. Progressive Guidance Model
+
+**Decision date:** 2026-05-29
+**Status:** Approved product decision. Applies to all Opriva UI surfaces — especially Data Import, Mapping, Validation, Preview, Confirm, Documents, Coverage and Dashboards.
+
+### MVP / local testing phase
+
+Helper text visible inline is **allowed** while Opriva is in local / sandbox testing. Helpers in MVP can explain:
+
+- Coverage as a related entity (warranty / support / maintenance)
+- Multi-client / multi-department file scope behavior
+- Column mapping suggestions
+- Template usage (MSP / Internal IT / Canonical)
+- Sandbox / local-state caveats
+- Why a row was inferred or suggested
+
+The goal in MVP is to validate that users actually understand each concept before it is hidden behind tooltips or assistant prompts.
+
+### Commercial version
+
+Once Opriva ships to corporate pilots, educational helpers must follow progressive disclosure:
+
+- Compact by default
+- Dismissible per surface
+- Tooltip-based when explanation is short
+- Assisted by Opriva AI when explanation is long or context-dependent
+
+The screen must not be filled with permanent educational text. Expert users must be able to work in a compact mode.
+
+### Always inline and visible (cannot be moved to AI / Help)
+
+These prevent incorrect import or destructive action and stay inline regardless of phase:
+
+- Critical validation errors
+- Confirm-blocking reasons
+- Missing required Client / Department / Owner
+- Duplicate or data-integrity warnings
+- Security / PII warnings
+- Documents metadata-only warnings
+
+### Move to Opriva AI / Help
+
+Long or context-dependent educational content belongs in the assistant surface, not on the main canvas:
+
+- "What does Coverage mean?"
+- "Which template should I use?"
+- "How do I map this column?"
+- "Why is this row Blocked?"
+- "How do I correct the file?"
+- Vendor-specific guidance (Microsoft CSP, Veeam, Cisco SmartNet, HPE Care Pack, Fortinet, VMware, distributor reports)
+
+### Long-term: Guidance Modes
+
+Opriva should eventually expose a workspace-level Guidance Mode setting with four options:
+
+| Mode | Behavior |
+|---|---|
+| **Guided** | All educational helpers inline + tooltips + AI nudges |
+| **Compact** | Educational helpers collapsed; only critical visible inline |
+| **Expert** | Critical only inline; everything else opt-in via toggle |
+| **Ask Opriva AI** | Educational helpers replaced with "Ask Opriva" links to assistant chat |
+
+### Implementation guidance for current work
+
+- C1 Coverage helper banner stays inline and small (current commit `c65c28f`).
+- C2-C5 coverage UI must be designed as compactable from day one.
+- Future helper surfaces should default to inline + critical visible, with educational text wrapped in compactable components (single conditional, no internal state, easy to swap to tooltip or Opriva AI link).
+
+### Backend implications
+
+- Guidance Mode persistence (workspace-default + user-override) requires backend storage.
+- Per-surface dismissal state requires backend storage.
+- Opriva AI must be permission-aware and respect workspace boundaries when serving educational explanations on demand.
+
+### Operational rule for agents
+
+The corresponding operational rule for Claude Code, Codex and all Opriva reviewers lives in `AGENTS.md §16` ("Helper Text Rule"). Both documents must stay in sync.
+
+---
+
+## 22. Searchable Combobox / Controlled Catalog Model
+
+**Decision date:** 2026-05-29
+**Status:** Approved product decision. Applies to every Opriva form, drawer, import surface, mapping surface, template-fed dropdown, document / coverage / task creation flow and dashboard filter.
+
+### Core rule
+
+Fields that represent entities backed by a controlled catalog or by a future database table must not be implemented as free-text inputs or as simple `<select>` dropdowns when the underlying list can grow over time. They must be implemented as **searchable combobox / autocomplete selectors** so users can type to filter, see matching results, and avoid silent duplication.
+
+### Fields in scope
+
+The rule applies — but is not limited — to:
+
+- Linked Record (cross-module search; create-new not allowed from here)
+- Owner (workspace user catalog)
+- Client / Account (MSP)
+- Department / Business Unit (Internal IT)
+- Brand / Manufacturer
+- Product / License
+- Provider / Vendor
+- Distributor
+- Reseller / Partner
+- Location
+- Cost Center
+- Alert Policy
+- Document Type
+- Coverage Type
+- Support Level
+- Country (ISO 3166)
+- Currency (ISO 4217)
+- Any other field that represents a catalog-managed entity that can grow per workspace, per vendor or per industry.
+
+### Fields that may remain simple `<select>`
+
+Truly closed enums that do not grow and that are stable by design can stay as plain `<select>`:
+
+- Coverage Kind (Warranty / Support / Maintenance)
+- Asset Type, Approval Status, Business Criticality
+- Priority, Task Status, Renewal Stage, Risk Level
+- Notice Period, Billing Cycle, Entitlement Metric
+- Field Type (Custom Fields), Relationship Type, Suggestion Basis
+- Record Type (Client / Department discriminator)
+- Import Scope Mode (single / multi)
+
+### MVP / local testing behavior
+
+- Catalogs may be backed by local / session state (e.g., `MASTER_DATA`, `RECORD_STORE`, a future `CATALOG_STORE`).
+- "Create new" inside the combobox is allowed and **simulated** — the new value is added to the local catalog so the user can complete the form.
+- Duplicate detection should already filter case-insensitively and accent-insensitively (reuse `normalizeImportText`).
+- No backend RBAC enforcement in MVP, but every "create new" affordance must be designed so a future permission check can disable it without UI redesign.
+
+### Commercial version / backend requirements
+
+- Real backend catalog tables per entity (clients, departments, brands, products, providers, distributors, resellers, owners, locations, cost centers, alert policies, document types, coverage types, support levels, currencies, countries, etc.).
+- Permission-aware "create new" gated by role (workspace admin, ops / procurement admin, finance admin, etc.).
+- Normalization keys, aliases / synonyms, duplicate detection on create, merge / deactivate flows.
+- Audit trail for create, edit, merge, deactivate events per catalog entry.
+- Approval flow for AI-suggested entities and for entities staged from imports.
+
+### Import integration
+
+- Imports must attempt to match source values against the existing catalog before treating them as new entities.
+- Matching must be case-insensitive and accent-insensitive (and later alias-aware).
+- If the import detects a value that does not match any existing entity, it must surface that value as a **suggested / new entity for review** — never create silently.
+- Possible duplicates ("Banisi" vs "Banisi " vs "Banisí") must show a warning before create.
+- The user must explicitly approve, edit, merge into an existing entity, or skip each new staged entity.
+
+### Free text is not allowed for critical entities
+
+Storing a critical entity as silent free text in a record meta or column is **not allowed**. The catalog must own the identity of the entity. Free text is allowed only for instance-specific labels (Asset Name, Notes) and for primary identifiers (Serial Number) that are deduplicated at write time.
+
+### Long-term architecture
+
+- Per-workspace `CATALOG_STORE` (sandbox) → backend `catalog_entries` per entity (corporate MVP).
+- Per-user permission `can_create_catalog_<entity>`.
+- Catalog merge / split / deactivate admin UI under Settings → Catalogs.
+- Aliases / synonyms table for vendor name variants ("Microsoft" vs "Microsoft Corporation" vs "MSFT").
+- Catalog audit trail integrated with the workspace activity log.
+
+### Cross-references
+
+- Operational rule for agents and reviewers: `AGENTS.md §17` ("Controlled Catalog and Searchable Combobox Rule"). Both documents must stay in sync.
+- Progressive Guidance Model (`MEMORY.md §21` / `AGENTS.md §16`): "Create new" affordances, duplicate warnings and staging panels qualify as educational content and must be compact / dismissible / Opriva AI-assisted where possible.
+- Controlled catalog product decision recorded on 2026-05-26 (Recent History) is the predecessor of this rule; this section operationalises that decision with the searchable combobox requirement, MVP / backend split, and import staging behavior.
+- Coverage Import C1 (commit `c65c28f`): the new canonical fields (Coverage Type, Support Level, Support Provider) detected by C1 must use searchable combobox once Phase S1-S3 land.
+
+### Implementation guidance for next phases
+
+The implementation is sized as a six-phase migration (see audit recorded on 2026-05-29):
+
+- **Phase S1**: build a single `<SearchableSelect>` primitive with ARIA combobox pattern, type-to-filter, keyboard navigation, optional "Create new" footer, mobile / touch fallback for small catalogs.
+- **Phase S2**: migrate high-cardinality entity fields (Client / Department, Brand, Product, Provider, Distributor, Reseller, Owner, Location, Cost Center, Linked Record, Country).
+- **Phase S3**: migrate growing controlled catalogs (Alert Policy, Document Type, Coverage Type, Support Level, License Term, Currency, Contract Type).
+- **Phase S4**: import integration — new values become "suggested entities for review" during import preview.
+- **Phase S5**: duplicate detection and alias surface — "Did you mean X?" before create.
+- **Phase S6**: backend RBAC, permission-aware create-new, audit trail, aliases / synonyms, merge / deactivate UI.
+
+No code is touched by recording this decision; phases land in separate, focused commits.
+
+---
+
 ## 17. Recent History
 
 - Repository cloned and inspected on branch `audit/opriva-healthcheck`.
@@ -1317,3 +1498,5 @@ Phase 2 should include:
 - 2026-05-27: Record-type-specific import duplicate keys implemented (commit `1e16a13`). `source/importSandbox/importDuplicates.js` added with `buildDuplicateKeys`, `isDuplicateByKeys`, `addKeysToSet` and `matchesExistingRecord`. `meta.duplicateKeys` is now the real source of duplicate detection (preview duplicate-risk flag + confirm-time skip); `meta.importKey` is retained only as a backward-compatible legacy fallback for stored records without `duplicateKeys`. Keys: Licenses = client/department + brand/product + expiration (CSP variant adds order reference); Hardware = serial number primary, fallback client + model/product + order reference or purchase date; Contracts = contract number + end date, fallback client + provider + support/contract type + renewal/end date. Sparse/weak keys are not emitted; empty or `-` serials are ignored; Certificates and Renewal Package keys are dormant. Handling follows Option A (flag in preview, preserve confirm-time skip); strict flag-only handling with row-level include/exclude remains a future UX task. MEMORY.md §19.11 and INTELLIGENT_BULK_UPLOAD_DESIGN.md §11 updated. No application code modified in this documentation pass.
 - 2026-05-27: Cross-agent skill parity rule documented. External design/UX/taste skills adapted into Opriva for one AI agent (Claude Code or Codex) must also be adapted — or have a clearly planned equivalent — for the other supported agents to prevent drift between sessions, contributors and tools. Three external design-skill sources are under research only (no install, no clone, no `npx`/`skill.sh` execution, no settings registration approved): `emilkowalski/skill` (license not visible), `pbakaus/impeccable` (Apache 2.0; ships `.claude/`/`.cursor/`/`.agents/`/`.gemini/` directories; optional `npx impeccable detect` CLI), `Leonxlnx/taste-skill` (MIT; portable SKILL.md files; install via `npx skills add` CLI). Likely Codex target locations to inspect before any future adaptation: `.codex/` or `.agents/` style directories if supported by the active Codex tooling, the existing `skills/` SKILL.md home, and `AGENTS.md`. New rule: when the user states that work is continuing in Codex, the assistant must remind the user to replicate or adapt any approved Claude Code skills for Codex parity before proceeding with non-trivial work. Documentation updates: `AGENTS.md` §14, `CLAUDE.md` §5, `OPRIVA_AI_DEVELOPMENT_TEAM.md` §10.1–§10.2 and §11.1, `OPRIVA_DEVELOPMENT_METHODOLOGY.md` §11.1 and §12 (prompt patterns), `MEMORY.md` (this entry). No application code modified; no external skills installed; no dependencies added; no hooks or MCP configured.
 - 2026-05-27: Phase 1 external design-skill adoption — added one new Opriva lens `opriva-design-fundamentals-auditor` (mirrored under `skills/` and `.claude/skills/`) covering typography, color and contrast, spatial design, motion discipline, interaction states, responsive design and UX writing — calibrated to Opriva enterprise SaaS, data-heavy tables/drawers/dashboards/import flows, MSP / Integrator and Internal IT. Seven-domain structure is inspired by `pbakaus/impeccable` (Apache 2.0); no impeccable code was installed, cloned, executed or registered (no `npx`, no `.claude/`/`.cursor/`/`.agents/`/`.gemini/` directories adopted, no MCP, no hooks, no dependencies). Attribution recorded at the bottom of the new lens file and in new repo-root `THIRD_PARTY_NOTICES.md`. Lens registered in `OPRIVA_AI_DEVELOPMENT_TEAM.md` §3 and added to the §6.C "UI / Screen Design" lens combination, and in `CLAUDE.md` §4. Codex parity (per `OPRIVA_AI_DEVELOPMENT_TEAM.md` §10.2 / §11.1): the canonical lens lives at `skills/opriva-design-fundamentals-auditor/SKILL.md`; the `.claude/skills/` copy mirrors it for Claude Code project-scoped loading; Codex-specific mirrors (`.codex/`, `.agents/`) deferred until the active Codex tooling's loading path is verified. `Leonxlnx/taste-skill` (MIT) and `emilkowalski/skill` (license not visible) remain deferred to later phases. No application code modified.
+- 2026-05-29: Searchable Combobox / Controlled Catalog Model product decision documented. Fields that represent controlled-catalog or database-backed entities must not be free-text inputs nor simple `<select>` dropdowns when the underlying list can grow. They must use searchable combobox / autocomplete selectors with type-to-filter and keyboard navigation. Applies to Linked Record, Owner, Client / Account, Department / Business Unit, Brand / Manufacturer, Product / License, Provider / Vendor, Distributor, Reseller / Partner, Location, Cost Center, Alert Policy, Document Type, Coverage Type, Support Level, Country (ISO 3166), Currency (ISO 4217), and any other catalog-managed entity that grows per workspace, vendor or industry. Truly closed small enums (Coverage Kind, Asset Type, Approval Status, Business Criticality, Priority, Task Status, Renewal Stage, Risk Level, Notice Period, Billing Cycle, Entitlement Metric, Field Type, Relationship Type, Suggestion Basis, Record Type, Import Scope Mode) may remain plain `<select>`. MVP / local: local or session-backed catalogs with simulated "create new" and case-insensitive / accent-insensitive duplicate filtering. Backend: real catalog tables per entity, permission-aware "create new" gated by role, normalization keys, aliases / synonyms, duplicate detection, merge / deactivate flows, audit trail. Imports must match source values against existing catalogs; unmatched values become suggested / new entities for review rather than being created silently; possible duplicates show a warning before create. Free text is not allowed for critical entities — the catalog owns the identity. Operationalised as a six-phase plan: S1 SearchableSelect primitive, S2 high-cardinality entity fields, S3 growing controlled catalogs, S4 import integration, S5 duplicate detection / aliases, S6 backend RBAC and audit. New `MEMORY.md` §22 added as the product decision record. New `AGENTS.md` §17 "Controlled Catalog and Searchable Combobox Rule" added as the operational rule for all agents and reviewers. Both documents cross-reference each other. Predecessor: 2026-05-26 controlled catalog product decision (this section operationalises it with the searchable combobox requirement). Related: C1 Coverage detection (commit `c65c28f`) — its new canonical fields (Coverage Type, Support Level, Support Provider) will use the new primitive once S1-S3 land. No application code modified.
+- 2026-05-29: Progressive Guidance Model product decision documented. MVP allows visible inline helpers to validate user understanding. Commercial version requires educational helpers to be compact, dismissible, tooltip-based or assisted by Opriva AI. Critical guidance (confirm-blocking reasons, missing required Client / Department / Owner, critical validation errors, duplicate or data-integrity warnings, security / PII warnings, documents metadata-only warnings) remains inline regardless of phase. Educational content ("What is Coverage?", "Which template should I use?", "How do I map this column?", "Why is this row Blocked?", sandbox / local-state caveats, vendor-specific guidance) moves to Opriva AI / Help. Long-term: Opriva exposes a workspace-level Guidance Mode setting with four options (Guided, Compact, Expert, Ask Opriva AI). New `MEMORY.md` §21 added as the product decision record. New `AGENTS.md` §16 "Helper Text Rule" added as the operational rule for all agents and reviewers. Implementation guidance: C1 Coverage helper banner (commit `c65c28f`) stays inline and small but is structured to be compactable later; C2-C5 coverage UI must be designed as compactable from day one. Backend implications: Guidance Mode persistence (workspace-default + user-override) and per-surface dismissal state require backend storage; Opriva AI must be permission-aware and respect workspace boundaries when serving educational content on demand. No application code modified.

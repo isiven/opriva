@@ -979,6 +979,24 @@ function getTaskTypeOptions(workspaceMode) {
     : ['Client follow-up','Request vendor quote','Send proposal','Prepare renewal','Confirm purchase order','Upload evidence','Review support coverage','Escalate renewal risk','Other'];
 }
 
+// F1c: Create Task modal field spec. The drawer-scoped "Create task" modal
+// (aria-label="Create task") now consumes this spec instead of inline JSX, so a
+// future SearchableSelect migration only needs a flag here. `group` preserves
+// the existing visual layout: primary (1-col), grid (2-col), notes (after the
+// Optional divider). Labels, options, required state and save behavior are
+// unchanged. Options are resolved at build time to keep the renderer trivial.
+function getTaskFields(workspaceMode) {
+  return [
+    { key: 'title',    label: 'Task title', required: true,  type: 'text',     group: 'primary', placeholder: 'e.g. Request renewal quote from vendor' },
+    { key: 'taskType', label: 'Task type',  required: true,  type: 'select',   group: 'primary', options: getTaskTypeOptions(workspaceMode), emptyLabel: 'Select type...' },
+    { key: 'owner',    label: 'Owner',      required: true,  type: 'select',   group: 'primary', options: resolveFieldOptions('users', workspaceMode), emptyLabel: 'Select owner...' },
+    { key: 'dueDate',  label: 'Due date',   required: true,  type: 'date',     group: 'grid' },
+    { key: 'priority', label: 'Priority',   required: true,  type: 'select',   group: 'grid', options: TASK_PRIORITY_OPTIONS, emptyLabel: 'Select...' },
+    { key: 'status',   label: 'Status',     required: true,  type: 'select',   group: 'grid', options: TASK_STATUS_OPTIONS, emptyLabel: 'Select...' },
+    { key: 'notes',    label: 'Notes',      required: false, type: 'textarea', group: 'notes', placeholder: 'Context, links or impact notes…' },
+  ];
+}
+
 function getSupportCoverageFields(workspaceMode) {
   var valueLabel = workspaceMode === 'Internal IT' ? 'Annual Cost' : 'Annual Value';
   return [
@@ -1957,16 +1975,35 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
     </div>}
 
     {taskOpen && selectedRecord && (() => {
-      var typeOpts = getTaskTypeOptions(workspaceMode);
-      var renderTF = function(key, label, required, children) {
-        return <div key={key}>
+      // F1c: render from getTaskFields spec instead of inline JSX. Visual layout
+      // is preserved exactly via the `group` buckets (primary 1-col, grid 2-col,
+      // notes after the Optional divider). Save behavior and labels unchanged.
+      var taskFields = getTaskFields(workspaceMode);
+      var renderTaskField = function(f) {
+        var control;
+        if (f.type === 'select') {
+          control = <select value={taskForm[f.key]||''} onChange={function(e) { setTaskForm(function(p) { return Object.assign({},p,{[f.key]:e.target.value}); }); }} style={{...fieldStyle,cursor:'pointer',color:taskForm[f.key]?'#132033':'#94A3B8'}}>
+            <option value="">{f.emptyLabel || 'Select...'}</option>
+            {f.options.map(function(o) { return <option key={o} value={o}>{o}</option>; })}
+          </select>;
+        } else if (f.type === 'date') {
+          control = <input type="date" value={taskForm[f.key]||''} onChange={function(e) { setTaskForm(function(p) { return Object.assign({},p,{[f.key]:e.target.value}); }); }} style={fieldStyle}/>;
+        } else if (f.type === 'textarea') {
+          control = <textarea value={taskForm[f.key]||''} onChange={function(e) { setTaskForm(function(p) { return Object.assign({},p,{[f.key]:e.target.value}); }); }} rows={3} style={{...fieldStyle,resize:'vertical'}} placeholder={f.placeholder||''}/>;
+        } else {
+          control = <input type="text" value={taskForm[f.key]||''} onChange={function(e) { setTaskForm(function(p) { return Object.assign({},p,{[f.key]:e.target.value}); }); }} style={fieldStyle} placeholder={f.placeholder||''}/>;
+        }
+        return <div key={f.key}>
           <label style={{display:'block',marginBottom:5,fontSize:13,fontWeight:700,color:'#334155'}}>
-            {label}{required && <span style={{color:'#DC2626',marginLeft:3}}>*</span>}
+            {f.label}{f.required && <span style={{color:'#DC2626',marginLeft:3}}>*</span>}
           </label>
-          {children}
-          {taskErrors[key] && <span style={errStyle}>{taskErrors[key]}</span>}
+          {control}
+          {taskErrors[f.key] && <span style={errStyle}>{taskErrors[f.key]}</span>}
         </div>;
       };
+      var primaryF = taskFields.filter(function(f) { return f.group === 'primary'; });
+      var gridF    = taskFields.filter(function(f) { return f.group === 'grid'; });
+      var notesF   = taskFields.filter(function(f) { return f.group === 'notes'; });
       return <div style={modalWrap} onClick={function() { setTaskOpen(false); }} role="dialog" aria-modal="true" aria-label="Create task">
         <div style={modalBox(520)} onClick={function(e) { e.stopPropagation(); }}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
@@ -1977,49 +2014,13 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
             </div>
             <button style={closeBtn} onClick={function() { setTaskOpen(false); }} aria-label="Close">x</button>
           </div>
-          <div style={{display:'grid',gap:12}}>
-            {renderTF('title','Task title',true,
-              <input type="text" value={taskForm.title||''} onChange={function(e) { setTaskForm(function(p) { return Object.assign({},p,{title:e.target.value}); }); }} style={fieldStyle} placeholder="e.g. Request renewal quote from vendor"/>
-            )}
-            {renderTF('taskType','Task type',true,
-              <select value={taskForm.taskType||''} onChange={function(e) { setTaskForm(function(p) { return Object.assign({},p,{taskType:e.target.value}); }); }} style={{...fieldStyle,cursor:'pointer',color:taskForm.taskType?'#132033':'#94A3B8'}}>
-                <option value="">Select type...</option>
-                {typeOpts.map(function(o) { return <option key={o} value={o}>{o}</option>; })}
-              </select>
-            )}
-            {renderTF('owner','Owner',true,
-              <select value={taskForm.owner||''} onChange={function(e) { setTaskForm(function(p) { return Object.assign({},p,{owner:e.target.value}); }); }} style={{...fieldStyle,cursor:'pointer',color:taskForm.owner?'#132033':'#94A3B8'}}>
-                <option value="">Select owner...</option>
-                {resolveFieldOptions('users', workspaceMode).map(function(o) { return <option key={o} value={o}>{o}</option>; })}
-              </select>
-            )}
-          </div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
-            {renderTF('dueDate','Due date',true,
-              <input type="date" value={taskForm.dueDate||''} onChange={function(e) { setTaskForm(function(p) { return Object.assign({},p,{dueDate:e.target.value}); }); }} style={fieldStyle}/>
-            )}
-            {renderTF('priority','Priority',true,
-              <select value={taskForm.priority||''} onChange={function(e) { setTaskForm(function(p) { return Object.assign({},p,{priority:e.target.value}); }); }} style={{...fieldStyle,cursor:'pointer',color:taskForm.priority?'#132033':'#94A3B8'}}>
-                <option value="">Select...</option>
-                {TASK_PRIORITY_OPTIONS.map(function(o) { return <option key={o} value={o}>{o}</option>; })}
-              </select>
-            )}
-            {renderTF('status','Status',true,
-              <select value={taskForm.status||''} onChange={function(e) { setTaskForm(function(p) { return Object.assign({},p,{status:e.target.value}); }); }} style={{...fieldStyle,cursor:'pointer',color:taskForm.status?'#132033':'#94A3B8'}}>
-                <option value="">Select...</option>
-                {TASK_STATUS_OPTIONS.map(function(o) { return <option key={o} value={o}>{o}</option>; })}
-              </select>
-            )}
-          </div>
+          <div style={{display:'grid',gap:12}}>{primaryF.map(renderTaskField)}</div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>{gridF.map(renderTaskField)}</div>
           <div style={{display:'flex',alignItems:'center',gap:8,margin:'4px 0 -4px'}}>
             <span style={{fontSize:11,fontWeight:800,color:'#94A3B8',letterSpacing:'.1em',textTransform:'uppercase',flexShrink:0}}>Optional</span>
             <div style={{flex:1,height:1,background:'#EEF2F7'}}/>
           </div>
-          <div style={{display:'grid',gap:12}}>
-            {renderTF('notes','Notes',false,
-              <textarea value={taskForm.notes||''} onChange={function(e) { setTaskForm(function(p) { return Object.assign({},p,{notes:e.target.value}); }); }} rows={3} style={{...fieldStyle,resize:'vertical'}} placeholder="Context, links or impact notes…"/>
-            )}
-          </div>
+          <div style={{display:'grid',gap:12}}>{notesF.map(renderTaskField)}</div>
           <div style={{...modalFoot,justifyContent:'flex-end'}}>
             <button onClick={function() { setTaskOpen(false); }}>Cancel</button>
             <button className="primary" onClick={handleTaskSave}>Save task</button>

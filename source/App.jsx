@@ -858,16 +858,18 @@ function getFormFields(module, workspaceMode) {
   if (module !== 'Licenses') return NEW_RECORD_FIELDS[module] || NEW_RECORD_FIELDS.Licenses;
   if (workspaceMode === 'Internal IT') {
     return [
-      { key: 'name',          label: 'License / Product',      required: true,  type: 'select', source: 'products' },
-      { key: 'client',        label: 'Department',             required: true,  type: 'select', source: 'clientDepartment' },
+      // S1b + S1c — License / Product, Department, Owner and Provider all
+      // migrated to SearchableSelect in the New Record modal renderer.
+      // useSearchableSelect flag is opt-in; Edit record drawer and import
+      // preview drawer still use native <select>. allowCreate=false stays
+      // wired by default in renderF so users cannot inject off-catalog values.
+      { key: 'name',          label: 'License / Product',      required: true,  type: 'select', source: 'products',         useSearchableSelect: true, placeholder: 'Search license / product...' },
+      { key: 'client',        label: 'Department',             required: true,  type: 'select', source: 'clientDepartment', useSearchableSelect: true, placeholder: 'Search department...' },
       { key: 'renewalDate',   label: 'Expiration / Renewal Date', required: true, type: 'date' },
-      // S1b pilot — Owner field migrated to SearchableSelect in the New
-      // Record modal renderer. useSearchableSelect flag is opt-in; Edit
-      // record drawer and import preview drawer still use native <select>.
-      { key: 'owner',         label: 'IT Owner / Budget Owner', required: true, type: 'select', source: 'users', useSearchableSelect: true },
+      { key: 'owner',         label: 'IT Owner / Budget Owner', required: true, type: 'select', source: 'users',            useSearchableSelect: true, placeholder: 'Search owner...' },
       { key: 'seats',         label: 'Quantity / Seats',       required: true, type: 'number' },
       { key: 'brand',         label: 'Brand',                  type: 'select', source: 'vendors' },
-      { key: 'provider',      label: 'Provider',               required: true, type: 'select', source: 'providers' },
+      { key: 'provider',      label: 'Provider',               required: true, type: 'select', source: 'providers',        useSearchableSelect: true, placeholder: 'Search distributor / provider...' },
       { key: 'annualCost',    label: 'Annual Cost',            required: true, type: 'number' },
       { key: 'costCenter',    label: 'Cost Center',            required: true },
       { key: 'approvalStatus', label: 'Approval Status',       required: true, type: 'select', options: ['Approved','Pending','Blocked','Not required'] },
@@ -880,14 +882,14 @@ function getFormFields(module, workspaceMode) {
     ];
   }
   return [
-    { key: 'name',          label: 'License / Product',      required: true,  type: 'select', source: 'products' },
-    { key: 'client',        label: 'Client',                 required: true,  type: 'select', source: 'clientDepartment' },
+    // S1b + S1c — see comment on the Internal IT branch above.
+    { key: 'name',          label: 'License / Product',      required: true,  type: 'select', source: 'products',         useSearchableSelect: true, placeholder: 'Search license / product...' },
+    { key: 'client',        label: 'Client',                 required: true,  type: 'select', source: 'clientDepartment', useSearchableSelect: true, placeholder: 'Search client...' },
     { key: 'renewalDate',   label: 'Expiration / Renewal Date', required: true, type: 'date' },
-    // S1b pilot — see comment on the Internal IT branch above.
-    { key: 'owner',         label: 'Renewal Owner',          required: true,  type: 'select', source: 'users', useSearchableSelect: true },
+    { key: 'owner',         label: 'Renewal Owner',          required: true,  type: 'select', source: 'users',            useSearchableSelect: true, placeholder: 'Search owner...' },
     { key: 'alertPolicy',   label: 'Alert Policy',           required: true,  type: 'select', options: LICENSE_ALERT_POLICY_OPTIONS },
     { key: 'seats',         label: 'Quantity / Seats',       required: true, type: 'number' },
-    { key: 'distributor',   label: 'Distributor / Provider', required: true, type: 'select', source: 'providers' },
+    { key: 'distributor',   label: 'Distributor / Provider', required: true, type: 'select', source: 'providers',        useSearchableSelect: true, placeholder: 'Search distributor / provider...' },
     { key: 'contractValue', label: 'Sale Price / Annual Value', required: true, type: 'number' },
     { key: 'cost',          label: 'Vendor Cost',            required: true, type: 'number' },
     { key: 'startDate',     label: 'Start Date',             type: 'date' },

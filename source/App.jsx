@@ -35,6 +35,7 @@ import { detectImportSourceType, normalizeImportText } from './importSandbox/imp
 import { getImportSheetData } from './importSandbox/workbookParsing.js';
 import { calcExpirationState, inferLicenseTerm, suggestRenewalDate } from './utils/dates.js';
 import { buildSuggestedCoveragesForLicense, buildSuggestedCoveragesForHardware, buildCoverageRecordsForBatch } from './utils/coverage.js';
+import SearchableSelect from './components/SearchableSelect.jsx';
 import { autoFillDocName, extractFileMetadata, fmtFileSize, fmtUploadedAt } from './utils/files.js';
 import { calcMargin } from './utils/money.js';
 import { asArray, cx, riskClass, safeText } from './utils/text.js';
@@ -860,7 +861,10 @@ function getFormFields(module, workspaceMode) {
       { key: 'name',          label: 'License / Product',      required: true,  type: 'select', source: 'products' },
       { key: 'client',        label: 'Department',             required: true,  type: 'select', source: 'clientDepartment' },
       { key: 'renewalDate',   label: 'Expiration / Renewal Date', required: true, type: 'date' },
-      { key: 'owner',         label: 'IT Owner / Budget Owner', required: true, type: 'select', source: 'users' },
+      // S1b pilot — Owner field migrated to SearchableSelect in the New
+      // Record modal renderer. useSearchableSelect flag is opt-in; Edit
+      // record drawer and import preview drawer still use native <select>.
+      { key: 'owner',         label: 'IT Owner / Budget Owner', required: true, type: 'select', source: 'users', useSearchableSelect: true },
       { key: 'seats',         label: 'Quantity / Seats',       required: true, type: 'number' },
       { key: 'brand',         label: 'Brand',                  type: 'select', source: 'vendors' },
       { key: 'provider',      label: 'Provider',               required: true, type: 'select', source: 'providers' },
@@ -879,7 +883,8 @@ function getFormFields(module, workspaceMode) {
     { key: 'name',          label: 'License / Product',      required: true,  type: 'select', source: 'products' },
     { key: 'client',        label: 'Client',                 required: true,  type: 'select', source: 'clientDepartment' },
     { key: 'renewalDate',   label: 'Expiration / Renewal Date', required: true, type: 'date' },
-    { key: 'owner',         label: 'Renewal Owner',          required: true,  type: 'select', source: 'users' },
+    // S1b pilot — see comment on the Internal IT branch above.
+    { key: 'owner',         label: 'Renewal Owner',          required: true,  type: 'select', source: 'users', useSearchableSelect: true },
     { key: 'alertPolicy',   label: 'Alert Policy',           required: true,  type: 'select', options: LICENSE_ALERT_POLICY_OPTIONS },
     { key: 'seats',         label: 'Quantity / Seats',       required: true, type: 'number' },
     { key: 'distributor',   label: 'Distributor / Provider', required: true, type: 'select', source: 'providers' },
@@ -1821,12 +1826,27 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
                         {[form.fileName.split('.').pop().toUpperCase(), fmtFileSize(form.fileSize)].filter(Boolean).join(' · ')}
                       </div>}
                     </div>
-                  : f.type === 'select'
-                    ? <select value={form[f.key]||''} onChange={e => handleFormField(f.key, e.target.value)} style={{...fieldStyle,cursor:'pointer',color:form[f.key]?'#132033':'#94A3B8'}}>
-                        <option value="">Select...</option>
-                        {(f.source ? resolveFieldOptions(f.source, workspaceMode) : (f.options||[])).map(o => <option key={o} value={o}>{o}</option>)}
-                      </select>
-                    : <input type={f.type||'text'} value={form[f.key]||''} onChange={e => handleFormField(f.key, e.target.value)} placeholder={f.placeholder||''} style={fieldStyle}/>
+                  : f.useSearchableSelect
+                    ? // S1b pilot — License Owner uses SearchableSelect in the
+                      // New Record modal. Outer <label> above already shows the
+                      // label + required asterisk, so we don't pass `label` or
+                      // `required` (avoids double asterisk); we pass ariaLabel
+                      // for screen readers and required only via aria.
+                      <SearchableSelect
+                        value={form[f.key]||''}
+                        onChange={v => handleFormField(f.key, v)}
+                        options={f.source ? resolveFieldOptions(f.source, workspaceMode) : (f.options||[])}
+                        placeholder={f.placeholder || 'Search owner...'}
+                        ariaLabel={f.label}
+                        required={!!f.required}
+                        allowCreate={false}
+                      />
+                    : f.type === 'select'
+                      ? <select value={form[f.key]||''} onChange={e => handleFormField(f.key, e.target.value)} style={{...fieldStyle,cursor:'pointer',color:form[f.key]?'#132033':'#94A3B8'}}>
+                          <option value="">Select...</option>
+                          {(f.source ? resolveFieldOptions(f.source, workspaceMode) : (f.options||[])).map(o => <option key={o} value={o}>{o}</option>)}
+                        </select>
+                      : <input type={f.type||'text'} value={form[f.key]||''} onChange={e => handleFormField(f.key, e.target.value)} placeholder={f.placeholder||''} style={fieldStyle}/>
             }
             {errors[f.key] && <span style={errStyle}>{errors[f.key]}</span>}
           </div>;

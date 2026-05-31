@@ -745,32 +745,11 @@ const NEW_RECORD_FIELDS = {
     { key: 'riskLevel',     label: 'Risk Level',             type: 'select',  options: ['Low','Medium','High','Critical'] },
     { key: 'notes',         label: 'Notes',                  multi: true },
   ],
-  Hardware: [
-    { key: 'name',           label: 'Asset Name',          required: true },
-    { key: 'type',           label: 'Type',                type: 'select', options: ['Server','Firewall','Switch','Laptop','Desktop','UPS','Storage','Printer','Other'] },
-    { key: 'brand',          label: 'Brand',               type: 'select', source: 'vendors' },
-    { key: 'model',          label: 'Model' },
-    { key: 'serial',         label: 'Serial Number / Asset ID' },
-    { key: 'client',         label: 'Client / Department', type: 'select', source: 'clientDepartment' },
-    { key: 'provider',       label: 'Provider',            type: 'select', source: 'providers' },
-    { key: 'owner',          label: 'Owner',               type: 'select', source: 'users' },
-    { key: 'warrantyEnd',    label: 'Warranty End',        type: 'date' },
-    { key: 'approvalStatus', label: 'Approval Status',     type: 'select', options: ['Approved','Pending','Blocked','Not required'] },
-    { key: 'alertPolicy',    label: 'Alert Policy',        type: 'select', options: LICENSE_ALERT_POLICY_OPTIONS },
-    { key: 'notes',          label: 'Notes',               multi: true },
-  ],
-  Contracts: [
-    { key: 'name',           label: 'Contract Name',          required: true },
-    { key: 'type',           label: 'Contract Type',          type: 'select', options: ['License','Service','Hardware','SaaS','Support','Maintenance','MSA','NDA','Other'] },
-    { key: 'client',         label: 'Client / Department',    type: 'select', source: 'clientDepartment' },
-    { key: 'provider',       label: 'Provider / Distributor', type: 'select', source: 'providers' },
-    { key: 'owner',          label: 'Owner',                  type: 'select', source: 'users' },
-    { key: 'renewalDate',    label: 'Renewal / End Date',     type: 'date' },
-    { key: 'noticePeriod',   label: 'Notice Period',          type: 'select', options: ['30 days','60 days','90 days','120 days','None'] },
-    { key: 'approvalStatus', label: 'Approval Status',        type: 'select', options: ['Approved','Pending','Blocked','Not required'] },
-    { key: 'alertPolicy',    label: 'Alert Policy',           type: 'select', options: LICENSE_ALERT_POLICY_OPTIONS },
-    { key: 'notes',          label: 'Notes',                  multi: true },
-  ],
+  // F1b: Documents still uses NEW_RECORD_FIELDS (via getFormFields'
+  // `NEW_RECORD_FIELDS[module]` lookup); the Licenses entry above is kept only
+  // as getFormFields' defensive fallback for unknown modules. The real
+  // Licenses / Hardware / Contracts forms are built inside getFormFields, so
+  // the former Hardware and Contracts entries here were dead code and removed.
   Documents: [
     { key: 'filePick',   label: 'Attach file',          required: true, type: 'file' },
     { key: 'name',       label: 'Document Name',         required: true },

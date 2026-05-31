@@ -240,3 +240,39 @@ Storing a critical entity as silent free text in a record meta or column is forb
 Do not replace small closed enums with a combobox where a simple `<select>` is clearer and faster. The rule targets entities that grow; it does not target every dropdown.
 
 See `MEMORY.md §22` for the full Searchable Combobox / Controlled Catalog Model product decision, the per-field categorisation, MVP vs commercial backend behavior, and the six-phase implementation plan (S1 primitive, S2 entity fields, S3 controlled catalogs, S4 import integration, S5 duplicate / alias detection, S6 backend RBAC and audit). Both documents must stay in sync.
+
+## 18. Form Field Architecture Rule
+
+Opriva's create and edit forms must stay consistent across Licenses, Hardware, Contracts, Documents, Support Coverage and Tasks. When modules share a concept, the field must use the same order, control type and (workspace-aware) label.
+
+### Standard field order
+
+Name / Identity → Type → Client / Department → Brand / Manufacturer → Provider / Distributor → Owner → Quantity / Serial / File → Money / Value / Cost → Key Dates → Alert Policy → Optional / Advanced metadata → Notes.
+
+### Control type
+
+- Searchable combobox (per §17): Client / Department, Owner, License / Product, Brand / Manufacturer, Provider / Distributor, Reseller / Partner, Location, Cost Center, Linked Record, Uploaded by, and Support / Coverage Name when catalog-backed.
+- Simple `<select>` (closed enums): Alert Policy, License Term, Approval Status, Business Criticality, Risk Level, Renewal Stage, Hardware Type, Contract Type, Coverage Type, Notice Period, Task Priority, Task Status, Task Type, Document Type, Import Scope Mode.
+
+### Required vs Optional
+
+Required universally: identity / name, client / department where applicable, owner, key date. MSP / Integrator may also require sale / value and vendor cost for margin. Internal IT may also require cost center, approval status and business criticality for governance. Secondary metadata (model, location, notice period, custom reminders, notes) belongs in Optional / Advanced.
+
+### Computed fields
+
+Margin, Days to Expiration, System Status and similar derived values must never be manual inputs. Risk Level is a candidate for derivation and must be reviewed, not assumed to be free user entry.
+
+### Preserve intentional workspace differences
+
+Do not unify: Client vs Department; Renewal / commercial Owner vs IT Owner / Budget Owner / Custodian; Sale + Vendor Cost + Margin vs Annual Cost + Cost Center + Approval + Criticality; Distributor / Provider vs Provider. These are MSP / Integrator vs Internal IT product signal.
+
+### Renderer and label safety
+
+- Do not add more one-off form renderers; prefer field specs consumed by shared renderers, and make future renderers respect flags such as `useSearchableSelect`.
+- Do not rename existing labels or keys casually. `buildNewRow`, import mapping (`IMPORT_CANONICAL_FIELDS`, `importMapping.js`), detail / edit drawers, prefill and filter specs may depend on exact labels and keys. Any label or key change requires a full impact audit first.
+
+### Phased rollout
+
+F1a document architecture (this rule + `MEMORY.md §23`); F1b remove dead `NEW_RECORD_FIELDS` code where safe; F1c refactor Tasks into field specs; F2 continue SearchableSelect rollout in New Record forms; F3 extend SearchableSelect to Edit / Preview renderers; F4 future backend / catalog integration.
+
+See `MEMORY.md §23` for the full Form Field Architecture / Form Consistency Model, including shared vs module-specific fields and detailed rationale. Both documents must stay in sync.

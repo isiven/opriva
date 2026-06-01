@@ -2186,6 +2186,29 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
                     ? <textarea value={editForm[f.key]||''} onChange={e => handleEditField(f.key, e.target.value)} rows={3} style={{...fieldStyle,resize:'vertical'}}/>
                     : f.type === 'computed'
                       ? <input type="text" value={formatComputedField(f.key, editForm[f.key])} readOnly placeholder="Calculated" style={{...fieldStyle,background:'#F0F4F8',color:editForm[f.key]?'#0F766E':'#94A3B8',cursor:'default'}}/>
+                    : f.useSearchableSelect
+                      ? (() => {
+                          // F3a — Edit drawer honors useSearchableSelect for the
+                          // same catalog fields migrated in New Record. The current
+                          // value is preserved as an option even when it is not in
+                          // the catalog (legacy / imported values), so editing an
+                          // off-catalog record never drops its value. allowCreate
+                          // stays false; the catalog owns the identity (AGENTS §17).
+                          const currentValue = editForm[f.key] || '';
+                          const baseOptions = f.source ? resolveFieldOptions(f.source, workspaceMode) : (f.options || []);
+                          const options = currentValue && !baseOptions.some(o => String(o) === String(currentValue))
+                            ? [currentValue].concat(baseOptions)
+                            : baseOptions;
+                          return <SearchableSelect
+                            value={currentValue}
+                            onChange={v => handleEditField(f.key, v)}
+                            options={options}
+                            placeholder={f.placeholder || 'Search...'}
+                            ariaLabel={f.label}
+                            required={!!f.required}
+                            allowCreate={false}
+                          />;
+                        })()
                     : f.type === 'select'
                       ? (() => {
                           const currentValue = editForm[f.key] || '';

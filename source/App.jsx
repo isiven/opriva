@@ -872,7 +872,7 @@ function getFormFields(module, workspaceMode) {
         { key: 'name',                label: 'Asset Name',                required: true },
         { key: 'type',                label: 'Type',                      required: true, type: 'select', options: ['Server','Firewall','Switch','Laptop','Desktop','UPS','Storage','Printer','Other'] },
         { key: 'client',              label: 'Department',                required: true, type: 'select', source: 'clientDepartment', useSearchableSelect: true, placeholder: 'Search department...' },
-        { key: 'brand',               label: 'Brand',                     required: true, type: 'select', source: 'vendors' },
+        { key: 'brand',               label: 'Brand / Manufacturer',      required: true, type: 'select', source: 'vendors', useSearchableSelect: true, placeholder: 'Search brand...' },
         { key: 'serial',              label: 'Serial Number / Asset ID',  required: true },
         { key: 'warrantyEnd',         label: 'Warranty End',              required: true, type: 'date' },
         { key: 'owner',               label: 'Owner / Custodian',         required: true, type: 'select', source: 'users', useSearchableSelect: true, placeholder: 'Search owner...' },
@@ -892,7 +892,7 @@ function getFormFields(module, workspaceMode) {
       { key: 'name',        label: 'Asset Name',              required: true },
       { key: 'type',        label: 'Type',                    required: true, type: 'select', options: ['Server','Firewall','Switch','Laptop','Desktop','UPS','Storage','Printer','Other'] },
       { key: 'client',      label: 'Client',                  required: true, type: 'select', source: 'clientDepartment', useSearchableSelect: true, placeholder: 'Search client...' },
-      { key: 'brand',       label: 'Brand',                   required: true, type: 'select', source: 'vendors' },
+      { key: 'brand',       label: 'Brand / Manufacturer',    required: true, type: 'select', source: 'vendors', useSearchableSelect: true, placeholder: 'Search brand...' },
       { key: 'serial',      label: 'Serial Number / Asset ID', required: true },
       { key: 'warrantyEnd', label: 'Warranty End',            required: true, type: 'date' },
       { key: 'owner',       label: 'Owner',                   required: true, type: 'select', source: 'users', useSearchableSelect: true, placeholder: 'Search owner...' },
@@ -949,7 +949,7 @@ function getFormFields(module, workspaceMode) {
       { key: 'renewalDate',   label: 'Expiration / Renewal Date', required: true, type: 'date' },
       { key: 'owner',         label: 'IT Owner / Budget Owner', required: true, type: 'select', source: 'users',            useSearchableSelect: true, placeholder: 'Search owner...' },
       { key: 'seats',         label: 'Quantity / Seats',       required: true, type: 'number' },
-      { key: 'brand',         label: 'Brand',                  type: 'select', source: 'vendors' },
+      { key: 'brand',         label: 'Brand / Manufacturer',   type: 'select', source: 'vendors',          useSearchableSelect: true, placeholder: 'Search brand...' },
       { key: 'provider',      label: 'Provider',               required: true, type: 'select', source: 'providers',        useSearchableSelect: true, placeholder: 'Search distributor / provider...' },
       { key: 'annualCost',    label: 'Annual Cost',            required: true, type: 'number' },
       { key: 'costCenter',    label: 'Cost Center',            required: true },
@@ -970,6 +970,7 @@ function getFormFields(module, workspaceMode) {
     { key: 'owner',         label: 'Renewal Owner',          required: true,  type: 'select', source: 'users',            useSearchableSelect: true, placeholder: 'Search owner...' },
     { key: 'alertPolicy',   label: 'Alert Policy',           required: true,  type: 'select', options: LICENSE_ALERT_POLICY_OPTIONS },
     { key: 'seats',         label: 'Quantity / Seats',       required: true, type: 'number' },
+    { key: 'brand',         label: 'Brand / Manufacturer',   type: 'select', source: 'vendors',          useSearchableSelect: true, placeholder: 'Search brand...' },
     { key: 'distributor',   label: 'Distributor / Provider', required: true, type: 'select', source: 'providers',        useSearchableSelect: true, placeholder: 'Search distributor / provider...' },
     { key: 'contractValue', label: 'Sale Price / Annual Value', required: true, type: 'number' },
     { key: 'cost',          label: 'Vendor Cost',            required: true, type: 'number' },
@@ -1107,9 +1108,9 @@ function getSupportCoverageFields(workspaceMode) {
   return [
     { key: 'name',         label: 'Support / Coverage Name',   required: true,  type: 'select', options: SUPPORT_COVERAGE_NAME_OPTIONS },
     { key: 'coverageType', label: 'Coverage Type',             required: true,  type: 'select', options: SUPPORT_COVERAGE_TYPE_OPTIONS },
-    { key: 'provider',     label: 'Provider',                  required: true,  type: 'select', source: 'providers' },
+    { key: 'provider',     label: 'Provider',                  required: true,  type: 'select', source: 'providers', useSearchableSelect: true, placeholder: 'Search provider / vendor...' },
     { key: 'endDate',      label: 'Coverage End Date',         required: true,  type: 'date' },
-    { key: 'owner',        label: 'Coverage Owner',            required: true,  type: 'select', source: 'users' },
+    { key: 'owner',        label: 'Coverage Owner',            required: true,  type: 'select', source: 'users', useSearchableSelect: true, placeholder: 'Search owner...' },
     { key: 'alertPolicy',  label: 'Alert Policy',              required: true,  type: 'select', options: SUPPORT_ALERT_POLICY_OPTIONS },
     { key: 'startDate',    label: 'Coverage Start Date',       type: 'date' },
     { key: 'value',        label: valueLabel,                  type: 'number' },
@@ -2164,6 +2165,25 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
           </label>
           {f.multi
             ? <textarea value={supportForm[f.key]||''} onChange={function(e) { setSupportForm(function(p) { return Object.assign({},p,{[f.key]:e.target.value}); }); }} rows={3} style={{...fieldStyle,resize:'vertical'}}/>
+            : f.useSearchableSelect
+              ? (function() {
+                  // Core-3 — Support Coverage honors useSearchableSelect for
+                  // provider / owner. Preserve the current value as an option
+                  // when it is not in the catalog (legacy / imported values).
+                  var currentValue = supportForm[f.key] || '';
+                  var baseOptions = f.source ? resolveFieldOptions(f.source, workspaceMode) : (f.options || []);
+                  var options = currentValue && !baseOptions.some(function(o) { return String(o) === String(currentValue); })
+                    ? [currentValue].concat(baseOptions) : baseOptions;
+                  return <SearchableSelect
+                    value={currentValue}
+                    onChange={function(val) { setSupportForm(function(p) { return Object.assign({},p,{[f.key]:val}); }); }}
+                    options={options}
+                    placeholder={f.placeholder || 'Search...'}
+                    ariaLabel={f.label}
+                    required={!!f.required}
+                    allowCreate={false}
+                  />;
+                })()
             : f.type === 'select'
               ? <select value={supportForm[f.key]||''} onChange={function(e) { setSupportForm(function(p) { return Object.assign({},p,{[f.key]:e.target.value}); }); }} style={{...fieldStyle,cursor:'pointer',color:supportForm[f.key]?'#132033':'#94A3B8'}}>
                   <option value="">Select...</option>

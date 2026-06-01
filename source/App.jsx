@@ -563,6 +563,17 @@ function resolveFieldOptions(source, workspaceMode) {
   if (source === 'products') {
     return MASTER_DATA.products.map(function(p) { return p.name; });
   }
+  if (source === 'linkedRecords') {
+    // Real cross-module records for the Documents "Linked Record" picker
+    // (Licenses / Hardware / Contracts). Documents are excluded to avoid a
+    // document linking to itself. Each option keeps the readable record name
+    // as its value (what the "Linked record" column stores) and shows a richer
+    // "Name · Module · Client" label, so selection round-trips on edit without
+    // changing the shared save path.
+    return collectLinkedRecordOptions(workspaceMode, 'documents').map(function(o) {
+      return { value: o.recordName, label: o.label };
+    });
+  }
   return MASTER_DATA[source] || [];
 }
 
@@ -597,6 +608,34 @@ function ensureModuleRecordsLoaded(moduleKey, workspaceMode) {
   if (Array.isArray(RECORD_STORE[moduleKey]) && RECORD_STORE[moduleKey].length > 0) return;
   var rows = getModuleMockRows(moduleKey, workspaceMode);
   if (rows.length > 0) RECORD_STORE[moduleKey] = toRecords(rows, moduleKey, { workspaceMode: workspaceMode });
+}
+
+// Cross-module real-record options for "Linked Record" pickers (Tasks New Task
+// modal and Documents Upload form). Each option is a { value: rec.id, label,
+// moduleKey, recordName, clientOrDept, row, columns, meta } object. Pass
+// excludeModuleKey to drop a module (e.g. 'documents' so a document cannot link
+// to itself). Module-level so both TasksScreen and OperationalList can use it.
+function collectLinkedRecordOptions(workspaceMode, excludeModuleKey) {
+  var modules = ['licenses', 'hardware', 'contracts', 'documents'];
+  var opts = [];
+  modules.forEach(function(mk) {
+    if (excludeModuleKey && mk === excludeModuleKey) return;
+    ensureModuleRecordsLoaded(mk, workspaceMode);
+    var cols = getModuleColumns(mk, workspaceMode);
+    var cdIdx = getModuleClientDeptIndex(mk, workspaceMode);
+    var recs = RECORD_STORE[mk] || [];
+    recs.forEach(function(rec) {
+      var name = (rec.row && rec.row[0]) || '';
+      if (!name || name === '-') return;
+      var clientOrDept = (cdIdx >= 0 && rec.row && rec.row[cdIdx]) || '';
+      if (clientOrDept === '-') clientOrDept = '';
+      var label = name
+        + ' · ' + (mk.charAt(0).toUpperCase() + mk.slice(1))
+        + (clientOrDept ? ' · ' + clientOrDept : '');
+      opts.push({ value: rec.id, label: label, moduleKey: mk, recordName: name, clientOrDept: clientOrDept, row: rec.row, columns: cols, meta: rec.meta || null });
+    });
+  });
+  return opts;
 }
 
 function summarizeImportedRecordValue(records) {
@@ -755,9 +794,9 @@ const NEW_RECORD_FIELDS = {
     { key: 'name',       label: 'Document Name',         required: true },
     { key: 'type',       label: 'Document Type',         required: true, type: 'select', options: DOC_TYPE_OPTIONS },
     { key: 'uploadedBy', label: 'Uploaded by',           required: true, type: 'select', source: 'users', useSearchableSelect: true, placeholder: 'Search user...' },
-    { key: 'relatedRecord', label: 'Linked Record',      type: 'select', source: 'relatedContracts' },
+    { key: 'relatedRecord', label: 'Linked Record',      type: 'select', source: 'linkedRecords', useSearchableSelect: true, placeholder: 'Search record...' },
     { key: 'client',     label: 'Client / Department',   type: 'select', source: 'clientDepartment', useSearchableSelect: true, placeholder: 'Search client / department...' },
-    { key: 'vendor',     label: 'Provider / Vendor',     type: 'select', source: 'vendors' },
+    { key: 'vendor',     label: 'Provider / Vendor',     type: 'select', source: 'vendors', useSearchableSelect: true, placeholder: 'Search provider / vendor...' },
     { key: 'notes',      label: 'Notes',                 multi: true },
   ],
 };
@@ -2716,26 +2755,10 @@ function TasksScreen({ workspaceMode = 'MSP / Integrator' }){
   // Built from RECORD_STORE across all four modules (pre-seeded from mock rows
   // if a module hasn't been visited yet).  Each option carries enough data to
   // populate the full task meta without relying on RECORD_STORE stability later.
+  // Delegates to the module-level collector (all four modules; no exclusion)
+  // so the global New Task modal keeps its existing behavior unchanged.
   function buildLinkedRecordOptions() {
-    var modules = ['licenses','hardware','contracts','documents'];
-    var opts = [];
-    modules.forEach(function(mk) {
-      ensureModuleRecordsLoaded(mk, workspaceMode);
-      var cols = getModuleColumns(mk, workspaceMode);
-      var cdIdx = getModuleClientDeptIndex(mk, workspaceMode);
-      var recs = RECORD_STORE[mk] || [];
-      recs.forEach(function(rec) {
-        var name = (rec.row && rec.row[0]) || '';
-        if (!name || name === '-') return;
-        var clientOrDept = (cdIdx >= 0 && rec.row && rec.row[cdIdx]) || '';
-        if (clientOrDept === '-') clientOrDept = '';
-        var label = name
-          + ' · ' + (mk.charAt(0).toUpperCase() + mk.slice(1))
-          + (clientOrDept ? ' · ' + clientOrDept : '');
-        opts.push({ value: rec.id, label: label, moduleKey: mk, recordName: name, clientOrDept: clientOrDept, row: rec.row, columns: cols, meta: rec.meta || null });
-      });
-    });
-    return opts;
+    return collectLinkedRecordOptions(workspaceMode);
   }
 
   // ── Global New Task state ─────────────────────────────────────────────────
@@ -3220,19 +3243,33 @@ function TasksScreen({ workspaceMode = 'MSP / Integrator' }){
 
             <div>
               <label style={{display:'block',marginBottom:5,fontSize:13,fontWeight:700,color:'#334155'}}>Linked record<span style={{color:'#DC2626',marginLeft:3}}>*</span></label>
-              <select value={newTaskForm.linkedRec||''} onChange={function(e) { setNewTaskForm(function(p) { return Object.assign({},p,{linkedRec:e.target.value}); }); }} style={{...tFieldStyle,cursor:'pointer',color:newTaskForm.linkedRec?'#132033':'#94A3B8'}}>
-                <option value="">Select record...</option>
-                {linkedRecordOptions.map(function(o) { return <option key={o.value} value={o.value}>{o.label}</option>; })}
-              </select>
+              {/* SearchableSelect: linkedRecordOptions are {value: rec.id, label}
+                  objects; the component returns opt.value (the record id) on
+                  change, so handleGlobalTaskSave's lookup is unchanged.
+                  allowCreate=false — you can only link existing records. */}
+              <SearchableSelect
+                value={newTaskForm.linkedRec||''}
+                onChange={function(v) { setNewTaskForm(function(p) { return Object.assign({},p,{linkedRec:v}); }); }}
+                options={linkedRecordOptions}
+                placeholder="Search record..."
+                ariaLabel="Linked record"
+                required={true}
+                allowCreate={false}
+              />
               {newTaskErrors.linkedRec && <span style={tErrStyle}>{newTaskErrors.linkedRec}</span>}
             </div>
 
             <div>
               <label style={{display:'block',marginBottom:5,fontSize:13,fontWeight:700,color:'#334155'}}>Owner<span style={{color:'#DC2626',marginLeft:3}}>*</span></label>
-              <select value={newTaskForm.owner||''} onChange={function(e) { setNewTaskForm(function(p) { return Object.assign({},p,{owner:e.target.value}); }); }} style={{...tFieldStyle,cursor:'pointer',color:newTaskForm.owner?'#132033':'#94A3B8'}}>
-                <option value="">Select owner...</option>
-                {userOpts.map(function(o) { return <option key={o} value={o}>{o}</option>; })}
-              </select>
+              <SearchableSelect
+                value={newTaskForm.owner||''}
+                onChange={function(v) { setNewTaskForm(function(p) { return Object.assign({},p,{owner:v}); }); }}
+                options={userOpts}
+                placeholder="Search owner..."
+                ariaLabel="Owner"
+                required={true}
+                allowCreate={false}
+              />
               {newTaskErrors.owner && <span style={tErrStyle}>{newTaskErrors.owner}</span>}
             </div>
           </div>

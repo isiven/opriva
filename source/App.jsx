@@ -1359,6 +1359,17 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
   const [editForm, setEditForm] = React.useState({});
   const [editErrors, setEditErrors] = React.useState({});
   const [activeDetailTab, setActiveDetailTab] = React.useState('Overview');
+  // A11y-2: focus management for the record detail / edit drawer only (not the
+  // import preview drawer or other dialogs yet). Escape exits edit mode first
+  // when editing, otherwise closes the drawer — the safest, least destructive
+  // behavior. editModeRef avoids a stale closure inside the Escape handler.
+  const detailDrawerRef = React.useRef(null);
+  const editModeRef = React.useRef(editMode);
+  editModeRef.current = editMode;
+  const detailDrawerKeyDown = useDialogFocus(detailDrawerRef, detailOpen, function(){
+    if (editModeRef.current) { setEditMode(false); }
+    else { setDetailOpen(false); }
+  });
   const [attachDocOpen, setAttachDocOpen] = React.useState(false);
   const [attachDocForm, setAttachDocForm] = React.useState({});
   const [attachDocErrors, setAttachDocErrors] = React.useState({});
@@ -2234,7 +2245,7 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
     {detailOpen && selectedRecord && <>
       <style>{`.agentWrap,.floatingAgentWrap{display:none!important}`}</style>
       <div style={{position:'fixed',inset:0,background:'rgba(11,31,58,.18)',zIndex:48}} onClick={() => { setDetailOpen(false); setEditMode(false); }} aria-hidden="true"/>
-      <aside role="dialog" aria-modal="true" aria-label={editMode ? 'Edit record' : 'Record detail'} style={{position:'fixed',right:0,top:0,bottom:0,width:'min(440px,100vw)',background:'#fff',borderLeft:'1px solid #E5E7EB',boxShadow:'-8px 0 40px rgba(11,31,58,.16)',zIndex:49,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+      <aside ref={detailDrawerRef} onKeyDown={detailDrawerKeyDown} role="dialog" aria-modal="true" aria-label={editMode ? 'Edit record' : 'Record detail'} style={{position:'fixed',right:0,top:0,bottom:0,width:'min(440px,100vw)',background:'#fff',borderLeft:'1px solid #E5E7EB',boxShadow:'-8px 0 40px rgba(11,31,58,.16)',zIndex:49,display:'flex',flexDirection:'column',overflow:'hidden'}}>
 
         {/* Drawer header — always visible */}
         {(() => {

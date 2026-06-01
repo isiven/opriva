@@ -971,7 +971,7 @@ function getFormFields(module, workspaceMode) {
     { key: 'alertPolicy',   label: 'Alert Policy',           required: true,  type: 'select', options: LICENSE_ALERT_POLICY_OPTIONS },
     { key: 'seats',         label: 'Quantity / Seats',       required: true, type: 'number' },
     { key: 'brand',         label: 'Brand / Manufacturer',   type: 'select', source: 'vendors',          useSearchableSelect: true, placeholder: 'Search brand...' },
-    { key: 'distributor',   label: 'Distributor / Provider', required: true, type: 'select', source: 'providers',        useSearchableSelect: true, placeholder: 'Search distributor / provider...' },
+    { key: 'provider',      label: 'Distributor / Provider', required: true, type: 'select', source: 'providers',        useSearchableSelect: true, placeholder: 'Search distributor / provider...' },
     { key: 'contractValue', label: 'Sale Price / Annual Value', required: true, type: 'number' },
     { key: 'cost',          label: 'Vendor Cost',            required: true, type: 'number' },
     { key: 'startDate',     label: 'Start Date',             type: 'date' },
@@ -1013,7 +1013,7 @@ function buildNewRow(form, safeColumns) {
     'Brand':                  v.brand,
     'Vendor':                 v.brand,
     'Provider':               v.provider,
-    'Distributor':            v.distributor || v.provider,
+    'Distributor':            v.provider || v.distributor,
     'Provider / Distributor': v.provider || v.distributor,
     'Type':                   v.type,
     'Model':                  v.model,
@@ -1799,7 +1799,7 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
           var prod = getProductByName(value);
           if (prod) {
             next.brand = prod.brand;
-            if (!prev.distributor) next.distributor = prod.defaultDistributor || '';
+            // Core-2: License uses key `provider` in both MSP and Internal IT.
             if (!prev.provider) next.provider = prod.defaultDistributor || '';
             if (!prev.licenseTerm) next.licenseTerm = prod.defaultTerm || '';
             var suggested = suggestRenewalDate(next.startDate, next.licenseTerm);
@@ -1827,7 +1827,8 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
           var prod = getProductByName(value);
           if (prod) {
             next.brand = prod.brand;
-            if (!prev.distributor) next.distributor = prod.defaultDistributor || '';
+            // Core-2: License uses key `provider` in both MSP and Internal IT.
+            if (!prev.provider) next.provider = prod.defaultDistributor || '';
             if (!prev.licenseTerm) next.licenseTerm = prod.defaultTerm || '';
             var suggested = suggestRenewalDate(next.startDate, next.licenseTerm);
             if (suggested && !prev.renewalDate) next.renewalDate = suggested;

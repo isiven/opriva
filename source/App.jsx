@@ -33,7 +33,7 @@ import { createImportMappings, getMappedImportValue, getMappedImportValueAny } f
 import { detectImportTarget, suggestImportTargetFromSource } from './importSandbox/importTargets.js';
 import { detectImportSourceType, normalizeImportText } from './importSandbox/importText.js';
 import { getImportSheetData } from './importSandbox/workbookParsing.js';
-import { calcExpirationState, inferLicenseTerm, suggestRenewalDate } from './utils/dates.js';
+import { calcExpirationState, calcRiskLevel, inferLicenseTerm, suggestRenewalDate } from './utils/dates.js';
 import { buildSuggestedCoveragesForLicense, buildSuggestedCoveragesForHardware, buildCoverageRecordsForBatch } from './utils/coverage.js';
 import SearchableSelect from './components/SearchableSelect.jsx';
 import { autoFillDocName, extractFileMetadata, fmtFileSize, fmtUploadedAt } from './utils/files.js';
@@ -43,6 +43,67 @@ import { getImportSandboxRecords, getLocalStoreRecords, getModuleClientDeptIndex
 import { createRecordId, RECORD_STORE, toRecords } from './store/recordStore.js';
 import { addActivityEvent } from './store/activityStore.js';
 import { getImportedClientRows, getImportedDashboardPriorityRows, getImportedRenewalRows } from './store/recordProjections.js';
+
+// Reusable dialog focus manager (A11y-1). When `active` becomes true it:
+//  - remembers the element that had focus (the trigger),
+//  - moves focus to the first focusable element inside `ref` (or the container),
+//  - traps Tab / Shift+Tab inside the dialog,
+//  - closes on Escape via `onClose` — but only if the event was not already
+//    handled (e.g. an open SearchableSelect dropdown calls preventDefault on its
+//    own Escape without stopping propagation, so we skip closing in that case),
+//  - restores focus to the trigger on close/unmount.
+// Returns an onKeyDown handler to spread onto the dialog container. Scoped to a
+// single surface per call; not global. Does not change layout or ARIA.
+function useDialogFocus(ref, active, onClose){
+  const triggerRef = React.useRef(null);
+  React.useEffect(function(){
+    if (!active) return undefined;
+    triggerRef.current = (typeof document !== 'undefined') ? document.activeElement : null;
+    var node = ref.current;
+    var focusTimer = window.setTimeout(function(){
+      if (!ref.current) return;
+      var focusables = ref.current.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]), [role="combobox"]');
+      var first = focusables.length ? focusables[0] : ref.current;
+      if (first && typeof first.focus === 'function') first.focus();
+    }, 30);
+    return function(){
+      window.clearTimeout(focusTimer);
+      var trigger = triggerRef.current;
+      if (trigger && typeof trigger.focus === 'function' && document.contains(trigger)) {
+        trigger.focus();
+      }
+    };
+  }, [active, ref]);
+
+  function onKeyDown(e){
+    if (e.key === 'Escape') {
+      // If an inner control (e.g. SearchableSelect dropdown) already handled
+      // Escape, it called preventDefault; let it close the dropdown first and
+      // leave the dialog open.
+      if (e.defaultPrevented) return;
+      e.preventDefault();
+      if (onClose) onClose();
+      return;
+    }
+    if (e.key === 'Tab') {
+      var container = ref.current;
+      if (!container) return;
+      var focusables = Array.prototype.slice.call(container.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]), [role="combobox"]'))
+        .filter(function(el){ return el.offsetParent !== null || el === document.activeElement; });
+      if (focusables.length === 0) { e.preventDefault(); if (container.focus) container.focus(); return; }
+      var firstEl = focusables[0];
+      var lastEl = focusables[focusables.length - 1];
+      var activeEl = document.activeElement;
+      if (e.shiftKey) {
+        if (activeEl === firstEl || !container.contains(activeEl)) { e.preventDefault(); lastEl.focus(); }
+      } else {
+        if (activeEl === lastEl || !container.contains(activeEl)) { e.preventDefault(); firstEl.focus(); }
+      }
+    }
+  }
+
+  return onKeyDown;
+}
 
 function useViewport(){
   const [vp, setVp] = React.useState('desktop');
@@ -563,6 +624,17 @@ function resolveFieldOptions(source, workspaceMode) {
   if (source === 'products') {
     return MASTER_DATA.products.map(function(p) { return p.name; });
   }
+  if (source === 'linkedRecords') {
+    // Real cross-module records for the Documents "Linked Record" picker
+    // (Licenses / Hardware / Contracts). Documents are excluded to avoid a
+    // document linking to itself. Each option keeps the readable record name
+    // as its value (what the "Linked record" column stores) and shows a richer
+    // "Name · Module · Client" label, so selection round-trips on edit without
+    // changing the shared save path.
+    return collectLinkedRecordOptions(workspaceMode, 'documents').map(function(o) {
+      return { value: o.recordName, label: o.label };
+    });
+  }
   return MASTER_DATA[source] || [];
 }
 
@@ -577,6 +649,8 @@ function applyLicenseComputedFields(next) {
   var expirationState = calcExpirationState(next.renewalDate, next.alertPolicy, next.customReminderDays);
   next.systemStatus = expirationState.systemStatus;
   next.daysToExpiration = expirationState.daysToExpiration;
+  // riskLevel is derived (never manual), mirroring systemStatus / margin.
+  next.riskLevel = calcRiskLevel(next.renewalDate, next.alertPolicy, next.customReminderDays, next.businessCriticality);
   return next;
 }
 
@@ -597,6 +671,34 @@ function ensureModuleRecordsLoaded(moduleKey, workspaceMode) {
   if (Array.isArray(RECORD_STORE[moduleKey]) && RECORD_STORE[moduleKey].length > 0) return;
   var rows = getModuleMockRows(moduleKey, workspaceMode);
   if (rows.length > 0) RECORD_STORE[moduleKey] = toRecords(rows, moduleKey, { workspaceMode: workspaceMode });
+}
+
+// Cross-module real-record options for "Linked Record" pickers (Tasks New Task
+// modal and Documents Upload form). Each option is a { value: rec.id, label,
+// moduleKey, recordName, clientOrDept, row, columns, meta } object. Pass
+// excludeModuleKey to drop a module (e.g. 'documents' so a document cannot link
+// to itself). Module-level so both TasksScreen and OperationalList can use it.
+function collectLinkedRecordOptions(workspaceMode, excludeModuleKey) {
+  var modules = ['licenses', 'hardware', 'contracts', 'documents'];
+  var opts = [];
+  modules.forEach(function(mk) {
+    if (excludeModuleKey && mk === excludeModuleKey) return;
+    ensureModuleRecordsLoaded(mk, workspaceMode);
+    var cols = getModuleColumns(mk, workspaceMode);
+    var cdIdx = getModuleClientDeptIndex(mk, workspaceMode);
+    var recs = RECORD_STORE[mk] || [];
+    recs.forEach(function(rec) {
+      var name = (rec.row && rec.row[0]) || '';
+      if (!name || name === '-') return;
+      var clientOrDept = (cdIdx >= 0 && rec.row && rec.row[cdIdx]) || '';
+      if (clientOrDept === '-') clientOrDept = '';
+      var label = name
+        + ' · ' + (mk.charAt(0).toUpperCase() + mk.slice(1))
+        + (clientOrDept ? ' · ' + clientOrDept : '');
+      opts.push({ value: rec.id, label: label, moduleKey: mk, recordName: name, clientOrDept: clientOrDept, row: rec.row, columns: cols, meta: rec.meta || null });
+    });
+  });
+  return opts;
 }
 
 function summarizeImportedRecordValue(records) {
@@ -742,43 +844,22 @@ const NEW_RECORD_FIELDS = {
     { key: 'cost',          label: 'Cost',                   type: 'number' },
     { key: 'marginDollar',  label: 'Margin $',               type: 'computed' },
     { key: 'margin',        label: 'Margin %',               type: 'computed' },
-    { key: 'riskLevel',     label: 'Risk Level',             type: 'select',  options: ['Low','Medium','High','Critical'] },
+    { key: 'riskLevel',     label: 'Risk Level',             type: 'computed' },
     { key: 'notes',         label: 'Notes',                  multi: true },
   ],
-  Hardware: [
-    { key: 'name',           label: 'Asset Name',          required: true },
-    { key: 'type',           label: 'Type',                type: 'select', options: ['Server','Firewall','Switch','Laptop','Desktop','UPS','Storage','Printer','Other'] },
-    { key: 'brand',          label: 'Brand',               type: 'select', source: 'vendors' },
-    { key: 'model',          label: 'Model' },
-    { key: 'serial',         label: 'Serial Number / Asset ID' },
-    { key: 'client',         label: 'Client / Department', type: 'select', source: 'clientDepartment' },
-    { key: 'provider',       label: 'Provider',            type: 'select', source: 'providers' },
-    { key: 'owner',          label: 'Owner',               type: 'select', source: 'users' },
-    { key: 'warrantyEnd',    label: 'Warranty End',        type: 'date' },
-    { key: 'approvalStatus', label: 'Approval Status',     type: 'select', options: ['Approved','Pending','Blocked','Not required'] },
-    { key: 'alertPolicy',    label: 'Alert Policy',        type: 'select', options: LICENSE_ALERT_POLICY_OPTIONS },
-    { key: 'notes',          label: 'Notes',               multi: true },
-  ],
-  Contracts: [
-    { key: 'name',           label: 'Contract Name',          required: true },
-    { key: 'type',           label: 'Contract Type',          type: 'select', options: ['License','Service','Hardware','SaaS','Support','Maintenance','MSA','NDA','Other'] },
-    { key: 'client',         label: 'Client / Department',    type: 'select', source: 'clientDepartment' },
-    { key: 'provider',       label: 'Provider / Distributor', type: 'select', source: 'providers' },
-    { key: 'owner',          label: 'Owner',                  type: 'select', source: 'users' },
-    { key: 'renewalDate',    label: 'Renewal / End Date',     type: 'date' },
-    { key: 'noticePeriod',   label: 'Notice Period',          type: 'select', options: ['30 days','60 days','90 days','120 days','None'] },
-    { key: 'approvalStatus', label: 'Approval Status',        type: 'select', options: ['Approved','Pending','Blocked','Not required'] },
-    { key: 'alertPolicy',    label: 'Alert Policy',           type: 'select', options: LICENSE_ALERT_POLICY_OPTIONS },
-    { key: 'notes',          label: 'Notes',                  multi: true },
-  ],
+  // F1b: Documents still uses NEW_RECORD_FIELDS (via getFormFields'
+  // `NEW_RECORD_FIELDS[module]` lookup); the Licenses entry above is kept only
+  // as getFormFields' defensive fallback for unknown modules. The real
+  // Licenses / Hardware / Contracts forms are built inside getFormFields, so
+  // the former Hardware and Contracts entries here were dead code and removed.
   Documents: [
     { key: 'filePick',   label: 'Attach file',          required: true, type: 'file' },
     { key: 'name',       label: 'Document Name',         required: true },
     { key: 'type',       label: 'Document Type',         required: true, type: 'select', options: DOC_TYPE_OPTIONS },
-    { key: 'uploadedBy', label: 'Uploaded by',           required: true, type: 'select', source: 'users' },
-    { key: 'relatedRecord', label: 'Linked Record',      type: 'select', source: 'relatedContracts' },
-    { key: 'client',     label: 'Client / Department',   type: 'select', source: 'clientDepartment' },
-    { key: 'vendor',     label: 'Provider / Vendor',     type: 'select', source: 'vendors' },
+    { key: 'uploadedBy', label: 'Uploaded by',           required: true, type: 'select', source: 'users', useSearchableSelect: true, placeholder: 'Search user...' },
+    { key: 'relatedRecord', label: 'Linked Record',      type: 'select', source: 'linkedRecords', useSearchableSelect: true, placeholder: 'Search record...' },
+    { key: 'client',     label: 'Client / Department',   type: 'select', source: 'clientDepartment', useSearchableSelect: true, placeholder: 'Search client / department...' },
+    { key: 'vendor',     label: 'Provider / Vendor',     type: 'select', source: 'vendors', useSearchableSelect: true, placeholder: 'Search provider / vendor...' },
     { key: 'notes',      label: 'Notes',                 multi: true },
   ],
 };
@@ -790,13 +871,13 @@ function getFormFields(module, workspaceMode) {
       return [
         { key: 'name',                label: 'Asset Name',                required: true },
         { key: 'type',                label: 'Type',                      required: true, type: 'select', options: ['Server','Firewall','Switch','Laptop','Desktop','UPS','Storage','Printer','Other'] },
-        { key: 'client',              label: 'Department',                required: true, type: 'select', source: 'clientDepartment' },
+        { key: 'client',              label: 'Department',                required: true, type: 'select', source: 'clientDepartment', useSearchableSelect: true, placeholder: 'Search department...' },
         { key: 'brand',               label: 'Brand',                     required: true, type: 'select', source: 'vendors' },
         { key: 'serial',              label: 'Serial Number / Asset ID',  required: true },
         { key: 'warrantyEnd',         label: 'Warranty End',              required: true, type: 'date' },
-        { key: 'owner',               label: 'Owner / Custodian',         required: true, type: 'select', source: 'users' },
+        { key: 'owner',               label: 'Owner / Custodian',         required: true, type: 'select', source: 'users', useSearchableSelect: true, placeholder: 'Search owner...' },
         { key: 'model',               label: 'Model' },
-        { key: 'provider',            label: 'Provider',                  type: 'select', source: 'providers' },
+        { key: 'provider',            label: 'Provider',                  type: 'select', source: 'providers', useSearchableSelect: true, placeholder: 'Search provider...' },
         { key: 'location',            label: 'Location' },
         { key: 'costCenter',          label: 'Cost Center' },
         { key: 'purchaseDate',        label: 'Purchase Date',             type: 'date' },
@@ -810,13 +891,13 @@ function getFormFields(module, workspaceMode) {
     return [
       { key: 'name',        label: 'Asset Name',              required: true },
       { key: 'type',        label: 'Type',                    required: true, type: 'select', options: ['Server','Firewall','Switch','Laptop','Desktop','UPS','Storage','Printer','Other'] },
-      { key: 'client',      label: 'Client',                  required: true, type: 'select', source: 'clientDepartment' },
+      { key: 'client',      label: 'Client',                  required: true, type: 'select', source: 'clientDepartment', useSearchableSelect: true, placeholder: 'Search client...' },
       { key: 'brand',       label: 'Brand',                   required: true, type: 'select', source: 'vendors' },
       { key: 'serial',      label: 'Serial Number / Asset ID', required: true },
       { key: 'warrantyEnd', label: 'Warranty End',            required: true, type: 'date' },
-      { key: 'owner',       label: 'Owner',                   required: true, type: 'select', source: 'users' },
+      { key: 'owner',       label: 'Owner',                   required: true, type: 'select', source: 'users', useSearchableSelect: true, placeholder: 'Search owner...' },
       { key: 'model',       label: 'Model' },
-      { key: 'provider',    label: 'Provider / Distributor',  type: 'select', source: 'providers' },
+      { key: 'provider',    label: 'Provider / Distributor',  type: 'select', source: 'providers', useSearchableSelect: true, placeholder: 'Search distributor / provider...' },
       { key: 'location',    label: 'Location' },
       { key: 'purchaseDate', label: 'Purchase Date',          type: 'date' },
       { key: 'assetValue',  label: 'Asset Value',             type: 'number' },
@@ -829,9 +910,9 @@ function getFormFields(module, workspaceMode) {
       return [
         { key: 'name',           label: 'Contract Name',      required: true },
         { key: 'type',           label: 'Contract Type',      required: true, type: 'select', options: ['License','Service','Hardware','SaaS','Support','Maintenance','MSA','NDA','Other'] },
-        { key: 'client',         label: 'Department',         required: true, type: 'select', source: 'clientDepartment' },
-        { key: 'provider',       label: 'Provider',           required: true, type: 'select', source: 'providers' },
-        { key: 'owner',          label: 'Owner',              required: true, type: 'select', source: 'users' },
+        { key: 'client',         label: 'Department',         required: true, type: 'select', source: 'clientDepartment', useSearchableSelect: true, placeholder: 'Search department...' },
+        { key: 'provider',       label: 'Provider',           required: true, type: 'select', source: 'providers', useSearchableSelect: true, placeholder: 'Search provider...' },
+        { key: 'owner',          label: 'Owner',              required: true, type: 'select', source: 'users', useSearchableSelect: true, placeholder: 'Search owner...' },
         { key: 'renewalDate',    label: 'Renewal / End Date', required: true, type: 'date' },
         { key: 'noticePeriod',   label: 'Notice Period',      type: 'select', options: ['30 days','60 days','90 days','120 days','None'] },
         { key: 'annualCost',     label: 'Annual Cost',        type: 'number' },
@@ -844,9 +925,9 @@ function getFormFields(module, workspaceMode) {
     return [
       { key: 'name',         label: 'Contract Name',          required: true },
       { key: 'type',         label: 'Contract Type',          required: true, type: 'select', options: ['License','Service','Hardware','SaaS','Support','Maintenance','MSA','NDA','Other'] },
-      { key: 'client',       label: 'Client',                 required: true, type: 'select', source: 'clientDepartment' },
-      { key: 'provider',     label: 'Provider / Distributor', required: true, type: 'select', source: 'providers' },
-      { key: 'owner',        label: 'Owner',                  required: true, type: 'select', source: 'users' },
+      { key: 'client',       label: 'Client',                 required: true, type: 'select', source: 'clientDepartment', useSearchableSelect: true, placeholder: 'Search client...' },
+      { key: 'provider',     label: 'Provider / Distributor', required: true, type: 'select', source: 'providers', useSearchableSelect: true, placeholder: 'Search distributor / provider...' },
+      { key: 'owner',        label: 'Owner',                  required: true, type: 'select', source: 'users', useSearchableSelect: true, placeholder: 'Search owner...' },
       { key: 'renewalDate',  label: 'Renewal / End Date',     required: true, type: 'date' },
       { key: 'noticePeriod', label: 'Notice Period',          type: 'select', options: ['30 days','60 days','90 days','120 days','None'] },
       { key: 'contractValue', label: 'Contract Value',        type: 'number' },
@@ -858,16 +939,18 @@ function getFormFields(module, workspaceMode) {
   if (module !== 'Licenses') return NEW_RECORD_FIELDS[module] || NEW_RECORD_FIELDS.Licenses;
   if (workspaceMode === 'Internal IT') {
     return [
-      { key: 'name',          label: 'License / Product',      required: true,  type: 'select', source: 'products' },
-      { key: 'client',        label: 'Department',             required: true,  type: 'select', source: 'clientDepartment' },
+      // S1b + S1c — License / Product, Department, Owner and Provider all
+      // migrated to SearchableSelect in the New Record modal renderer.
+      // useSearchableSelect flag is opt-in; Edit record drawer and import
+      // preview drawer still use native <select>. allowCreate=false stays
+      // wired by default in renderF so users cannot inject off-catalog values.
+      { key: 'name',          label: 'License / Product',      required: true,  type: 'select', source: 'products',         useSearchableSelect: true, placeholder: 'Search license / product...' },
+      { key: 'client',        label: 'Department',             required: true,  type: 'select', source: 'clientDepartment', useSearchableSelect: true, placeholder: 'Search department...' },
       { key: 'renewalDate',   label: 'Expiration / Renewal Date', required: true, type: 'date' },
-      // S1b pilot — Owner field migrated to SearchableSelect in the New
-      // Record modal renderer. useSearchableSelect flag is opt-in; Edit
-      // record drawer and import preview drawer still use native <select>.
-      { key: 'owner',         label: 'IT Owner / Budget Owner', required: true, type: 'select', source: 'users', useSearchableSelect: true },
+      { key: 'owner',         label: 'IT Owner / Budget Owner', required: true, type: 'select', source: 'users',            useSearchableSelect: true, placeholder: 'Search owner...' },
       { key: 'seats',         label: 'Quantity / Seats',       required: true, type: 'number' },
       { key: 'brand',         label: 'Brand',                  type: 'select', source: 'vendors' },
-      { key: 'provider',      label: 'Provider',               required: true, type: 'select', source: 'providers' },
+      { key: 'provider',      label: 'Provider',               required: true, type: 'select', source: 'providers',        useSearchableSelect: true, placeholder: 'Search distributor / provider...' },
       { key: 'annualCost',    label: 'Annual Cost',            required: true, type: 'number' },
       { key: 'costCenter',    label: 'Cost Center',            required: true },
       { key: 'approvalStatus', label: 'Approval Status',       required: true, type: 'select', options: ['Approved','Pending','Blocked','Not required'] },
@@ -880,14 +963,14 @@ function getFormFields(module, workspaceMode) {
     ];
   }
   return [
-    { key: 'name',          label: 'License / Product',      required: true,  type: 'select', source: 'products' },
-    { key: 'client',        label: 'Client',                 required: true,  type: 'select', source: 'clientDepartment' },
+    // S1b + S1c — see comment on the Internal IT branch above.
+    { key: 'name',          label: 'License / Product',      required: true,  type: 'select', source: 'products',         useSearchableSelect: true, placeholder: 'Search license / product...' },
+    { key: 'client',        label: 'Client',                 required: true,  type: 'select', source: 'clientDepartment', useSearchableSelect: true, placeholder: 'Search client...' },
     { key: 'renewalDate',   label: 'Expiration / Renewal Date', required: true, type: 'date' },
-    // S1b pilot — see comment on the Internal IT branch above.
-    { key: 'owner',         label: 'Renewal Owner',          required: true,  type: 'select', source: 'users', useSearchableSelect: true },
+    { key: 'owner',         label: 'Renewal Owner',          required: true,  type: 'select', source: 'users',            useSearchableSelect: true, placeholder: 'Search owner...' },
     { key: 'alertPolicy',   label: 'Alert Policy',           required: true,  type: 'select', options: LICENSE_ALERT_POLICY_OPTIONS },
     { key: 'seats',         label: 'Quantity / Seats',       required: true, type: 'number' },
-    { key: 'distributor',   label: 'Distributor / Provider', required: true, type: 'select', source: 'providers' },
+    { key: 'distributor',   label: 'Distributor / Provider', required: true, type: 'select', source: 'providers',        useSearchableSelect: true, placeholder: 'Search distributor / provider...' },
     { key: 'contractValue', label: 'Sale Price / Annual Value', required: true, type: 'number' },
     { key: 'cost',          label: 'Vendor Cost',            required: true, type: 'number' },
     { key: 'startDate',     label: 'Start Date',             type: 'date' },
@@ -898,7 +981,10 @@ function getFormFields(module, workspaceMode) {
 
 function buildNewRow(form, safeColumns) {
   const v = form;
-  const risk = v.riskLevel ? (v.riskLevel + ' risk') : 'Low risk';
+  // Risk is derived from expiration + business criticality (never the old
+  // manual select). calcRiskLevel returns 'Low'|'Medium'|'High'|'Critical';
+  // the visible column keeps the existing "<level> risk" format.
+  const risk = calcRiskLevel(v.renewalDate, v.alertPolicy, v.customReminderDays, v.businessCriticality) + ' risk';
   const fmtValue = (n) => n ? ('$' + Number(n).toLocaleString()) : '-';
   const fmtMarginPct = (n) => n ? (n + '%') : '-';
   const fmtMarginDollar = (n) => n ? ('$' + parseFloat(n).toLocaleString()) : '-';
@@ -996,6 +1082,24 @@ function getTaskTypeOptions(workspaceMode) {
   return workspaceMode === 'Internal IT'
     ? ['Approval follow-up','Budget review','Request provider quote','Validate coverage','Upload evidence','Review renewal','Confirm internal owner','Escalate operational risk','Other']
     : ['Client follow-up','Request vendor quote','Send proposal','Prepare renewal','Confirm purchase order','Upload evidence','Review support coverage','Escalate renewal risk','Other'];
+}
+
+// F1c: Create Task modal field spec. The drawer-scoped "Create task" modal
+// (aria-label="Create task") now consumes this spec instead of inline JSX, so a
+// future SearchableSelect migration only needs a flag here. `group` preserves
+// the existing visual layout: primary (1-col), grid (2-col), notes (after the
+// Optional divider). Labels, options, required state and save behavior are
+// unchanged. Options are resolved at build time to keep the renderer trivial.
+function getTaskFields(workspaceMode) {
+  return [
+    { key: 'title',    label: 'Task title', required: true,  type: 'text',     group: 'primary', placeholder: 'e.g. Request renewal quote from vendor' },
+    { key: 'taskType', label: 'Task type',  required: true,  type: 'select',   group: 'primary', options: getTaskTypeOptions(workspaceMode), emptyLabel: 'Select type...' },
+    { key: 'owner',    label: 'Owner',      required: true,  type: 'select',   group: 'primary', options: resolveFieldOptions('users', workspaceMode), emptyLabel: 'Select owner...' },
+    { key: 'dueDate',  label: 'Due date',   required: true,  type: 'date',     group: 'grid' },
+    { key: 'priority', label: 'Priority',   required: true,  type: 'select',   group: 'grid', options: TASK_PRIORITY_OPTIONS, emptyLabel: 'Select...' },
+    { key: 'status',   label: 'Status',     required: true,  type: 'select',   group: 'grid', options: TASK_STATUS_OPTIONS, emptyLabel: 'Select...' },
+    { key: 'notes',    label: 'Notes',      required: false, type: 'textarea', group: 'notes', placeholder: 'Context, links or impact notes…' },
+  ];
 }
 
 function getSupportCoverageFields(workspaceMode) {
@@ -1187,6 +1291,10 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
   const [configOpen, setConfigOpen] = React.useState(false);
   const [visibleSet, setVisibleSet] = React.useState(() => new Set(safeColumns));
   const [newOpen, setNewOpen] = React.useState(false);
+  // A11y-1: focus management for the New Record modal only (not Edit drawer /
+  // import preview / other dialogs yet).
+  const newModalRef = React.useRef(null);
+  const newModalKeyDown = useDialogFocus(newModalRef, newOpen, function(){ setNewOpen(false); });
   function normalizeDocumentRecords(records) {
     return (Array.isArray(records) ? records : []).map(function(record) {
       if (record && Array.isArray(record.row)) return record;
@@ -1251,6 +1359,17 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
   const [editForm, setEditForm] = React.useState({});
   const [editErrors, setEditErrors] = React.useState({});
   const [activeDetailTab, setActiveDetailTab] = React.useState('Overview');
+  // A11y-2: focus management for the record detail / edit drawer only (not the
+  // import preview drawer or other dialogs yet). Escape exits edit mode first
+  // when editing, otherwise closes the drawer — the safest, least destructive
+  // behavior. editModeRef avoids a stale closure inside the Escape handler.
+  const detailDrawerRef = React.useRef(null);
+  const editModeRef = React.useRef(editMode);
+  editModeRef.current = editMode;
+  const detailDrawerKeyDown = useDialogFocus(detailDrawerRef, detailOpen, function(){
+    if (editModeRef.current) { setEditMode(false); }
+    else { setDetailOpen(false); }
+  });
   const [attachDocOpen, setAttachDocOpen] = React.useState(false);
   const [attachDocForm, setAttachDocForm] = React.useState({});
   const [attachDocErrors, setAttachDocErrors] = React.useState({});
@@ -1783,7 +1902,7 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
     </div>}
 
     {newOpen && <div style={modalWrap} onClick={() => setNewOpen(false)} role="dialog" aria-modal="true" aria-label={'New ' + module + ' record'}>
-      <div style={modalBox(520)} onClick={e => e.stopPropagation()}>
+      <div ref={newModalRef} onKeyDown={newModalKeyDown} style={modalBox(520)} onClick={e => e.stopPropagation()}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
           <div>
             <p style={eyebrow}>{module}</p>
@@ -1976,16 +2095,35 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
     </div>}
 
     {taskOpen && selectedRecord && (() => {
-      var typeOpts = getTaskTypeOptions(workspaceMode);
-      var renderTF = function(key, label, required, children) {
-        return <div key={key}>
+      // F1c: render from getTaskFields spec instead of inline JSX. Visual layout
+      // is preserved exactly via the `group` buckets (primary 1-col, grid 2-col,
+      // notes after the Optional divider). Save behavior and labels unchanged.
+      var taskFields = getTaskFields(workspaceMode);
+      var renderTaskField = function(f) {
+        var control;
+        if (f.type === 'select') {
+          control = <select value={taskForm[f.key]||''} onChange={function(e) { setTaskForm(function(p) { return Object.assign({},p,{[f.key]:e.target.value}); }); }} style={{...fieldStyle,cursor:'pointer',color:taskForm[f.key]?'#132033':'#94A3B8'}}>
+            <option value="">{f.emptyLabel || 'Select...'}</option>
+            {f.options.map(function(o) { return <option key={o} value={o}>{o}</option>; })}
+          </select>;
+        } else if (f.type === 'date') {
+          control = <input type="date" value={taskForm[f.key]||''} onChange={function(e) { setTaskForm(function(p) { return Object.assign({},p,{[f.key]:e.target.value}); }); }} style={fieldStyle}/>;
+        } else if (f.type === 'textarea') {
+          control = <textarea value={taskForm[f.key]||''} onChange={function(e) { setTaskForm(function(p) { return Object.assign({},p,{[f.key]:e.target.value}); }); }} rows={3} style={{...fieldStyle,resize:'vertical'}} placeholder={f.placeholder||''}/>;
+        } else {
+          control = <input type="text" value={taskForm[f.key]||''} onChange={function(e) { setTaskForm(function(p) { return Object.assign({},p,{[f.key]:e.target.value}); }); }} style={fieldStyle} placeholder={f.placeholder||''}/>;
+        }
+        return <div key={f.key}>
           <label style={{display:'block',marginBottom:5,fontSize:13,fontWeight:700,color:'#334155'}}>
-            {label}{required && <span style={{color:'#DC2626',marginLeft:3}}>*</span>}
+            {f.label}{f.required && <span style={{color:'#DC2626',marginLeft:3}}>*</span>}
           </label>
-          {children}
-          {taskErrors[key] && <span style={errStyle}>{taskErrors[key]}</span>}
+          {control}
+          {taskErrors[f.key] && <span style={errStyle}>{taskErrors[f.key]}</span>}
         </div>;
       };
+      var primaryF = taskFields.filter(function(f) { return f.group === 'primary'; });
+      var gridF    = taskFields.filter(function(f) { return f.group === 'grid'; });
+      var notesF   = taskFields.filter(function(f) { return f.group === 'notes'; });
       return <div style={modalWrap} onClick={function() { setTaskOpen(false); }} role="dialog" aria-modal="true" aria-label="Create task">
         <div style={modalBox(520)} onClick={function(e) { e.stopPropagation(); }}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
@@ -1996,49 +2134,13 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
             </div>
             <button style={closeBtn} onClick={function() { setTaskOpen(false); }} aria-label="Close">x</button>
           </div>
-          <div style={{display:'grid',gap:12}}>
-            {renderTF('title','Task title',true,
-              <input type="text" value={taskForm.title||''} onChange={function(e) { setTaskForm(function(p) { return Object.assign({},p,{title:e.target.value}); }); }} style={fieldStyle} placeholder="e.g. Request renewal quote from vendor"/>
-            )}
-            {renderTF('taskType','Task type',true,
-              <select value={taskForm.taskType||''} onChange={function(e) { setTaskForm(function(p) { return Object.assign({},p,{taskType:e.target.value}); }); }} style={{...fieldStyle,cursor:'pointer',color:taskForm.taskType?'#132033':'#94A3B8'}}>
-                <option value="">Select type...</option>
-                {typeOpts.map(function(o) { return <option key={o} value={o}>{o}</option>; })}
-              </select>
-            )}
-            {renderTF('owner','Owner',true,
-              <select value={taskForm.owner||''} onChange={function(e) { setTaskForm(function(p) { return Object.assign({},p,{owner:e.target.value}); }); }} style={{...fieldStyle,cursor:'pointer',color:taskForm.owner?'#132033':'#94A3B8'}}>
-                <option value="">Select owner...</option>
-                {resolveFieldOptions('users', workspaceMode).map(function(o) { return <option key={o} value={o}>{o}</option>; })}
-              </select>
-            )}
-          </div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
-            {renderTF('dueDate','Due date',true,
-              <input type="date" value={taskForm.dueDate||''} onChange={function(e) { setTaskForm(function(p) { return Object.assign({},p,{dueDate:e.target.value}); }); }} style={fieldStyle}/>
-            )}
-            {renderTF('priority','Priority',true,
-              <select value={taskForm.priority||''} onChange={function(e) { setTaskForm(function(p) { return Object.assign({},p,{priority:e.target.value}); }); }} style={{...fieldStyle,cursor:'pointer',color:taskForm.priority?'#132033':'#94A3B8'}}>
-                <option value="">Select...</option>
-                {TASK_PRIORITY_OPTIONS.map(function(o) { return <option key={o} value={o}>{o}</option>; })}
-              </select>
-            )}
-            {renderTF('status','Status',true,
-              <select value={taskForm.status||''} onChange={function(e) { setTaskForm(function(p) { return Object.assign({},p,{status:e.target.value}); }); }} style={{...fieldStyle,cursor:'pointer',color:taskForm.status?'#132033':'#94A3B8'}}>
-                <option value="">Select...</option>
-                {TASK_STATUS_OPTIONS.map(function(o) { return <option key={o} value={o}>{o}</option>; })}
-              </select>
-            )}
-          </div>
+          <div style={{display:'grid',gap:12}}>{primaryF.map(renderTaskField)}</div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>{gridF.map(renderTaskField)}</div>
           <div style={{display:'flex',alignItems:'center',gap:8,margin:'4px 0 -4px'}}>
             <span style={{fontSize:11,fontWeight:800,color:'#94A3B8',letterSpacing:'.1em',textTransform:'uppercase',flexShrink:0}}>Optional</span>
             <div style={{flex:1,height:1,background:'#EEF2F7'}}/>
           </div>
-          <div style={{display:'grid',gap:12}}>
-            {renderTF('notes','Notes',false,
-              <textarea value={taskForm.notes||''} onChange={function(e) { setTaskForm(function(p) { return Object.assign({},p,{notes:e.target.value}); }); }} rows={3} style={{...fieldStyle,resize:'vertical'}} placeholder="Context, links or impact notes…"/>
-            )}
-          </div>
+          <div style={{display:'grid',gap:12}}>{notesF.map(renderTaskField)}</div>
           <div style={{...modalFoot,justifyContent:'flex-end'}}>
             <button onClick={function() { setTaskOpen(false); }}>Cancel</button>
             <button className="primary" onClick={handleTaskSave}>Save task</button>
@@ -2143,7 +2245,7 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
     {detailOpen && selectedRecord && <>
       <style>{`.agentWrap,.floatingAgentWrap{display:none!important}`}</style>
       <div style={{position:'fixed',inset:0,background:'rgba(11,31,58,.18)',zIndex:48}} onClick={() => { setDetailOpen(false); setEditMode(false); }} aria-hidden="true"/>
-      <aside role="dialog" aria-modal="true" aria-label={editMode ? 'Edit record' : 'Record detail'} style={{position:'fixed',right:0,top:0,bottom:0,width:'min(440px,100vw)',background:'#fff',borderLeft:'1px solid #E5E7EB',boxShadow:'-8px 0 40px rgba(11,31,58,.16)',zIndex:49,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+      <aside ref={detailDrawerRef} onKeyDown={detailDrawerKeyDown} role="dialog" aria-modal="true" aria-label={editMode ? 'Edit record' : 'Record detail'} style={{position:'fixed',right:0,top:0,bottom:0,width:'min(440px,100vw)',background:'#fff',borderLeft:'1px solid #E5E7EB',boxShadow:'-8px 0 40px rgba(11,31,58,.16)',zIndex:49,display:'flex',flexDirection:'column',overflow:'hidden'}}>
 
         {/* Drawer header — always visible */}
         {(() => {
@@ -2204,6 +2306,29 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
                     ? <textarea value={editForm[f.key]||''} onChange={e => handleEditField(f.key, e.target.value)} rows={3} style={{...fieldStyle,resize:'vertical'}}/>
                     : f.type === 'computed'
                       ? <input type="text" value={formatComputedField(f.key, editForm[f.key])} readOnly placeholder="Calculated" style={{...fieldStyle,background:'#F0F4F8',color:editForm[f.key]?'#0F766E':'#94A3B8',cursor:'default'}}/>
+                    : f.useSearchableSelect
+                      ? (() => {
+                          // F3a — Edit drawer honors useSearchableSelect for the
+                          // same catalog fields migrated in New Record. The current
+                          // value is preserved as an option even when it is not in
+                          // the catalog (legacy / imported values), so editing an
+                          // off-catalog record never drops its value. allowCreate
+                          // stays false; the catalog owns the identity (AGENTS §17).
+                          const currentValue = editForm[f.key] || '';
+                          const baseOptions = f.source ? resolveFieldOptions(f.source, workspaceMode) : (f.options || []);
+                          const options = currentValue && !baseOptions.some(o => String(o) === String(currentValue))
+                            ? [currentValue].concat(baseOptions)
+                            : baseOptions;
+                          return <SearchableSelect
+                            value={currentValue}
+                            onChange={v => handleEditField(f.key, v)}
+                            options={options}
+                            placeholder={f.placeholder || 'Search...'}
+                            ariaLabel={f.label}
+                            required={!!f.required}
+                            allowCreate={false}
+                          />;
+                        })()
                     : f.type === 'select'
                       ? (() => {
                           const currentValue = editForm[f.key] || '';
@@ -2711,26 +2836,10 @@ function TasksScreen({ workspaceMode = 'MSP / Integrator' }){
   // Built from RECORD_STORE across all four modules (pre-seeded from mock rows
   // if a module hasn't been visited yet).  Each option carries enough data to
   // populate the full task meta without relying on RECORD_STORE stability later.
+  // Delegates to the module-level collector (all four modules; no exclusion)
+  // so the global New Task modal keeps its existing behavior unchanged.
   function buildLinkedRecordOptions() {
-    var modules = ['licenses','hardware','contracts','documents'];
-    var opts = [];
-    modules.forEach(function(mk) {
-      ensureModuleRecordsLoaded(mk, workspaceMode);
-      var cols = getModuleColumns(mk, workspaceMode);
-      var cdIdx = getModuleClientDeptIndex(mk, workspaceMode);
-      var recs = RECORD_STORE[mk] || [];
-      recs.forEach(function(rec) {
-        var name = (rec.row && rec.row[0]) || '';
-        if (!name || name === '-') return;
-        var clientOrDept = (cdIdx >= 0 && rec.row && rec.row[cdIdx]) || '';
-        if (clientOrDept === '-') clientOrDept = '';
-        var label = name
-          + ' · ' + (mk.charAt(0).toUpperCase() + mk.slice(1))
-          + (clientOrDept ? ' · ' + clientOrDept : '');
-        opts.push({ value: rec.id, label: label, moduleKey: mk, recordName: name, clientOrDept: clientOrDept, row: rec.row, columns: cols, meta: rec.meta || null });
-      });
-    });
-    return opts;
+    return collectLinkedRecordOptions(workspaceMode);
   }
 
   // ── Global New Task state ─────────────────────────────────────────────────
@@ -3215,19 +3324,33 @@ function TasksScreen({ workspaceMode = 'MSP / Integrator' }){
 
             <div>
               <label style={{display:'block',marginBottom:5,fontSize:13,fontWeight:700,color:'#334155'}}>Linked record<span style={{color:'#DC2626',marginLeft:3}}>*</span></label>
-              <select value={newTaskForm.linkedRec||''} onChange={function(e) { setNewTaskForm(function(p) { return Object.assign({},p,{linkedRec:e.target.value}); }); }} style={{...tFieldStyle,cursor:'pointer',color:newTaskForm.linkedRec?'#132033':'#94A3B8'}}>
-                <option value="">Select record...</option>
-                {linkedRecordOptions.map(function(o) { return <option key={o.value} value={o.value}>{o.label}</option>; })}
-              </select>
+              {/* SearchableSelect: linkedRecordOptions are {value: rec.id, label}
+                  objects; the component returns opt.value (the record id) on
+                  change, so handleGlobalTaskSave's lookup is unchanged.
+                  allowCreate=false — you can only link existing records. */}
+              <SearchableSelect
+                value={newTaskForm.linkedRec||''}
+                onChange={function(v) { setNewTaskForm(function(p) { return Object.assign({},p,{linkedRec:v}); }); }}
+                options={linkedRecordOptions}
+                placeholder="Search record..."
+                ariaLabel="Linked record"
+                required={true}
+                allowCreate={false}
+              />
               {newTaskErrors.linkedRec && <span style={tErrStyle}>{newTaskErrors.linkedRec}</span>}
             </div>
 
             <div>
               <label style={{display:'block',marginBottom:5,fontSize:13,fontWeight:700,color:'#334155'}}>Owner<span style={{color:'#DC2626',marginLeft:3}}>*</span></label>
-              <select value={newTaskForm.owner||''} onChange={function(e) { setNewTaskForm(function(p) { return Object.assign({},p,{owner:e.target.value}); }); }} style={{...tFieldStyle,cursor:'pointer',color:newTaskForm.owner?'#132033':'#94A3B8'}}>
-                <option value="">Select owner...</option>
-                {userOpts.map(function(o) { return <option key={o} value={o}>{o}</option>; })}
-              </select>
+              <SearchableSelect
+                value={newTaskForm.owner||''}
+                onChange={function(v) { setNewTaskForm(function(p) { return Object.assign({},p,{owner:v}); }); }}
+                options={userOpts}
+                placeholder="Search owner..."
+                ariaLabel="Owner"
+                required={true}
+                allowCreate={false}
+              />
               {newTaskErrors.owner && <span style={tErrStyle}>{newTaskErrors.owner}</span>}
             </div>
           </div>
@@ -6379,6 +6502,22 @@ function CommandPalette({ open, onClose, onNavigate, onOpenAi, workspaceMode = '
   </div>;
 }
 
+// Local Sandbox banner — discreet, enterprise, non-alarmist. Renders once below
+// the topbar (inside the workspace section, outside modals/drawers). When a real
+// backend exists this can be hidden behind a flag (e.g. an OPRIVA_LOCAL_SANDBOX
+// env/setting) or removed entirely; it intentionally has no dependencies on
+// import logic, backend or templates.
+const SHOW_LOCAL_SANDBOX_BANNER = true;
+function LocalSandboxBanner(){
+  if (!SHOW_LOCAL_SANDBOX_BANNER) return null;
+  return <div className="localSandboxBanner" role="status" aria-label="Local sandbox notice">
+    <span className="localSandboxDot" aria-hidden="true"></span>
+    <span className="localSandboxText">
+      <strong>Local Sandbox</strong> — data is stored only in this browser session and may reset on refresh. Do not use real customer data.
+    </span>
+  </div>;
+}
+
 function TopbarShell({ active, onAlerts, onOpenCommand, onMenuToggle, onNavigate, workspaceMode = 'MSP / Integrator', setWorkspaceMode = function(){} }){
   const [workspaceMenuOpen, setWorkspaceMenuOpen] = React.useState(false);
   const [newMenuOpen, setNewMenuOpen] = React.useState(false);
@@ -6823,7 +6962,7 @@ function App(){
     <style>{styles + aiStyles + livingAgentStyles + oprivaUpgradeStyles + assetsRenewalsStyles + sidebarCollapseStyles + aiSettingsFixStyles + settingsAdminOverrideStyles + settingsDirectoryOverrideStyles + settingsHubDirectoryStyles + responsiveStyles + commandPaletteStyles}</style>
     <SidebarShell active={active} onSelect={handleSelect} open={sidebarOpen} onClose={() => setSidebarOpen(false)} workspaceMode={workspaceMode} collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed(value => !value)} />
     <div className={cx('sidebarBackdrop', sidebarOpen && 'sidebarBackdropOpen')} onClick={() => setSidebarOpen(false)} aria-hidden="true"></div>
-    <section className="workspace"><TopbarShell active={active} onAlerts={() => setActive('Attention Center')} onOpenCommand={() => setCommandOpen(true)} onMenuToggle={() => setSidebarOpen(true)} onNavigate={setActive} workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode} />{route}</section>
+    <section className="workspace"><TopbarShell active={active} onAlerts={() => setActive('Attention Center')} onOpenCommand={() => setCommandOpen(true)} onMenuToggle={() => setSidebarOpen(true)} onNavigate={setActive} workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode} /><LocalSandboxBanner />{route}</section>
     <FloatingOprivaAgentButton isOpen={aiOpen} onClick={() => setAiOpen(true)} eyeFollowsCursor={eyeFollowsCursor} />
     {aiOpen && <OprivaDrawer active={active} onClose={() => setAiOpen(false)} eyeFollowsCursor={eyeFollowsCursor} setEyeFollowsCursor={setEyeFollowsCursor} />}
     <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} onNavigate={(id) => setActive(id)} onOpenAi={() => setAiOpen(true)} workspaceMode={workspaceMode} />
@@ -7072,6 +7211,12 @@ const settingsHubDirectoryStyles = `
 @media(max-width:1200px){.settingsHubDirectoryRow{grid-template-columns:repeat(3,minmax(0,1fr));gap:40px}}
 @media(max-width:900px){.settingsHubDirectoryRow{grid-template-columns:repeat(2,minmax(0,1fr));gap:36px}}
 @media(max-width:600px){.settingsDirectoryPage{padding:24px 20px 56px}.settingsHubDirectoryRow{grid-template-columns:1fr;gap:28px}.settingsHubDirectoryHeader{margin-bottom:28px}.settingsHubDirectorySearchBlock{margin-bottom:32px}}
+/* Local Sandbox banner — discreet, enterprise, non-alarmist. One line below the topbar. */
+.localSandboxBanner{display:flex;align-items:center;gap:9px;padding:7px 20px;background:#FBFCFE;border-bottom:1px solid #EAEFF5;color:#5A6B82;font-size:12px;line-height:1.4;flex:0 0 auto}
+.localSandboxDot{width:7px;height:7px;border-radius:999px;background:#C99A2E;box-shadow:0 0 0 3px rgba(201,154,46,.14);flex:0 0 auto}
+.localSandboxText{min-width:0}
+.localSandboxText strong{color:#3F4E63;font-weight:750;letter-spacing:-.005em}
+@media(max-width:600px){.localSandboxBanner{padding:7px 14px;font-size:11.5px;align-items:flex-start}.localSandboxDot{margin-top:5px}}
 `;
 
 const responsiveStyles = `

@@ -1456,6 +1456,98 @@ No code is touched by recording this decision; phases land in separate, focused 
 
 ---
 
+## 23. Form Field Architecture / Form Consistency Model
+
+### Purpose
+
+Opriva's create and edit forms must share a consistent field architecture across modules so the same concept looks, reads and behaves the same everywhere. This section is the source of truth for field order, shared vs module-specific fields, control type (searchable combobox vs simple select), required/optional policy, computed fields, and the MSP / Integrator vs Internal IT differences that must be preserved. It applies to Licenses, Hardware, Contracts, Documents, Support Coverage and Tasks. It builds on §22 (Searchable Combobox / Controlled Catalog Model) and §21 (Progressive Guidance Model).
+
+### Form surfaces today (context)
+
+There are multiple form renderers: the New Record modal, the Edit record drawer, the Import Preview drawer, the Attach Document modal, the Add Support Coverage modal, and the Create Task modal. Field specs are defined in several places (`getFormFields`, `NEW_RECORD_FIELDS`, `getSupportCoverageFields`, `ATTACH_DOC_FIELDS`, and inline Task JSX). Only the New Record renderer currently honors the `useSearchableSelect` flag. Consolidating these renderers and field specs is the goal of the F-phase plan below.
+
+### Standard field order
+
+When a module has these concepts, present them in this order:
+
+1. Name / Identity
+2. Type
+3. Client / Department
+4. Brand / Manufacturer
+5. Provider / Distributor
+6. Owner
+7. Quantity / Serial / File
+8. Money / Value / Cost
+9. Key Dates (start, and expiration / renewal / warranty / coverage end)
+10. Alert Policy
+11. Optional / Advanced metadata
+12. Notes
+
+### Shared (common) fields
+
+Name, Client / Department, Owner, Provider, Type, a key date, and Notes recur across most modules. They must use consistent order, control type, and workspace-aware labels.
+
+### Module-specific fields
+
+- Licenses: quantity / seats, license term, renewal stage, risk level, margin (computed).
+- Hardware: serial, model, location.
+- Contracts: notice period.
+- Documents: file attachment, linked record.
+- Support Coverage: coverage type.
+- Tasks: priority, status, task type.
+
+### SearchableSelect candidates (catalog-backed, can grow)
+
+Client / Department, Owner, License / Product, Brand / Manufacturer, Provider / Distributor, Reseller / Partner, Location, Cost Center, Linked Record, Uploaded by, and Support / Coverage Name when catalog-backed. These represent controlled catalogs or entities and use the searchable combobox (see §22).
+
+### Simple `<select>` candidates (closed enums)
+
+Alert Policy, License Term, Approval Status, Business Criticality, Risk Level, Renewal Stage, Hardware Type, Contract Type, Coverage Type, Notice Period, Task Priority, Task Status, Task Type, Document Type, Import Scope Mode. These are small closed enumerations and stay as simple selects. Do not over-migrate.
+
+### Required vs Optional
+
+- Required (universal): identity / name; client / department where applicable; owner; key date.
+- Required (MSP / Integrator): sale price / annual value and vendor cost where margin must be computed.
+- Required (Internal IT): cost center, approval status and business criticality where governance requires them.
+- Optional / Advanced: secondary metadata such as model, location, notice period, custom reminder days, and notes.
+
+### Computed fields (never manual)
+
+Margin, Days to Expiration, System Status and similar derived values must not be manual inputs. Risk Level must be reviewed carefully: it may be derived rather than manually entered and is a candidate for computation, not free user entry (see §15 and `AGENTS.md §5`).
+
+### Intentional MSP / Integrator vs Internal IT differences (preserve)
+
+These divergences are product signal, not inconsistency, and must not be unified:
+
+- Client (MSP / Integrator) vs Department (Internal IT).
+- Renewal Owner / commercial owner (MSP / Integrator) vs IT Owner / Budget Owner / Custodian (Internal IT, per module).
+- Sale Price / Annual Value + Vendor Cost + Margin (MSP / Integrator) vs Annual Cost + Cost Center + Approval Status + Business Criticality (Internal IT).
+- Distributor / Provider (MSP / Integrator) vs Provider (Internal IT).
+
+### Architecture rules
+
+- Do not add more one-off form renderers. Prefer field specs consumed by shared renderers.
+- Future renderers must respect shared flags such as `useSearchableSelect`.
+- Do not rename existing labels or keys casually. `buildNewRow`, import mapping (`IMPORT_CANONICAL_FIELDS`, `importMapping.js`), detail / edit drawers, prefill and filter specs may depend on exact labels and keys. Any label or key change requires a full impact audit first.
+
+### Phased plan
+
+- F1a (done): document this architecture (MEMORY.md §23 + AGENTS.md §18).
+- F1b: remove dead code from `NEW_RECORD_FIELDS` where safe (the Licenses / Hardware / Contracts entries are overridden by `getFormFields`; the Documents entry is still used).
+- F1c: refactor Tasks into field specs consumed by a shared renderer.
+- F2: continue the SearchableSelect rollout in the New Record forms (Hardware, Contracts, Documents).
+- F3: extend SearchableSelect to the Edit and Preview renderers.
+- F4: future backend / catalog integration (permission-aware create-new, staging, audit).
+
+### Cross-references
+
+- `AGENTS.md` §18 — Form Field Architecture Rule (operational rule for agents). Both documents must stay in sync.
+- `MEMORY.md` §22 — Searchable Combobox / Controlled Catalog Model (the S-phase combobox plan; F2 / F3 carry it into the remaining forms and renderers).
+- `MEMORY.md` §21 — Progressive Guidance Model.
+- `MEMORY.md` §15 — Core Record + Related Tabs + Workspace Policies Model.
+
+---
+
 ## 17. Recent History
 
 - Repository cloned and inspected on branch `audit/opriva-healthcheck`.
@@ -1500,3 +1592,4 @@ No code is touched by recording this decision; phases land in separate, focused 
 - 2026-05-27: Phase 1 external design-skill adoption — added one new Opriva lens `opriva-design-fundamentals-auditor` (mirrored under `skills/` and `.claude/skills/`) covering typography, color and contrast, spatial design, motion discipline, interaction states, responsive design and UX writing — calibrated to Opriva enterprise SaaS, data-heavy tables/drawers/dashboards/import flows, MSP / Integrator and Internal IT. Seven-domain structure is inspired by `pbakaus/impeccable` (Apache 2.0); no impeccable code was installed, cloned, executed or registered (no `npx`, no `.claude/`/`.cursor/`/`.agents/`/`.gemini/` directories adopted, no MCP, no hooks, no dependencies). Attribution recorded at the bottom of the new lens file and in new repo-root `THIRD_PARTY_NOTICES.md`. Lens registered in `OPRIVA_AI_DEVELOPMENT_TEAM.md` §3 and added to the §6.C "UI / Screen Design" lens combination, and in `CLAUDE.md` §4. Codex parity (per `OPRIVA_AI_DEVELOPMENT_TEAM.md` §10.2 / §11.1): the canonical lens lives at `skills/opriva-design-fundamentals-auditor/SKILL.md`; the `.claude/skills/` copy mirrors it for Claude Code project-scoped loading; Codex-specific mirrors (`.codex/`, `.agents/`) deferred until the active Codex tooling's loading path is verified. `Leonxlnx/taste-skill` (MIT) and `emilkowalski/skill` (license not visible) remain deferred to later phases. No application code modified.
 - 2026-05-29: Searchable Combobox / Controlled Catalog Model product decision documented. Fields that represent controlled-catalog or database-backed entities must not be free-text inputs nor simple `<select>` dropdowns when the underlying list can grow. They must use searchable combobox / autocomplete selectors with type-to-filter and keyboard navigation. Applies to Linked Record, Owner, Client / Account, Department / Business Unit, Brand / Manufacturer, Product / License, Provider / Vendor, Distributor, Reseller / Partner, Location, Cost Center, Alert Policy, Document Type, Coverage Type, Support Level, Country (ISO 3166), Currency (ISO 4217), and any other catalog-managed entity that grows per workspace, vendor or industry. Truly closed small enums (Coverage Kind, Asset Type, Approval Status, Business Criticality, Priority, Task Status, Renewal Stage, Risk Level, Notice Period, Billing Cycle, Entitlement Metric, Field Type, Relationship Type, Suggestion Basis, Record Type, Import Scope Mode) may remain plain `<select>`. MVP / local: local or session-backed catalogs with simulated "create new" and case-insensitive / accent-insensitive duplicate filtering. Backend: real catalog tables per entity, permission-aware "create new" gated by role, normalization keys, aliases / synonyms, duplicate detection, merge / deactivate flows, audit trail. Imports must match source values against existing catalogs; unmatched values become suggested / new entities for review rather than being created silently; possible duplicates show a warning before create. Free text is not allowed for critical entities — the catalog owns the identity. Operationalised as a six-phase plan: S1 SearchableSelect primitive, S2 high-cardinality entity fields, S3 growing controlled catalogs, S4 import integration, S5 duplicate detection / aliases, S6 backend RBAC and audit. New `MEMORY.md` §22 added as the product decision record. New `AGENTS.md` §17 "Controlled Catalog and Searchable Combobox Rule" added as the operational rule for all agents and reviewers. Both documents cross-reference each other. Predecessor: 2026-05-26 controlled catalog product decision (this section operationalises it with the searchable combobox requirement). Related: C1 Coverage detection (commit `c65c28f`) — its new canonical fields (Coverage Type, Support Level, Support Provider) will use the new primitive once S1-S3 land. No application code modified.
 - 2026-05-29: Progressive Guidance Model product decision documented. MVP allows visible inline helpers to validate user understanding. Commercial version requires educational helpers to be compact, dismissible, tooltip-based or assisted by Opriva AI. Critical guidance (confirm-blocking reasons, missing required Client / Department / Owner, critical validation errors, duplicate or data-integrity warnings, security / PII warnings, documents metadata-only warnings) remains inline regardless of phase. Educational content ("What is Coverage?", "Which template should I use?", "How do I map this column?", "Why is this row Blocked?", sandbox / local-state caveats, vendor-specific guidance) moves to Opriva AI / Help. Long-term: Opriva exposes a workspace-level Guidance Mode setting with four options (Guided, Compact, Expert, Ask Opriva AI). New `MEMORY.md` §21 added as the product decision record. New `AGENTS.md` §16 "Helper Text Rule" added as the operational rule for all agents and reviewers. Implementation guidance: C1 Coverage helper banner (commit `c65c28f`) stays inline and small but is structured to be compactable later; C2-C5 coverage UI must be designed as compactable from day one. Backend implications: Guidance Mode persistence (workspace-default + user-override) and per-surface dismissal state require backend storage; Opriva AI must be permission-aware and respect workspace boundaries when serving educational content on demand. No application code modified.
+- 2026-05-30: Form Field Architecture / Form Consistency Model documented (F1a). New `MEMORY.md §23` and `AGENTS.md §18` define the standard field order (Name / Identity → Type → Client / Department → Brand / Manufacturer → Provider / Distributor → Owner → Quantity / Serial / File → Money / Value / Cost → Key Dates → Alert Policy → Optional / Advanced → Notes), the shared vs module-specific fields across Licenses, Hardware, Contracts, Documents, Support Coverage and Tasks, the SearchableSelect vs simple `<select>` categorisation, required/optional policy, computed-field rules (Margin, Days to Expiration, System Status never manual; Risk Level a derivation candidate), the MSP / Integrator vs Internal IT differences that must be preserved (Client vs Department; Renewal vs IT / Budget Owner / Custodian; Sale + Vendor Cost + Margin vs Annual Cost + Cost Center + Approval + Criticality; Distributor / Provider vs Provider), and renderer/label safety rules (no new one-off renderers; future renderers must respect `useSearchableSelect`; no casual label/key renames because `buildNewRow`, import mapping, drawers, prefill and filters depend on them). Phased plan recorded: F1a docs (this entry), F1b remove dead `NEW_RECORD_FIELDS` code where safe, F1c refactor Tasks into field specs, F2 continue SearchableSelect rollout in New Record forms, F3 extend to Edit/Preview renderers, F4 backend/catalog integration. Follows the SearchableSelect rollout S1a (primitive, commit `76e7675`), S1b (License Owner pilot, `ebc37e9`) and S1c (License catalog fields, `e30755e`). No application code modified.

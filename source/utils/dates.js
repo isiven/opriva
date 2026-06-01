@@ -24,6 +24,35 @@ export function calcExpirationState(expirationDate, alertPolicy, customReminderD
   return { systemStatus: systemStatus, daysToExpiration: daysLabel };
 }
 
+// Derives a Risk Level ('Low' | 'Medium' | 'High' | 'Critical') from existing
+// signals — never a manual input. Minimal local rule (backend will later layer
+// missing-evidence, coverage gaps, approval blockers, economic value and
+// workspace-configurable risk policies on top):
+//   Expired, <= 7 days, or businessCriticality 'Critical' -> Critical
+//   <= 30 days or businessCriticality 'High'              -> High
+//   <= 90 days or businessCriticality 'Medium'            -> Medium
+//   otherwise                                             -> Low
+// Days are computed from the expiration date the same way calcExpirationState
+// does (independent of the alert policy threshold), so Risk reflects real time
+// to expiration. With no valid date, risk falls back to businessCriticality
+// alone (Low when absent).
+export function calcRiskLevel(expirationDate, alertPolicy, customReminderDays, businessCriticality) {
+  var crit = String(businessCriticality || '').trim();
+  var days = null;
+  if (expirationDate) {
+    var exp = new Date(expirationDate + 'T00:00:00');
+    if (!isNaN(exp.getTime())) {
+      var today = new Date();
+      today.setHours(0, 0, 0, 0);
+      days = Math.ceil((exp.getTime() - today.getTime()) / 86400000);
+    }
+  }
+  if ((days !== null && days <= 7) || crit === 'Critical') return 'Critical';
+  if ((days !== null && days <= 30) || crit === 'High') return 'High';
+  if ((days !== null && days <= 90) || crit === 'Medium') return 'Medium';
+  return 'Low';
+}
+
 export function suggestRenewalDate(startDate, licenseTerm) {
   if (!startDate || !licenseTerm || licenseTerm === 'Custom') return '';
   var termYears = { '1 year': 1, '2 years': 2, '3 years': 3, '5 years': 5 };

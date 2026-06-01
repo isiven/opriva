@@ -33,7 +33,7 @@ import { createImportMappings, getMappedImportValue, getMappedImportValueAny } f
 import { detectImportTarget, suggestImportTargetFromSource } from './importSandbox/importTargets.js';
 import { detectImportSourceType, normalizeImportText } from './importSandbox/importText.js';
 import { getImportSheetData } from './importSandbox/workbookParsing.js';
-import { calcExpirationState, inferLicenseTerm, suggestRenewalDate } from './utils/dates.js';
+import { calcExpirationState, calcRiskLevel, inferLicenseTerm, suggestRenewalDate } from './utils/dates.js';
 import { buildSuggestedCoveragesForLicense, buildSuggestedCoveragesForHardware, buildCoverageRecordsForBatch } from './utils/coverage.js';
 import SearchableSelect from './components/SearchableSelect.jsx';
 import { autoFillDocName, extractFileMetadata, fmtFileSize, fmtUploadedAt } from './utils/files.js';
@@ -588,6 +588,8 @@ function applyLicenseComputedFields(next) {
   var expirationState = calcExpirationState(next.renewalDate, next.alertPolicy, next.customReminderDays);
   next.systemStatus = expirationState.systemStatus;
   next.daysToExpiration = expirationState.daysToExpiration;
+  // riskLevel is derived (never manual), mirroring systemStatus / margin.
+  next.riskLevel = calcRiskLevel(next.renewalDate, next.alertPolicy, next.customReminderDays, next.businessCriticality);
   return next;
 }
 
@@ -781,7 +783,7 @@ const NEW_RECORD_FIELDS = {
     { key: 'cost',          label: 'Cost',                   type: 'number' },
     { key: 'marginDollar',  label: 'Margin $',               type: 'computed' },
     { key: 'margin',        label: 'Margin %',               type: 'computed' },
-    { key: 'riskLevel',     label: 'Risk Level',             type: 'select',  options: ['Low','Medium','High','Critical'] },
+    { key: 'riskLevel',     label: 'Risk Level',             type: 'computed' },
     { key: 'notes',         label: 'Notes',                  multi: true },
   ],
   // F1b: Documents still uses NEW_RECORD_FIELDS (via getFormFields'
@@ -918,7 +920,10 @@ function getFormFields(module, workspaceMode) {
 
 function buildNewRow(form, safeColumns) {
   const v = form;
-  const risk = v.riskLevel ? (v.riskLevel + ' risk') : 'Low risk';
+  // Risk is derived from expiration + business criticality (never the old
+  // manual select). calcRiskLevel returns 'Low'|'Medium'|'High'|'Critical';
+  // the visible column keeps the existing "<level> risk" format.
+  const risk = calcRiskLevel(v.renewalDate, v.alertPolicy, v.customReminderDays, v.businessCriticality) + ' risk';
   const fmtValue = (n) => n ? ('$' + Number(n).toLocaleString()) : '-';
   const fmtMarginPct = (n) => n ? (n + '%') : '-';
   const fmtMarginDollar = (n) => n ? ('$' + parseFloat(n).toLocaleString()) : '-';

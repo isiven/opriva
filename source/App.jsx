@@ -6426,6 +6426,22 @@ function CommandPalette({ open, onClose, onNavigate, onOpenAi, workspaceMode = '
   </div>;
 }
 
+// Local Sandbox banner — discreet, enterprise, non-alarmist. Renders once below
+// the topbar (inside the workspace section, outside modals/drawers). When a real
+// backend exists this can be hidden behind a flag (e.g. an OPRIVA_LOCAL_SANDBOX
+// env/setting) or removed entirely; it intentionally has no dependencies on
+// import logic, backend or templates.
+const SHOW_LOCAL_SANDBOX_BANNER = true;
+function LocalSandboxBanner(){
+  if (!SHOW_LOCAL_SANDBOX_BANNER) return null;
+  return <div className="localSandboxBanner" role="status" aria-label="Local sandbox notice">
+    <span className="localSandboxDot" aria-hidden="true"></span>
+    <span className="localSandboxText">
+      <strong>Local Sandbox</strong> — data is stored only in this browser session and may reset on refresh. Do not use real customer data.
+    </span>
+  </div>;
+}
+
 function TopbarShell({ active, onAlerts, onOpenCommand, onMenuToggle, onNavigate, workspaceMode = 'MSP / Integrator', setWorkspaceMode = function(){} }){
   const [workspaceMenuOpen, setWorkspaceMenuOpen] = React.useState(false);
   const [newMenuOpen, setNewMenuOpen] = React.useState(false);
@@ -6870,7 +6886,7 @@ function App(){
     <style>{styles + aiStyles + livingAgentStyles + oprivaUpgradeStyles + assetsRenewalsStyles + sidebarCollapseStyles + aiSettingsFixStyles + settingsAdminOverrideStyles + settingsDirectoryOverrideStyles + settingsHubDirectoryStyles + responsiveStyles + commandPaletteStyles}</style>
     <SidebarShell active={active} onSelect={handleSelect} open={sidebarOpen} onClose={() => setSidebarOpen(false)} workspaceMode={workspaceMode} collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed(value => !value)} />
     <div className={cx('sidebarBackdrop', sidebarOpen && 'sidebarBackdropOpen')} onClick={() => setSidebarOpen(false)} aria-hidden="true"></div>
-    <section className="workspace"><TopbarShell active={active} onAlerts={() => setActive('Attention Center')} onOpenCommand={() => setCommandOpen(true)} onMenuToggle={() => setSidebarOpen(true)} onNavigate={setActive} workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode} />{route}</section>
+    <section className="workspace"><TopbarShell active={active} onAlerts={() => setActive('Attention Center')} onOpenCommand={() => setCommandOpen(true)} onMenuToggle={() => setSidebarOpen(true)} onNavigate={setActive} workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode} /><LocalSandboxBanner />{route}</section>
     <FloatingOprivaAgentButton isOpen={aiOpen} onClick={() => setAiOpen(true)} eyeFollowsCursor={eyeFollowsCursor} />
     {aiOpen && <OprivaDrawer active={active} onClose={() => setAiOpen(false)} eyeFollowsCursor={eyeFollowsCursor} setEyeFollowsCursor={setEyeFollowsCursor} />}
     <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} onNavigate={(id) => setActive(id)} onOpenAi={() => setAiOpen(true)} workspaceMode={workspaceMode} />
@@ -7119,6 +7135,12 @@ const settingsHubDirectoryStyles = `
 @media(max-width:1200px){.settingsHubDirectoryRow{grid-template-columns:repeat(3,minmax(0,1fr));gap:40px}}
 @media(max-width:900px){.settingsHubDirectoryRow{grid-template-columns:repeat(2,minmax(0,1fr));gap:36px}}
 @media(max-width:600px){.settingsDirectoryPage{padding:24px 20px 56px}.settingsHubDirectoryRow{grid-template-columns:1fr;gap:28px}.settingsHubDirectoryHeader{margin-bottom:28px}.settingsHubDirectorySearchBlock{margin-bottom:32px}}
+/* Local Sandbox banner — discreet, enterprise, non-alarmist. One line below the topbar. */
+.localSandboxBanner{display:flex;align-items:center;gap:9px;padding:7px 20px;background:#FBFCFE;border-bottom:1px solid #EAEFF5;color:#5A6B82;font-size:12px;line-height:1.4;flex:0 0 auto}
+.localSandboxDot{width:7px;height:7px;border-radius:999px;background:#C99A2E;box-shadow:0 0 0 3px rgba(201,154,46,.14);flex:0 0 auto}
+.localSandboxText{min-width:0}
+.localSandboxText strong{color:#3F4E63;font-weight:750;letter-spacing:-.005em}
+@media(max-width:600px){.localSandboxBanner{padding:7px 14px;font-size:11.5px;align-items:flex-start}.localSandboxDot{margin-top:5px}}
 `;
 
 const responsiveStyles = `

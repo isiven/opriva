@@ -44,6 +44,67 @@ import { createRecordId, RECORD_STORE, toRecords } from './store/recordStore.js'
 import { addActivityEvent } from './store/activityStore.js';
 import { getImportedClientRows, getImportedDashboardPriorityRows, getImportedRenewalRows } from './store/recordProjections.js';
 
+// Reusable dialog focus manager (A11y-1). When `active` becomes true it:
+//  - remembers the element that had focus (the trigger),
+//  - moves focus to the first focusable element inside `ref` (or the container),
+//  - traps Tab / Shift+Tab inside the dialog,
+//  - closes on Escape via `onClose` — but only if the event was not already
+//    handled (e.g. an open SearchableSelect dropdown calls preventDefault on its
+//    own Escape without stopping propagation, so we skip closing in that case),
+//  - restores focus to the trigger on close/unmount.
+// Returns an onKeyDown handler to spread onto the dialog container. Scoped to a
+// single surface per call; not global. Does not change layout or ARIA.
+function useDialogFocus(ref, active, onClose){
+  const triggerRef = React.useRef(null);
+  React.useEffect(function(){
+    if (!active) return undefined;
+    triggerRef.current = (typeof document !== 'undefined') ? document.activeElement : null;
+    var node = ref.current;
+    var focusTimer = window.setTimeout(function(){
+      if (!ref.current) return;
+      var focusables = ref.current.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]), [role="combobox"]');
+      var first = focusables.length ? focusables[0] : ref.current;
+      if (first && typeof first.focus === 'function') first.focus();
+    }, 30);
+    return function(){
+      window.clearTimeout(focusTimer);
+      var trigger = triggerRef.current;
+      if (trigger && typeof trigger.focus === 'function' && document.contains(trigger)) {
+        trigger.focus();
+      }
+    };
+  }, [active, ref]);
+
+  function onKeyDown(e){
+    if (e.key === 'Escape') {
+      // If an inner control (e.g. SearchableSelect dropdown) already handled
+      // Escape, it called preventDefault; let it close the dropdown first and
+      // leave the dialog open.
+      if (e.defaultPrevented) return;
+      e.preventDefault();
+      if (onClose) onClose();
+      return;
+    }
+    if (e.key === 'Tab') {
+      var container = ref.current;
+      if (!container) return;
+      var focusables = Array.prototype.slice.call(container.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]), [role="combobox"]'))
+        .filter(function(el){ return el.offsetParent !== null || el === document.activeElement; });
+      if (focusables.length === 0) { e.preventDefault(); if (container.focus) container.focus(); return; }
+      var firstEl = focusables[0];
+      var lastEl = focusables[focusables.length - 1];
+      var activeEl = document.activeElement;
+      if (e.shiftKey) {
+        if (activeEl === firstEl || !container.contains(activeEl)) { e.preventDefault(); lastEl.focus(); }
+      } else {
+        if (activeEl === lastEl || !container.contains(activeEl)) { e.preventDefault(); firstEl.focus(); }
+      }
+    }
+  }
+
+  return onKeyDown;
+}
+
 function useViewport(){
   const [vp, setVp] = React.useState('desktop');
   React.useEffect(() => {
@@ -1230,6 +1291,10 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
   const [configOpen, setConfigOpen] = React.useState(false);
   const [visibleSet, setVisibleSet] = React.useState(() => new Set(safeColumns));
   const [newOpen, setNewOpen] = React.useState(false);
+  // A11y-1: focus management for the New Record modal only (not Edit drawer /
+  // import preview / other dialogs yet).
+  const newModalRef = React.useRef(null);
+  const newModalKeyDown = useDialogFocus(newModalRef, newOpen, function(){ setNewOpen(false); });
   function normalizeDocumentRecords(records) {
     return (Array.isArray(records) ? records : []).map(function(record) {
       if (record && Array.isArray(record.row)) return record;
@@ -1826,7 +1891,7 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
     </div>}
 
     {newOpen && <div style={modalWrap} onClick={() => setNewOpen(false)} role="dialog" aria-modal="true" aria-label={'New ' + module + ' record'}>
-      <div style={modalBox(520)} onClick={e => e.stopPropagation()}>
+      <div ref={newModalRef} onKeyDown={newModalKeyDown} style={modalBox(520)} onClick={e => e.stopPropagation()}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
           <div>
             <p style={eyebrow}>{module}</p>

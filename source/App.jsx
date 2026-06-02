@@ -1738,6 +1738,18 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
       createdAt:                 today,
       source:                    'supportCoverage',
     };
+    // REL-1c: additive standard relationship vocabulary. covered* above is legacy
+    // (points to the covered record); target* is the standard naming for a future
+    // backend `relationships` table. No consumer reads these fields yet.
+    cov.relationshipType      = 'coverage_covers_record';
+    cov.sourceModule          = 'contracts';
+    cov.sourceRecordId        = cov.id;
+    cov.sourceRecordName      = resolvedName;
+    cov.targetModule          = selectedRecord.moduleKey;
+    cov.targetRecordId        = selectedRecord.id;
+    cov.targetRecordName      = selectedRecord.row[0] || '';
+    cov.direction             = 'source_to_target';
+    cov.relationshipCreatedAt = today;
     // Derive a human-readable notice period from the alert policy.
     var noticeFromAlertPolicy = function(ap) {
       if (ap === '90 / 60 / 30 days') return '90 days';

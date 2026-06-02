@@ -691,7 +691,20 @@ function buildOneCoverageRecord(parent, parentModule, effective, decision, rowNu
     alertPolicy: 'Workspace default',
     value: '',
     notes: 'Imported from ' + (params.fileName || 'file') + ' row ' + rowNumber + '.',
-    duplicateKeys: buildCoverageDuplicateKeys(parentModule, parent.id, effective.coverageKind, effective.endDate || '')
+    duplicateKeys: buildCoverageDuplicateKeys(parentModule, parent.id, effective.coverageKind, effective.endDate || ''),
+    // REL-1d: additive standard relationship vocabulary. covered* above is legacy
+    // (points to the covered record); target* is the standard naming for a future
+    // backend `relationships` table. No consumer reads these fields yet, and they
+    // are not part of duplicateKeys / dedup.
+    relationshipType:      'coverage_covers_record',
+    sourceModule:          'contracts',
+    sourceRecordId:        id,
+    sourceRecordName:      coverageName,
+    targetModule:          parentModule,
+    targetRecordId:        parent.id,
+    targetRecordName:      coveredRecordName,
+    direction:             'source_to_target',
+    relationshipCreatedAt: nowISO.slice(0, 10)
   };
   return {
     id: id,

@@ -2671,8 +2671,14 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
                         <h3 style={{margin:'0 0 4px',fontSize:14,color:'#0B1F3A',letterSpacing:'-.01em'}}>Relationships</h3>
                         <p style={{margin:0,color:'#64748B',fontSize:12,lineHeight:1.45}}>{relHelper}</p>
                         <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:10}}>
-                          {relButtons.map(function(label) { return <button key={label} type="button" disabled aria-disabled="true" title="Available after backend relationships table" style={{...detailActionBtn,opacity:0.55,cursor:'not-allowed'}}>{label}</button>; })}
+                          {/* REL-2b: keep these future actions discoverable by keyboard /
+                              screen readers (aria-disabled, still focusable) but block the
+                              real action with a no-op onClick. No native `disabled` so the
+                              control is not skipped in the tab order. Read-only — nothing is
+                              created or saved. */}
+                          {relButtons.map(function(label) { return <button key={label} type="button" aria-disabled="true" onClick={function(e) { e.preventDefault(); }} title="Available when relationship linking is enabled" style={{...detailActionBtn,opacity:0.55,cursor:'not-allowed'}}>{label}</button>; })}
                         </div>
+                        <p style={{margin:'8px 0 0',fontSize:11,color:'#94A3B8',lineHeight:1.4}}>Coming soon: link related records. For now this tab shows existing documents, tasks and coverage.</p>
                       </div>
                     </section>
                 }
@@ -2682,7 +2688,7 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
                 {relHubEmpty && <section style={{background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'}}>
                   <div style={{padding:'18px 14px',textAlign:'center',display:'grid',gap:4}}>
                     <strong style={{fontSize:13,color:'#132033'}}>No relationships linked yet.</strong>
-                    <span style={{color:'#64748B',fontSize:12,lineHeight:1.45}}>Documents, tasks and support coverage you add to this record will appear here.</span>
+                    <span style={{color:'#64748B',fontSize:12,lineHeight:1.45}}>This tab shows documents, tasks, support coverage and related records linked to this record.</span>
                   </div>
                 </section>}
                 {/* REL-2a: read-only Documents summary. Reuses the Documents-tab

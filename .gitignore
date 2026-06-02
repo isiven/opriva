@@ -1,6 +1,8 @@
 node_modules/
 dist/
 .env
+.env.local
+*.env
 .DS_Store
 # Claude Code: ignore .claude by default, but version-control project-scoped skills.
 .claude/*

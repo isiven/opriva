@@ -847,22 +847,42 @@ const NEW_RECORD_FIELDS = {
     { key: 'riskLevel',     label: 'Risk Level',             type: 'computed' },
     { key: 'notes',         label: 'Notes',                  multi: true },
   ],
-  // F1b: Documents still uses NEW_RECORD_FIELDS (via getFormFields'
-  // `NEW_RECORD_FIELDS[module]` lookup); the Licenses entry above is kept only
-  // as getFormFields' defensive fallback for unknown modules. The real
-  // Licenses / Hardware / Contracts forms are built inside getFormFields, so
-  // the former Hardware and Contracts entries here were dead code and removed.
-  Documents: [
+  // F1b/Core-4b: Documents is built by getDocumentFields(context); this key is
+  // kept so getFormFields' `NEW_RECORD_FIELDS[module]` lookup still resolves the
+  // standalone Documents form. The Licenses entry above is getFormFields'
+  // defensive fallback for unknown modules; the former Hardware and Contracts
+  // entries here were dead code and removed.
+  Documents: getDocumentFields('standalone'),
+};
+
+// Core-4b: context-aware Document field spec. Both Document surfaces create the
+// same entity, so they share one conceptual spec:
+//   'standalone' (Upload / New Document) — the user can choose the Linked
+//     Record, Client / Department and Provider / Vendor.
+//   'linked' (Attach Document from a record drawer) — the parent record is
+//     implicit in selectedRecord, so Linked Record / Client / Provedor are
+//     omitted (handleAttachDocSave fills linkedModule/linkedRecordId/Name from
+//     selectedRecord; save behavior is unchanged).
+// "Uploaded by" is the unified label in both. Uploaded by is a SearchableSelect
+// (renderers honor the flag); Document Type stays a native select.
+function getDocumentFields(context) {
+  var ctx = context || 'standalone';
+  var fields = [
     { key: 'filePick',   label: 'Attach file',          required: true, type: 'file' },
     { key: 'name',       label: 'Document Name',         required: true },
     { key: 'type',       label: 'Document Type',         required: true, type: 'select', options: DOC_TYPE_OPTIONS },
     { key: 'uploadedBy', label: 'Uploaded by',           required: true, type: 'select', source: 'users', useSearchableSelect: true, placeholder: 'Search user...' },
-    { key: 'relatedRecord', label: 'Linked Record',      type: 'select', source: 'linkedRecords', useSearchableSelect: true, placeholder: 'Search record...' },
-    { key: 'client',     label: 'Client / Department',   type: 'select', source: 'clientDepartment', useSearchableSelect: true, placeholder: 'Search client / department...' },
-    { key: 'vendor',     label: 'Provider / Vendor',     type: 'select', source: 'vendors', useSearchableSelect: true, placeholder: 'Search provider / vendor...' },
-    { key: 'notes',      label: 'Notes',                 multi: true },
-  ],
-};
+  ];
+  if (ctx === 'standalone') {
+    fields.push(
+      { key: 'relatedRecord', label: 'Linked Record',    type: 'select', source: 'linkedRecords', useSearchableSelect: true, placeholder: 'Search record...' },
+      { key: 'client',     label: 'Client / Department',  type: 'select', source: 'clientDepartment', useSearchableSelect: true, placeholder: 'Search client / department...' },
+      { key: 'vendor',     label: 'Provider / Vendor',    type: 'select', source: 'vendors', useSearchableSelect: true, placeholder: 'Search provider / vendor...' }
+    );
+  }
+  fields.push({ key: 'notes', label: 'Notes', multi: true });
+  return fields;
+}
 
 
 function getFormFields(module, workspaceMode) {
@@ -1071,13 +1091,10 @@ function buildNewRow(form, safeColumns) {
   return safeColumns.map(col => (map[col] !== undefined && map[col] !== '') ? map[col] : '-');
 }
 
-const ATTACH_DOC_FIELDS = [
-  { key: 'filePick',   label: 'Attach file',    required: true, type: 'file' },
-  { key: 'name',       label: 'Document Name',  required: true },
-  { key: 'type',       label: 'Document Type',  required: true, type: 'select', options: DOC_TYPE_OPTIONS },
-  { key: 'uploadedBy', label: 'Uploaded By',    required: true, type: 'select', source: 'users' },
-  { key: 'notes',      label: 'Notes',          multi: true },
-];
+// Core-4b: Attach Document (from a record drawer) is the 'linked' context of
+// the shared Document spec. Label "Uploaded by" and the SearchableSelect flag
+// now match the standalone Upload form.
+const ATTACH_DOC_FIELDS = getDocumentFields('linked');
 
 function getTaskTypeOptions(workspaceMode) {
   return workspaceMode === 'Internal IT'
@@ -2090,6 +2107,24 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
               </label>
               {f.multi
                 ? <textarea value={attachDocForm[f.key]||''} onChange={function(e) { setAttachDocForm(function(p) { return Object.assign({},p,{[f.key]:e.target.value}); }); }} rows={3} style={{...fieldStyle,resize:'vertical'}}/>
+                : f.useSearchableSelect
+                  ? (function() {
+                      // Core-4b — Attach Document honors useSearchableSelect for
+                      // Uploaded by, matching the standalone Upload form.
+                      var currentValue = attachDocForm[f.key] || '';
+                      var baseOptions = f.source ? resolveFieldOptions(f.source, workspaceMode) : (f.options || []);
+                      var options = currentValue && !baseOptions.some(function(o) { return String(o) === String(currentValue); })
+                        ? [currentValue].concat(baseOptions) : baseOptions;
+                      return <SearchableSelect
+                        value={currentValue}
+                        onChange={function(val) { setAttachDocForm(function(p) { return Object.assign({},p,{[f.key]:val}); }); }}
+                        options={options}
+                        placeholder={f.placeholder || 'Search...'}
+                        ariaLabel={f.label}
+                        required={!!f.required}
+                        allowCreate={false}
+                      />;
+                    })()
                 : f.type === 'file'
                   ? <div>
                       <input type="file" id={'fpick-af-'+f.key} style={{display:'none'}} onChange={function(e) {

@@ -1515,6 +1515,23 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
         margin: form.margin || ''
       }
     };
+    // CORE-4c-1: standalone Upload/New Document — resolve the selected Linked
+    // Record's real metadata (linkedRecordId / linkedModule / linkedRecordName)
+    // so it matches the evidence posture of Attach Document. This is additive to
+    // meta only; the row/display (which shows the readable record name) is
+    // unchanged. The combobox value is still the record name, so we match by
+    // recordName; if there is no match (e.g. a free/legacy value) we skip
+    // silently. Local-only until the backend stores a real foreign key.
+    if (moduleKey === 'documents' && form.relatedRecord) {
+      var linkedOpt = collectLinkedRecordOptions(workspaceMode, 'documents').find(function(o) {
+        return o.recordName === form.relatedRecord;
+      });
+      if (linkedOpt) {
+        newRecord.meta.linkedRecordId = linkedOpt.value;
+        newRecord.meta.linkedModule = linkedOpt.moduleKey;
+        newRecord.meta.linkedRecordName = linkedOpt.recordName;
+      }
+    }
     setLocalRows(function(prev) {
       const next = [newRecord].concat(prev.filter(function(record) { return isLocalStoreRecord(record, workspaceMode); }));
       RECORD_STORE[moduleKey] = next;

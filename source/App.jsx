@@ -1530,6 +1530,19 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
         newRecord.meta.linkedRecordId = linkedOpt.value;
         newRecord.meta.linkedModule = linkedOpt.moduleKey;
         newRecord.meta.linkedRecordName = linkedOpt.recordName;
+        // REL-1a: additive standard relationship vocabulary, written alongside
+        // the linked* fields (not replacing them). This is local-only prep for
+        // a future backend `relationships` table; no consumer enumerates meta,
+        // so existing drawer filters and navigation are unaffected.
+        newRecord.meta.relationshipType = 'document_evidence';
+        newRecord.meta.sourceModule = 'documents';
+        newRecord.meta.sourceRecordId = newRecord.id;
+        newRecord.meta.sourceRecordName = newRecord.meta.displayName || (newRecord.row && newRecord.row[0]) || '';
+        newRecord.meta.targetModule = linkedOpt.moduleKey;
+        newRecord.meta.targetRecordId = linkedOpt.value;
+        newRecord.meta.targetRecordName = linkedOpt.recordName;
+        newRecord.meta.direction = 'source_to_target';
+        newRecord.meta.relationshipCreatedAt = newRecord.meta.createdAt || new Date().toISOString();
       }
     }
     setLocalRows(function(prev) {
@@ -1625,13 +1638,27 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
     });
     if (Object.keys(errs).length) { setAttachDocErrors(errs); return; }
     var today = new Date().toISOString().slice(0, 10);
+    var docId = createRecordId('documents');
     var doc = {
-      id:               createRecordId('documents'),
+      id:               docId,
       name:             attachDocForm.name,
       type:             attachDocForm.type,
       linkedModule:     selectedRecord.moduleKey,
       linkedRecordId:   selectedRecord.id,
       linkedRecordName: selectedRecord.row[0] || '',
+      // REL-1a: additive standard relationship vocabulary, alongside the
+      // linked* fields (not replacing them). Local-only prep for a future
+      // backend `relationships` table; no consumer enumerates meta, so the
+      // drawer filters (which read linked*) and navigation are unaffected.
+      relationshipType:     'document_evidence',
+      sourceModule:         'documents',
+      sourceRecordId:       docId,
+      sourceRecordName:     attachDocForm.name || '',
+      targetModule:         selectedRecord.moduleKey,
+      targetRecordId:       selectedRecord.id,
+      targetRecordName:     selectedRecord.row[0] || '',
+      direction:            'source_to_target',
+      relationshipCreatedAt: today,
       uploadedBy:       attachDocForm.uploadedBy,
       uploadDate:       today,
       fileName:         attachDocForm.fileName || '',
@@ -1711,6 +1738,18 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
       createdAt:                 today,
       source:                    'supportCoverage',
     };
+    // REL-1c: additive standard relationship vocabulary. covered* above is legacy
+    // (points to the covered record); target* is the standard naming for a future
+    // backend `relationships` table. No consumer reads these fields yet.
+    cov.relationshipType      = 'coverage_covers_record';
+    cov.sourceModule          = 'contracts';
+    cov.sourceRecordId        = cov.id;
+    cov.sourceRecordName      = resolvedName;
+    cov.targetModule          = selectedRecord.moduleKey;
+    cov.targetRecordId        = selectedRecord.id;
+    cov.targetRecordName      = selectedRecord.row[0] || '';
+    cov.direction             = 'source_to_target';
+    cov.relationshipCreatedAt = today;
     // Derive a human-readable notice period from the alert policy.
     var noticeFromAlertPolicy = function(ap) {
       if (ap === '90 / 60 / 30 days') return '90 days';
@@ -1835,6 +1874,15 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
       row:         selectedRecord.row,
       columns:     selectedRecord.columns,
     };
+    // REL-1b: additive standard relationship vocabulary. source* above is legacy
+    // (points to the parent record); target* is the standard naming for a future
+    // backend `relationships` table. No consumer reads these fields yet.
+    task.relationshipType      = 'task_for_record';
+    task.targetModule          = selectedRecord.moduleKey;
+    task.targetRecordId        = selectedRecord.id;
+    task.targetRecordName      = selectedRecord.row[0] || '';
+    task.direction             = 'source_to_target';
+    task.relationshipCreatedAt = today;
     RECORD_STORE.tasks.push({ id: task.id, row: taskRow, meta: task });
     addActivityEvent({
       eventType:        'task_created',
@@ -3033,6 +3081,15 @@ function TasksScreen({ workspaceMode = 'MSP / Integrator' }){
       row:         opt.row,
       columns:     opt.columns,
     };
+    // REL-1b: additive standard relationship vocabulary. source* above is legacy
+    // (points to the parent record); target* is the standard naming for a future
+    // backend `relationships` table. No consumer reads these fields yet.
+    task.relationshipType      = 'task_for_record';
+    task.targetModule          = opt.moduleKey;
+    task.targetRecordId        = opt.value;
+    task.targetRecordName      = opt.recordName;
+    task.direction             = 'source_to_target';
+    task.relationshipCreatedAt = today;
 
     var taskRow = [
       task.title,

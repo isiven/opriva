@@ -1091,16 +1091,35 @@ function getTaskTypeOptions(workspaceMode) {
 // the existing visual layout: primary (1-col), grid (2-col), notes (after the
 // Optional divider). Labels, options, required state and save behavior are
 // unchanged. Options are resolved at build time to keep the renderer trivial.
-function getTaskFields(workspaceMode) {
-  return [
+//
+// Core-4a: context-aware. Both Task surfaces create the same entity, so they
+// share one conceptual spec:
+//   'standalone' (global New Task modal) — the user picks the parent record, so
+//     a Linked Record field is included (SearchableSelect over real records).
+//   'linked' (drawer Create Task, default) — the parent is implicit in
+//     selectedRecord, so Linked Record is omitted.
+// Owner stays a catalog field; Task Type / Priority / Status stay native selects.
+// Save behavior is unchanged: handleTaskSave and handleGlobalTaskSave keep their
+// own logic; this only unifies the field definition.
+function getTaskFields(workspaceMode, context) {
+  var ctx = context || 'linked';
+  var fields = [
     { key: 'title',    label: 'Task title', required: true,  type: 'text',     group: 'primary', placeholder: 'e.g. Request renewal quote from vendor' },
     { key: 'taskType', label: 'Task type',  required: true,  type: 'select',   group: 'primary', options: getTaskTypeOptions(workspaceMode), emptyLabel: 'Select type...' },
-    { key: 'owner',    label: 'Owner',      required: true,  type: 'select',   group: 'primary', options: resolveFieldOptions('users', workspaceMode), emptyLabel: 'Select owner...' },
+  ];
+  if (ctx === 'standalone') {
+    // Linked Record uses real cross-module records ({value, label} objects) and
+    // is searchable; the global modal supplies the options at render time.
+    fields.push({ key: 'linkedRec', label: 'Linked record', required: true, type: 'select', group: 'primary', source: 'linkedRecords', useSearchableSelect: true, placeholder: 'Search record...' });
+  }
+  fields.push(
+    { key: 'owner',    label: 'Owner',      required: true,  type: 'select',   group: 'primary', source: 'users', useSearchableSelect: true, options: resolveFieldOptions('users', workspaceMode), emptyLabel: 'Select owner...' },
     { key: 'dueDate',  label: 'Due date',   required: true,  type: 'date',     group: 'grid' },
     { key: 'priority', label: 'Priority',   required: true,  type: 'select',   group: 'grid', options: TASK_PRIORITY_OPTIONS, emptyLabel: 'Select...' },
     { key: 'status',   label: 'Status',     required: true,  type: 'select',   group: 'grid', options: TASK_STATUS_OPTIONS, emptyLabel: 'Select...' },
-    { key: 'notes',    label: 'Notes',      required: false, type: 'textarea', group: 'notes', placeholder: 'Context, links or impact notes…' },
-  ];
+    { key: 'notes',    label: 'Notes',      required: false, type: 'textarea', group: 'notes', placeholder: 'Context, links or impact notes…' }
+  );
+  return fields;
 }
 
 function getSupportCoverageFields(workspaceMode) {
@@ -2127,10 +2146,26 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
       // F1c: render from getTaskFields spec instead of inline JSX. Visual layout
       // is preserved exactly via the `group` buckets (primary 1-col, grid 2-col,
       // notes after the Optional divider). Save behavior and labels unchanged.
-      var taskFields = getTaskFields(workspaceMode);
+      var taskFields = getTaskFields(workspaceMode, 'linked');
       var renderTaskField = function(f) {
         var control;
-        if (f.type === 'select') {
+        if (f.useSearchableSelect) {
+          // Core-4a — Create Task drawer honors useSearchableSelect for Owner,
+          // matching the global New Task modal. Off-catalog value preserved.
+          var currentValue = taskForm[f.key] || '';
+          var baseOptions = f.source ? resolveFieldOptions(f.source, workspaceMode) : (f.options || []);
+          var options = currentValue && !baseOptions.some(function(o) { return String(o) === String(currentValue); })
+            ? [currentValue].concat(baseOptions) : baseOptions;
+          control = <SearchableSelect
+            value={currentValue}
+            onChange={function(val) { setTaskForm(function(p) { return Object.assign({},p,{[f.key]:val}); }); }}
+            options={options}
+            placeholder={f.placeholder || 'Search...'}
+            ariaLabel={f.label}
+            required={!!f.required}
+            allowCreate={false}
+          />;
+        } else if (f.type === 'select') {
           control = <select value={taskForm[f.key]||''} onChange={function(e) { setTaskForm(function(p) { return Object.assign({},p,{[f.key]:e.target.value}); }); }} style={{...fieldStyle,cursor:'pointer',color:taskForm[f.key]?'#132033':'#94A3B8'}}>
             <option value="">{f.emptyLabel || 'Select...'}</option>
             {f.options.map(function(o) { return <option key={o} value={o}>{o}</option>; })}

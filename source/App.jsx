@@ -1232,6 +1232,20 @@ function buildEditForm(record, fieldSpecs, workspaceMode) {
   const stripDollar = v => v ? importMoney(v) : '';
   const stripPct    = v => v ? v.replace(/%/g, '').trim() : '';
   const stripRisk   = v => v ? v.replace(/ risk$/i, '').trim() : '';
+  // Forms-fix-1: last-resort cost inference for records with no meta.vendorCost
+  // (e.g. demo seed rows). The License Margin column shows margin dollars when
+  // present ("$2,000"); cost = value - marginDollar. A percent-form margin
+  // ("20%") cannot be inverted to dollars reliably here, so we skip it and
+  // leave cost empty (user re-enters), avoiding a wrong number.
+  const inferCostFromValueMargin = (valueStr, marginStr) => {
+    if (!valueStr || !marginStr) return '';
+    if (String(marginStr).indexOf('%') >= 0) return '';
+    const value = parseFloat(importMoney(valueStr));
+    const marginDollar = parseFloat(importMoney(marginStr));
+    if (isNaN(value) || isNaN(marginDollar)) return '';
+    const cost = value - marginDollar;
+    return cost > 0 ? String(cost) : '';
+  };
   const prefill = {};
   fieldSpecs.forEach(f => {
     switch (f.key) {
@@ -1269,7 +1283,7 @@ function buildEditForm(record, fieldSpecs, workspaceMode) {
       case 'riskLevel':      prefill[f.key] = stripRisk(get('Risk')); break;
       case 'startDate':      prefill[f.key] = normalizeEditDateInput(getMeta('startDate') || get('Start Date')); break;
       case 'licenseTerm':    prefill[f.key] = getMeta('licenseTerm') || get('License Term'); break;
-      case 'cost':           prefill[f.key] = stripDollar(getMeta('vendorCost') || get('Cost','Vendor Cost')); break;
+      case 'cost':           prefill[f.key] = stripDollar(getMeta('vendorCost') || get('Cost','Vendor Cost')) || inferCostFromValueMargin(get('Value','Sale Price / Annual Value','Annual Value'), get('Margin','Margin $')); break;
       case 'marginDollar':   prefill[f.key] = stripDollar(get('Margin $')); break;
       case 'relatedLicense': prefill[f.key] = get('Related License / Product'); break;
       case 'relatedContract':prefill[f.key] = get('Related Contract'); break;
@@ -1454,7 +1468,15 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
         type: moduleKey,
         displayName: savedRow[0] || '',
         workspaceMode: workspaceMode,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        // Forms-fix-1: persist financial values in meta so the edit form can
+        // reconstruct them reliably even when they are not visible table
+        // columns (e.g. License MSP shows Value + Margin but not Vendor Cost).
+        // meta is the primary source; column/inference are fallbacks.
+        commercialValue: form.contractValue || form.annualCost || '',
+        vendorCost: form.cost || '',
+        marginDollar: form.marginDollar || '',
+        margin: form.margin || ''
       }
     };
     setLocalRows(function(prev) {
@@ -1499,7 +1521,12 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
             moduleKey: moduleKey,
             displayName: newRow[0] || '',
             workspaceMode: workspaceMode,
-            editedAt: new Date().toISOString()
+            editedAt: new Date().toISOString(),
+            // Forms-fix-1: keep financial values in meta in sync on edit.
+            commercialValue: editForm.contractValue || editForm.annualCost || '',
+            vendorCost: editForm.cost || '',
+            marginDollar: editForm.marginDollar || '',
+            margin: editForm.margin || ''
           })
         }) : r;
       }).filter(function(record) { return isLocalStoreRecord(record, workspaceMode); });

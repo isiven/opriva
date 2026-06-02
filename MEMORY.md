@@ -1548,6 +1548,116 @@ These divergences are product signal, not inconsistency, and must not be unified
 
 ---
 
+## 24. Contracts / Coverage Module + Relationships Tab Model
+
+**Decision date:** 2026-06-02
+**Status:** Approved product decision. Authoritative reference for the Contracts /
+Coverage data model and for what the record-drawer **Relationships** tab should
+contain. Builds on §15 (Core Record + Related Tabs), the REL-1 relationship
+vocabulary and the REL-2a read-only relationship hub. Do not implement beyond
+what is explicitly requested; this section documents the correct direction.
+
+### 24.1 Contracts / Coverage is the home for agreement + coverage records
+
+Contracts / Coverage is the logical module where these record kinds live:
+
+- Master Contract
+- Support Coverage
+- Maintenance Coverage
+- Warranty Coverage
+- SLA / Service Agreement
+- Renewal Agreement
+
+They must be **distinguished by type / subtype**, not flattened into generic
+"contracts" without context. A Support Coverage is not the same shape as a Master
+Contract, even though both live in the Contracts / Coverage module.
+
+### 24.2 What each record kind answers
+
+| Record kind | Answers |
+|---|---|
+| **Contract** | What agreement exists, with whom, conditions, value, documents and validity period. |
+| **Coverage** | Which asset / license / hardware is covered, until when, by whom, support / SLA level, and the risk if it lapses. |
+| **Maintenance** | Support / updates / maintenance entitlement tied to a license or asset. |
+
+Support Coverage may live in Contracts / Coverage, but must behave as a
+**structured coverage record** (its own type, covered record, dates, level,
+provider), never as free text inside a License or Hardware record (see §15.18).
+
+### 24.3 Ideal backend model (future)
+
+The future backend should separate, at minimum:
+
+- `contracts`
+- `contract_lines` / `coverage_items`
+- `relationships`
+- `documents`
+- `tasks`
+- `activity_events`
+
+The `relationships` table stays distinct from `activity_events` (see the REL-1e
+decision in §17 Recent History, 2026-06-02).
+
+### 24.4 Relationships tab — what it must NOT repeat
+
+The Relationships tab must not duplicate the record's own base metadata. If a
+field already appears in the record header / card or as a base field, it must not
+be re-presented as a "relationship":
+
+- **Client / Department** — already in the header/card; not a primary Relationships section.
+- **Brand, Product, Owner, Vendor** — base fields; not primary relationships.
+
+Relationships is for **connections to other records and evidence**, not a second
+copy of the item's attributes.
+
+### 24.5 Relationships tab — what it SHOULD focus on
+
+- Documents / evidence
+- Tasks
+- Support / Maintenance Coverage
+- Contracts / Agreements
+- Related Hardware / Assets
+- Related Licenses / Dependencies
+- Renewal Packages / Bundles
+- Cross-record operational dependencies
+
+### 24.6 Per-module expectations (examples)
+
+| Module | Relationships should surface |
+|---|---|
+| **Licenses** | Documents, Tasks, Support Coverage, Contracts, Related Hardware, Renewal Package, dependencies. |
+| **Hardware** | Warranty, Support Coverage, related Licenses, Documents, Tasks, Location / dependencies if applicable. |
+| **Contracts / Coverage** | Covered Records, Documents, Tasks, Renewal Package, Parent Agreement if applicable. |
+| **Documents** | Linked Records / evidence context — not a repeat of the item's full metadata. |
+| **Tasks** | Parent Record + context — Tasks must not become a redundant primary relationship of itself. |
+| **Companies / Departments** | May have a portfolio / summary view, but must not contaminate the item-level Relationships tab with repeated metadata. |
+
+### 24.7 UX model — hybrid Relationships tab
+
+The recommended Relationships tab model is **hybrid**:
+
+- **Common sections (all modules):** Documents, Tasks, Related records.
+- **Module-specific sections:** Support Coverage, Covered records, Related
+  Hardware / Licenses, Packages.
+- The hub stays a **compact summary** — it is not a replacement for the Documents
+  tab, the Tasks tab or the Contracts module. Those remain the management surfaces.
+
+This codifies the REL-2a direction (read-only hub: Documents, Tasks, Support
+Coverage with counts, compact cards and tab navigation) and sets the target for
+later REL-2 phases (per-module sections such as Covered records, Related
+Hardware / Licenses, Renewal Packages) and the eventual backend relationships table.
+
+### 24.8 Cross-references
+
+- `MEMORY.md` §15 — Core Record + Related Tabs + Workspace Policies Model (the
+  drawer tab model: Overview, Relationships, Documents, Tasks, Activity).
+- `MEMORY.md` §15.18 — Support Coverage / Support Contracts (coverage is a
+  structured renewable record, not free text).
+- `MEMORY.md` §17 Recent History (2026-06-02) — REL-1 relationship vocabulary
+  rollout, REL-1e Activity deferral, and REL-2a read-only relationship hub.
+
+---
+
 ## 17. Recent History
 
 - Repository cloned and inspected on branch `audit/opriva-healthcheck`.
@@ -1594,3 +1704,4 @@ These divergences are product signal, not inconsistency, and must not be unified
 - 2026-05-29: Progressive Guidance Model product decision documented. MVP allows visible inline helpers to validate user understanding. Commercial version requires educational helpers to be compact, dismissible, tooltip-based or assisted by Opriva AI. Critical guidance (confirm-blocking reasons, missing required Client / Department / Owner, critical validation errors, duplicate or data-integrity warnings, security / PII warnings, documents metadata-only warnings) remains inline regardless of phase. Educational content ("What is Coverage?", "Which template should I use?", "How do I map this column?", "Why is this row Blocked?", sandbox / local-state caveats, vendor-specific guidance) moves to Opriva AI / Help. Long-term: Opriva exposes a workspace-level Guidance Mode setting with four options (Guided, Compact, Expert, Ask Opriva AI). New `MEMORY.md` §21 added as the product decision record. New `AGENTS.md` §16 "Helper Text Rule" added as the operational rule for all agents and reviewers. Implementation guidance: C1 Coverage helper banner (commit `c65c28f`) stays inline and small but is structured to be compactable later; C2-C5 coverage UI must be designed as compactable from day one. Backend implications: Guidance Mode persistence (workspace-default + user-override) and per-surface dismissal state require backend storage; Opriva AI must be permission-aware and respect workspace boundaries when serving educational content on demand. No application code modified.
 - 2026-05-30: Form Field Architecture / Form Consistency Model documented (F1a). New `MEMORY.md §23` and `AGENTS.md §18` define the standard field order (Name / Identity → Type → Client / Department → Brand / Manufacturer → Provider / Distributor → Owner → Quantity / Serial / File → Money / Value / Cost → Key Dates → Alert Policy → Optional / Advanced → Notes), the shared vs module-specific fields across Licenses, Hardware, Contracts, Documents, Support Coverage and Tasks, the SearchableSelect vs simple `<select>` categorisation, required/optional policy, computed-field rules (Margin, Days to Expiration, System Status never manual; Risk Level a derivation candidate), the MSP / Integrator vs Internal IT differences that must be preserved (Client vs Department; Renewal vs IT / Budget Owner / Custodian; Sale + Vendor Cost + Margin vs Annual Cost + Cost Center + Approval + Criticality; Distributor / Provider vs Provider), and renderer/label safety rules (no new one-off renderers; future renderers must respect `useSearchableSelect`; no casual label/key renames because `buildNewRow`, import mapping, drawers, prefill and filters depend on them). Phased plan recorded: F1a docs (this entry), F1b remove dead `NEW_RECORD_FIELDS` code where safe, F1c refactor Tasks into field specs, F2 continue SearchableSelect rollout in New Record forms, F3 extend to Edit/Preview renderers, F4 backend/catalog integration. Follows the SearchableSelect rollout S1a (primitive, commit `76e7675`), S1b (License Owner pilot, `ebc37e9`) and S1c (License catalog fields, `e30755e`). No application code modified.
 - 2026-06-02: Relationships Foundation REL-1 rollout — additive standard relationship vocabulary across the four relationship-bearing entities, plus the REL-1e (Activity) deferral decision. Branch `next/relationships-foundation`. Each implemented phase adds a standard, additive relationship field set alongside the existing legacy fields, never replacing them, on a single creation path, with no consumer reading the new fields yet (local-only prep for a future backend `relationships` table). The standard field set is: `relationshipType`, `sourceModule`, `sourceRecordId`, `sourceRecordName`, `targetModule`, `targetRecordId`, `targetRecordName`, `direction: 'source_to_target'`, `relationshipCreatedAt`. Implemented phases: **REL-1a Documents** (commit `1e6c49c`, `source/App.jsx` — `handleAttachDocSave` + standalone Upload/New Document path; `relationshipType: 'document_evidence'`; legacy `linkedModule/linkedRecordId/linkedRecordName` preserved). **REL-1b Tasks** (commit `37933af`, `source/App.jsx` — `handleTaskSave` + `handleGlobalTaskSave`; `relationshipType: 'task_for_record'`; legacy `source*` is inverted vs the standard, so only `target*` + the new fields were added, `source*`/`linkedRecordSnapshot` preserved). **REL-1c Support Coverage manual** (commit `b9a0237`, `source/App.jsx` — `handleSupportSave`; `relationshipType: 'coverage_covers_record'`; `sourceModule='contracts'`, `sourceRecordId=cov.id`; `target*` maps to the legacy `covered*`; `covered*`/dedup preserved). **REL-1d Coverage Import** (commit `7f35a85`, `source/utils/coverage.js` — `buildOneCoverageRecord`; same `coverage_covers_record` shape; `sourceRecordId=id`, `sourceRecordName=coverageName`, `target*=covered*`; `duplicateKeys`/`buildCoverageDuplicateKeys`/dedup/row output left intact and verified — re-import dedup still catches duplicates and the new fields do not leak into `duplicateKeys`). **REL-1e Activity — audited and DEFERRED to backend; do NOT implement relationship vocabulary on the local Activity log.** Rationale: Activity (`source/store/activityStore.js` → `addActivityEvent`, pushing to `RECORD_STORE.activity`) is a local/session mutable event log, not a relationship-bearing entity and not a real audit trail. Its `source*` is already in active use with semantics inverted vs the REL-1 standard (e.g. `document_attached` sets `sourceModule = doc.linkedModule`, i.e. the covered record, and `related*` = the document), and the drawer filters on `ev.sourceRecordId === id || ev.relatedRecordId === id`; `addActivityEvent` is a single generic writer shared by ~8 heterogeneous call sites, several of which (e.g. `import_completed`) have no target record. Stamping `relationshipType`/`target*`/`direction` onto events would create false/ambiguous relationship data, risk collision with the inverted `source*`, and be read by no consumer. The canonical relationship already lives on the records themselves (REL-1a–d). Decision: do not add `relationshipType`/`target*` to Activity local. The **future backend Activity audit trail must be designed separately as append-only**, with a real actor, workspace/tenant scope, before/after snapshots where applicable, real server timestamps, non-editable entries, and FK links to records / relationships. The **future `relationships` table must be a distinct entity from `activity_events`** — relationships belong to the relationships table, events belong to the audit trail. No application code modified in this REL-1e entry (docs-only); REL-1a–d code is already committed on this branch.
+- 2026-06-02: Contracts / Coverage Module + Relationships Tab Model product decision documented (new `MEMORY.md §24`). Contracts / Coverage is the logical home for Master Contract, Support Coverage, Maintenance Coverage, Warranty Coverage, SLA / Service Agreement and Renewal Agreement, distinguished by type / subtype rather than flattened into generic contracts. Defined what each record kind answers: Contract = which agreement, with whom, conditions, value, documents, validity; Coverage = which asset/license/hardware is covered, until when, by whom, support/SLA level, lapse risk; Maintenance = support/updates/maintenance entitlement tied to a license or asset. Support Coverage may live in Contracts / Coverage but must behave as a structured coverage record (not free text — reaffirms §15.18). Ideal future backend model separates `contracts`, `contract_lines` / `coverage_items`, `relationships`, `documents`, `tasks`, `activity_events`, with `relationships` distinct from `activity_events` (consistent with the REL-1e decision). Relationships tab rules: must NOT repeat base metadata already in the header/card or base fields — Client / Department, Brand, Product, Owner, Vendor are not primary Relationships sections; the tab focuses on Documents / evidence, Tasks, Support / Maintenance Coverage, Contracts / Agreements, Related Hardware / Assets, Related Licenses / Dependencies, Renewal Packages / Bundles and cross-record operational dependencies. Per-module expectations recorded for Licenses, Hardware, Contracts / Coverage, Documents, Tasks and Companies / Departments. UX model is hybrid: common sections (Documents, Tasks, Related records) plus module-specific sections (Support Coverage, Covered records, Related Hardware / Licenses, Packages), with the hub kept as a compact summary that does not replace the Documents tab, Tasks tab or Contracts module. Codifies the REL-2a read-only hub direction (commit `445a23f`) and sets the target for later REL-2 per-module sections and the eventual backend relationships table. No application code modified (docs-only); `source/App.jsx`, `source/utils/coverage.js` and components untouched.

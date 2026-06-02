@@ -2623,10 +2623,14 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
               var relButtons = isContract ? ['Link license','Link hardware','Link package']
                              : isDocument ? ['Link record','Link package','Select covered records']
                              : ['Link contract','Link related record','Link package'];
-              var relEmpty   = isContract ? 'No covered records linked yet.'
-                             : isDocument ? 'No linked records yet.'
-                             : 'No related records linked yet.';
               var covMeta = (isContract && selectedRecord.meta && selectedRecord.meta.source === 'supportCoverage') ? selectedRecord.meta : null;
+              // REL-2a: read-only relationship hub datasets. Reuse the EXACT
+              // Documents-tab and Tasks-tab filters (top-level linked* / source*)
+              // so the hub counts always match what those tabs show. Summary +
+              // navigation only — no new state, no linking, no save behavior.
+              var relDocs = sessionDocs.filter(function(d) { return d.linkedRecordId === selectedRecord.id && d.linkedModule === selectedRecord.moduleKey; });
+              var relTasks = sessionTasks.filter(function(t) { return t.sourceRecordId === selectedRecord.id; });
+              var relHubEmpty = relDocs.length === 0 && relTasks.length === 0 && !isLicHw && !covMeta;
               return <div style={{flex:1,overflowY:'auto',padding:'16px 20px',display:'grid',gap:12,alignContent:'start'}}>
                 {covMeta
                   ? <section style={{background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'}}>
@@ -2667,14 +2671,65 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
                         <h3 style={{margin:'0 0 4px',fontSize:14,color:'#0B1F3A',letterSpacing:'-.01em'}}>Relationships</h3>
                         <p style={{margin:0,color:'#64748B',fontSize:12,lineHeight:1.45}}>{relHelper}</p>
                         <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:10}}>
-                          {relButtons.map(function(label) { return <button key={label} style={detailActionBtn}>{label}</button>; })}
+                          {relButtons.map(function(label) { return <button key={label} type="button" disabled aria-disabled="true" title="Available after backend relationships table" style={{...detailActionBtn,opacity:0.55,cursor:'not-allowed'}}>{label}</button>; })}
                         </div>
-                      </div>
-                      <div style={{padding:'14px'}}>
-                        <span style={{color:'#64748B',fontSize:12,lineHeight:1.45}}>{relEmpty}</span>
                       </div>
                     </section>
                 }
+                {/* REL-2a: general empty state — only when there is nothing to
+                    show at all (no docs, no tasks, no coverage section, not a
+                    coverage record). Per-section empties cover the other cases. */}
+                {relHubEmpty && <section style={{background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'}}>
+                  <div style={{padding:'18px 14px',textAlign:'center',display:'grid',gap:4}}>
+                    <strong style={{fontSize:13,color:'#132033'}}>No relationships linked yet.</strong>
+                    <span style={{color:'#64748B',fontSize:12,lineHeight:1.45}}>Documents, tasks and support coverage you add to this record will appear here.</span>
+                  </div>
+                </section>}
+                {/* REL-2a: read-only Documents summary. Reuses the Documents-tab
+                    filter; navigation reuses setActiveDetailTab (no new state). */}
+                {!relHubEmpty && <section style={{background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'}}>
+                  <div style={{padding:'12px 14px',borderBottom:'1px solid #EEF2F7',background:'#FAFCFF',display:'flex',justifyContent:'space-between',alignItems:'center',gap:12}}>
+                    <h3 style={{margin:0,fontSize:14,color:'#0B1F3A',letterSpacing:'-.01em'}}>Documents <span style={{fontSize:12,color:'#64748B',fontWeight:400}}>({relDocs.length})</span></h3>
+                    {relDocs.length > 0 && <button type="button" style={{...detailActionBtn,fontSize:12,padding:'5px 10px'}} onClick={function() { setActiveDetailTab('Documents'); }}>Open Documents tab</button>}
+                  </div>
+                  <div style={{padding:'14px',display:'grid',gap:8}}>
+                    {relDocs.length === 0
+                      ? <span style={{color:'#64748B',fontSize:12,lineHeight:1.45}}>No documents linked yet.</span>
+                      : relDocs.map(function(doc) {
+                          return <div key={doc.id} style={{border:'1px solid #EEF2F7',borderRadius:10,padding:'10px 12px',background:'#FAFCFF',display:'grid',gap:4}}>
+                            <strong style={{fontSize:13,color:'#0B1F3A',fontWeight:700,lineHeight:1.3,wordBreak:'break-word'}}>{doc.name}</strong>
+                            <div style={{display:'flex',flexWrap:'wrap',gap:8,fontSize:11,color:'#64748B'}}>
+                              {doc.type && <span style={{fontWeight:700,color:'#94A3B8',textTransform:'uppercase',letterSpacing:'.06em'}}>{doc.type}</span>}
+                              {doc.uploadedBy && <span>By {doc.uploadedBy}</span>}
+                              {doc.expirationDate && <span>Expires {doc.expirationDate}</span>}
+                            </div>
+                          </div>;
+                        })
+                    }
+                  </div>
+                </section>}
+                {/* REL-2a: read-only Tasks summary. Reuses the Tasks-tab filter. */}
+                {!relHubEmpty && <section style={{background:'#fff',border:'1px solid #EEF2F7',borderRadius:12,overflow:'hidden'}}>
+                  <div style={{padding:'12px 14px',borderBottom:'1px solid #EEF2F7',background:'#FAFCFF',display:'flex',justifyContent:'space-between',alignItems:'center',gap:12}}>
+                    <h3 style={{margin:0,fontSize:14,color:'#0B1F3A',letterSpacing:'-.01em'}}>Tasks <span style={{fontSize:12,color:'#64748B',fontWeight:400}}>({relTasks.length})</span></h3>
+                    {relTasks.length > 0 && <button type="button" style={{...detailActionBtn,fontSize:12,padding:'5px 10px'}} onClick={function() { setActiveDetailTab('Tasks'); }}>Open Tasks tab</button>}
+                  </div>
+                  <div style={{padding:'14px',display:'grid',gap:8}}>
+                    {relTasks.length === 0
+                      ? <span style={{color:'#64748B',fontSize:12,lineHeight:1.45}}>No tasks linked yet.</span>
+                      : relTasks.map(function(task) {
+                          return <div key={task.id} style={{border:'1px solid #EEF2F7',borderRadius:10,padding:'10px 12px',background:'#FAFCFF',display:'grid',gap:4}}>
+                            <strong style={{fontSize:13,color:'#0B1F3A',fontWeight:700,lineHeight:1.3,wordBreak:'break-word'}}>{task.title}</strong>
+                            <div style={{display:'flex',flexWrap:'wrap',gap:8,fontSize:11,color:'#64748B'}}>
+                              {task.status && <span style={{fontWeight:700,color:'#475569'}}>{task.status}</span>}
+                              {task.owner && <span>Owner {task.owner}</span>}
+                              {task.dueDate && <span>Due {task.dueDate}</span>}
+                            </div>
+                          </div>;
+                        })
+                    }
+                  </div>
+                </section>}
                 {isLicHw && (() => {
                   // Coverage Import C5.1 — read Support Coverage records
                   // directly from RECORD_STORE.contracts (single source of

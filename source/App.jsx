@@ -847,22 +847,42 @@ const NEW_RECORD_FIELDS = {
     { key: 'riskLevel',     label: 'Risk Level',             type: 'computed' },
     { key: 'notes',         label: 'Notes',                  multi: true },
   ],
-  // F1b: Documents still uses NEW_RECORD_FIELDS (via getFormFields'
-  // `NEW_RECORD_FIELDS[module]` lookup); the Licenses entry above is kept only
-  // as getFormFields' defensive fallback for unknown modules. The real
-  // Licenses / Hardware / Contracts forms are built inside getFormFields, so
-  // the former Hardware and Contracts entries here were dead code and removed.
-  Documents: [
+  // F1b/Core-4b: Documents is built by getDocumentFields(context); this key is
+  // kept so getFormFields' `NEW_RECORD_FIELDS[module]` lookup still resolves the
+  // standalone Documents form. The Licenses entry above is getFormFields'
+  // defensive fallback for unknown modules; the former Hardware and Contracts
+  // entries here were dead code and removed.
+  Documents: getDocumentFields('standalone'),
+};
+
+// Core-4b: context-aware Document field spec. Both Document surfaces create the
+// same entity, so they share one conceptual spec:
+//   'standalone' (Upload / New Document) — the user can choose the Linked
+//     Record, Client / Department and Provider / Vendor.
+//   'linked' (Attach Document from a record drawer) — the parent record is
+//     implicit in selectedRecord, so Linked Record / Client / Provedor are
+//     omitted (handleAttachDocSave fills linkedModule/linkedRecordId/Name from
+//     selectedRecord; save behavior is unchanged).
+// "Uploaded by" is the unified label in both. Uploaded by is a SearchableSelect
+// (renderers honor the flag); Document Type stays a native select.
+function getDocumentFields(context) {
+  var ctx = context || 'standalone';
+  var fields = [
     { key: 'filePick',   label: 'Attach file',          required: true, type: 'file' },
     { key: 'name',       label: 'Document Name',         required: true },
     { key: 'type',       label: 'Document Type',         required: true, type: 'select', options: DOC_TYPE_OPTIONS },
     { key: 'uploadedBy', label: 'Uploaded by',           required: true, type: 'select', source: 'users', useSearchableSelect: true, placeholder: 'Search user...' },
-    { key: 'relatedRecord', label: 'Linked Record',      type: 'select', source: 'linkedRecords', useSearchableSelect: true, placeholder: 'Search record...' },
-    { key: 'client',     label: 'Client / Department',   type: 'select', source: 'clientDepartment', useSearchableSelect: true, placeholder: 'Search client / department...' },
-    { key: 'vendor',     label: 'Provider / Vendor',     type: 'select', source: 'vendors', useSearchableSelect: true, placeholder: 'Search provider / vendor...' },
-    { key: 'notes',      label: 'Notes',                 multi: true },
-  ],
-};
+  ];
+  if (ctx === 'standalone') {
+    fields.push(
+      { key: 'relatedRecord', label: 'Linked Record',    type: 'select', source: 'linkedRecords', useSearchableSelect: true, placeholder: 'Search record...' },
+      { key: 'client',     label: 'Client / Department',  type: 'select', source: 'clientDepartment', useSearchableSelect: true, placeholder: 'Search client / department...' },
+      { key: 'vendor',     label: 'Provider / Vendor',    type: 'select', source: 'vendors', useSearchableSelect: true, placeholder: 'Search provider / vendor...' }
+    );
+  }
+  fields.push({ key: 'notes', label: 'Notes', multi: true });
+  return fields;
+}
 
 
 function getFormFields(module, workspaceMode) {
@@ -872,7 +892,7 @@ function getFormFields(module, workspaceMode) {
         { key: 'name',                label: 'Asset Name',                required: true },
         { key: 'type',                label: 'Type',                      required: true, type: 'select', options: ['Server','Firewall','Switch','Laptop','Desktop','UPS','Storage','Printer','Other'] },
         { key: 'client',              label: 'Department',                required: true, type: 'select', source: 'clientDepartment', useSearchableSelect: true, placeholder: 'Search department...' },
-        { key: 'brand',               label: 'Brand',                     required: true, type: 'select', source: 'vendors' },
+        { key: 'brand',               label: 'Brand / Manufacturer',      required: true, type: 'select', source: 'vendors', useSearchableSelect: true, placeholder: 'Search brand...' },
         { key: 'serial',              label: 'Serial Number / Asset ID',  required: true },
         { key: 'warrantyEnd',         label: 'Warranty End',              required: true, type: 'date' },
         { key: 'owner',               label: 'Owner / Custodian',         required: true, type: 'select', source: 'users', useSearchableSelect: true, placeholder: 'Search owner...' },
@@ -892,7 +912,7 @@ function getFormFields(module, workspaceMode) {
       { key: 'name',        label: 'Asset Name',              required: true },
       { key: 'type',        label: 'Type',                    required: true, type: 'select', options: ['Server','Firewall','Switch','Laptop','Desktop','UPS','Storage','Printer','Other'] },
       { key: 'client',      label: 'Client',                  required: true, type: 'select', source: 'clientDepartment', useSearchableSelect: true, placeholder: 'Search client...' },
-      { key: 'brand',       label: 'Brand',                   required: true, type: 'select', source: 'vendors' },
+      { key: 'brand',       label: 'Brand / Manufacturer',    required: true, type: 'select', source: 'vendors', useSearchableSelect: true, placeholder: 'Search brand...' },
       { key: 'serial',      label: 'Serial Number / Asset ID', required: true },
       { key: 'warrantyEnd', label: 'Warranty End',            required: true, type: 'date' },
       { key: 'owner',       label: 'Owner',                   required: true, type: 'select', source: 'users', useSearchableSelect: true, placeholder: 'Search owner...' },
@@ -949,7 +969,7 @@ function getFormFields(module, workspaceMode) {
       { key: 'renewalDate',   label: 'Expiration / Renewal Date', required: true, type: 'date' },
       { key: 'owner',         label: 'IT Owner / Budget Owner', required: true, type: 'select', source: 'users',            useSearchableSelect: true, placeholder: 'Search owner...' },
       { key: 'seats',         label: 'Quantity / Seats',       required: true, type: 'number' },
-      { key: 'brand',         label: 'Brand',                  type: 'select', source: 'vendors' },
+      { key: 'brand',         label: 'Brand / Manufacturer',   type: 'select', source: 'vendors',          useSearchableSelect: true, placeholder: 'Search brand...' },
       { key: 'provider',      label: 'Provider',               required: true, type: 'select', source: 'providers',        useSearchableSelect: true, placeholder: 'Search distributor / provider...' },
       { key: 'annualCost',    label: 'Annual Cost',            required: true, type: 'number' },
       { key: 'costCenter',    label: 'Cost Center',            required: true },
@@ -970,7 +990,8 @@ function getFormFields(module, workspaceMode) {
     { key: 'owner',         label: 'Renewal Owner',          required: true,  type: 'select', source: 'users',            useSearchableSelect: true, placeholder: 'Search owner...' },
     { key: 'alertPolicy',   label: 'Alert Policy',           required: true,  type: 'select', options: LICENSE_ALERT_POLICY_OPTIONS },
     { key: 'seats',         label: 'Quantity / Seats',       required: true, type: 'number' },
-    { key: 'distributor',   label: 'Distributor / Provider', required: true, type: 'select', source: 'providers',        useSearchableSelect: true, placeholder: 'Search distributor / provider...' },
+    { key: 'brand',         label: 'Brand / Manufacturer',   type: 'select', source: 'vendors',          useSearchableSelect: true, placeholder: 'Search brand...' },
+    { key: 'provider',      label: 'Distributor / Provider', required: true, type: 'select', source: 'providers',        useSearchableSelect: true, placeholder: 'Search distributor / provider...' },
     { key: 'contractValue', label: 'Sale Price / Annual Value', required: true, type: 'number' },
     { key: 'cost',          label: 'Vendor Cost',            required: true, type: 'number' },
     { key: 'startDate',     label: 'Start Date',             type: 'date' },
@@ -1012,7 +1033,7 @@ function buildNewRow(form, safeColumns) {
     'Brand':                  v.brand,
     'Vendor':                 v.brand,
     'Provider':               v.provider,
-    'Distributor':            v.distributor || v.provider,
+    'Distributor':            v.provider || v.distributor,
     'Provider / Distributor': v.provider || v.distributor,
     'Type':                   v.type,
     'Model':                  v.model,
@@ -1070,13 +1091,10 @@ function buildNewRow(form, safeColumns) {
   return safeColumns.map(col => (map[col] !== undefined && map[col] !== '') ? map[col] : '-');
 }
 
-const ATTACH_DOC_FIELDS = [
-  { key: 'filePick',   label: 'Attach file',    required: true, type: 'file' },
-  { key: 'name',       label: 'Document Name',  required: true },
-  { key: 'type',       label: 'Document Type',  required: true, type: 'select', options: DOC_TYPE_OPTIONS },
-  { key: 'uploadedBy', label: 'Uploaded By',    required: true, type: 'select', source: 'users' },
-  { key: 'notes',      label: 'Notes',          multi: true },
-];
+// Core-4b: Attach Document (from a record drawer) is the 'linked' context of
+// the shared Document spec. Label "Uploaded by" and the SearchableSelect flag
+// now match the standalone Upload form.
+const ATTACH_DOC_FIELDS = getDocumentFields('linked');
 
 function getTaskTypeOptions(workspaceMode) {
   return workspaceMode === 'Internal IT'
@@ -1090,16 +1108,35 @@ function getTaskTypeOptions(workspaceMode) {
 // the existing visual layout: primary (1-col), grid (2-col), notes (after the
 // Optional divider). Labels, options, required state and save behavior are
 // unchanged. Options are resolved at build time to keep the renderer trivial.
-function getTaskFields(workspaceMode) {
-  return [
+//
+// Core-4a: context-aware. Both Task surfaces create the same entity, so they
+// share one conceptual spec:
+//   'standalone' (global New Task modal) — the user picks the parent record, so
+//     a Linked Record field is included (SearchableSelect over real records).
+//   'linked' (drawer Create Task, default) — the parent is implicit in
+//     selectedRecord, so Linked Record is omitted.
+// Owner stays a catalog field; Task Type / Priority / Status stay native selects.
+// Save behavior is unchanged: handleTaskSave and handleGlobalTaskSave keep their
+// own logic; this only unifies the field definition.
+function getTaskFields(workspaceMode, context) {
+  var ctx = context || 'linked';
+  var fields = [
     { key: 'title',    label: 'Task title', required: true,  type: 'text',     group: 'primary', placeholder: 'e.g. Request renewal quote from vendor' },
     { key: 'taskType', label: 'Task type',  required: true,  type: 'select',   group: 'primary', options: getTaskTypeOptions(workspaceMode), emptyLabel: 'Select type...' },
-    { key: 'owner',    label: 'Owner',      required: true,  type: 'select',   group: 'primary', options: resolveFieldOptions('users', workspaceMode), emptyLabel: 'Select owner...' },
+  ];
+  if (ctx === 'standalone') {
+    // Linked Record uses real cross-module records ({value, label} objects) and
+    // is searchable; the global modal supplies the options at render time.
+    fields.push({ key: 'linkedRec', label: 'Linked record', required: true, type: 'select', group: 'primary', source: 'linkedRecords', useSearchableSelect: true, placeholder: 'Search record...' });
+  }
+  fields.push(
+    { key: 'owner',    label: 'Owner',      required: true,  type: 'select',   group: 'primary', source: 'users', useSearchableSelect: true, options: resolveFieldOptions('users', workspaceMode), emptyLabel: 'Select owner...' },
     { key: 'dueDate',  label: 'Due date',   required: true,  type: 'date',     group: 'grid' },
     { key: 'priority', label: 'Priority',   required: true,  type: 'select',   group: 'grid', options: TASK_PRIORITY_OPTIONS, emptyLabel: 'Select...' },
     { key: 'status',   label: 'Status',     required: true,  type: 'select',   group: 'grid', options: TASK_STATUS_OPTIONS, emptyLabel: 'Select...' },
-    { key: 'notes',    label: 'Notes',      required: false, type: 'textarea', group: 'notes', placeholder: 'Context, links or impact notes…' },
-  ];
+    { key: 'notes',    label: 'Notes',      required: false, type: 'textarea', group: 'notes', placeholder: 'Context, links or impact notes…' }
+  );
+  return fields;
 }
 
 function getSupportCoverageFields(workspaceMode) {
@@ -1107,9 +1144,9 @@ function getSupportCoverageFields(workspaceMode) {
   return [
     { key: 'name',         label: 'Support / Coverage Name',   required: true,  type: 'select', options: SUPPORT_COVERAGE_NAME_OPTIONS },
     { key: 'coverageType', label: 'Coverage Type',             required: true,  type: 'select', options: SUPPORT_COVERAGE_TYPE_OPTIONS },
-    { key: 'provider',     label: 'Provider',                  required: true,  type: 'select', source: 'providers' },
+    { key: 'provider',     label: 'Provider',                  required: true,  type: 'select', source: 'providers', useSearchableSelect: true, placeholder: 'Search provider / vendor...' },
     { key: 'endDate',      label: 'Coverage End Date',         required: true,  type: 'date' },
-    { key: 'owner',        label: 'Coverage Owner',            required: true,  type: 'select', source: 'users' },
+    { key: 'owner',        label: 'Coverage Owner',            required: true,  type: 'select', source: 'users', useSearchableSelect: true, placeholder: 'Search owner...' },
     { key: 'alertPolicy',  label: 'Alert Policy',              required: true,  type: 'select', options: SUPPORT_ALERT_POLICY_OPTIONS },
     { key: 'startDate',    label: 'Coverage Start Date',       type: 'date' },
     { key: 'value',        label: valueLabel,                  type: 'number' },
@@ -1231,6 +1268,20 @@ function buildEditForm(record, fieldSpecs, workspaceMode) {
   const stripDollar = v => v ? importMoney(v) : '';
   const stripPct    = v => v ? v.replace(/%/g, '').trim() : '';
   const stripRisk   = v => v ? v.replace(/ risk$/i, '').trim() : '';
+  // Forms-fix-1: last-resort cost inference for records with no meta.vendorCost
+  // (e.g. demo seed rows). The License Margin column shows margin dollars when
+  // present ("$2,000"); cost = value - marginDollar. A percent-form margin
+  // ("20%") cannot be inverted to dollars reliably here, so we skip it and
+  // leave cost empty (user re-enters), avoiding a wrong number.
+  const inferCostFromValueMargin = (valueStr, marginStr) => {
+    if (!valueStr || !marginStr) return '';
+    if (String(marginStr).indexOf('%') >= 0) return '';
+    const value = parseFloat(importMoney(valueStr));
+    const marginDollar = parseFloat(importMoney(marginStr));
+    if (isNaN(value) || isNaN(marginDollar)) return '';
+    const cost = value - marginDollar;
+    return cost > 0 ? String(cost) : '';
+  };
   const prefill = {};
   fieldSpecs.forEach(f => {
     switch (f.key) {
@@ -1268,7 +1319,7 @@ function buildEditForm(record, fieldSpecs, workspaceMode) {
       case 'riskLevel':      prefill[f.key] = stripRisk(get('Risk')); break;
       case 'startDate':      prefill[f.key] = normalizeEditDateInput(getMeta('startDate') || get('Start Date')); break;
       case 'licenseTerm':    prefill[f.key] = getMeta('licenseTerm') || get('License Term'); break;
-      case 'cost':           prefill[f.key] = stripDollar(getMeta('vendorCost') || get('Cost','Vendor Cost')); break;
+      case 'cost':           prefill[f.key] = stripDollar(getMeta('vendorCost') || get('Cost','Vendor Cost')) || inferCostFromValueMargin(get('Value','Sale Price / Annual Value','Annual Value'), get('Margin','Margin $')); break;
       case 'marginDollar':   prefill[f.key] = stripDollar(get('Margin $')); break;
       case 'relatedLicense': prefill[f.key] = get('Related License / Product'); break;
       case 'relatedContract':prefill[f.key] = get('Related Contract'); break;
@@ -1453,9 +1504,34 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
         type: moduleKey,
         displayName: savedRow[0] || '',
         workspaceMode: workspaceMode,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        // Forms-fix-1: persist financial values in meta so the edit form can
+        // reconstruct them reliably even when they are not visible table
+        // columns (e.g. License MSP shows Value + Margin but not Vendor Cost).
+        // meta is the primary source; column/inference are fallbacks.
+        commercialValue: form.contractValue || form.annualCost || '',
+        vendorCost: form.cost || '',
+        marginDollar: form.marginDollar || '',
+        margin: form.margin || ''
       }
     };
+    // CORE-4c-1: standalone Upload/New Document — resolve the selected Linked
+    // Record's real metadata (linkedRecordId / linkedModule / linkedRecordName)
+    // so it matches the evidence posture of Attach Document. This is additive to
+    // meta only; the row/display (which shows the readable record name) is
+    // unchanged. The combobox value is still the record name, so we match by
+    // recordName; if there is no match (e.g. a free/legacy value) we skip
+    // silently. Local-only until the backend stores a real foreign key.
+    if (moduleKey === 'documents' && form.relatedRecord) {
+      var linkedOpt = collectLinkedRecordOptions(workspaceMode, 'documents').find(function(o) {
+        return o.recordName === form.relatedRecord;
+      });
+      if (linkedOpt) {
+        newRecord.meta.linkedRecordId = linkedOpt.value;
+        newRecord.meta.linkedModule = linkedOpt.moduleKey;
+        newRecord.meta.linkedRecordName = linkedOpt.recordName;
+      }
+    }
     setLocalRows(function(prev) {
       const next = [newRecord].concat(prev.filter(function(record) { return isLocalStoreRecord(record, workspaceMode); }));
       RECORD_STORE[moduleKey] = next;
@@ -1498,7 +1574,12 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
             moduleKey: moduleKey,
             displayName: newRow[0] || '',
             workspaceMode: workspaceMode,
-            editedAt: new Date().toISOString()
+            editedAt: new Date().toISOString(),
+            // Forms-fix-1: keep financial values in meta in sync on edit.
+            commercialValue: editForm.contractValue || editForm.annualCost || '',
+            vendorCost: editForm.cost || '',
+            marginDollar: editForm.marginDollar || '',
+            margin: editForm.margin || ''
           })
         }) : r;
       }).filter(function(record) { return isLocalStoreRecord(record, workspaceMode); });
@@ -1798,7 +1879,7 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
           var prod = getProductByName(value);
           if (prod) {
             next.brand = prod.brand;
-            if (!prev.distributor) next.distributor = prod.defaultDistributor || '';
+            // Core-2: License uses key `provider` in both MSP and Internal IT.
             if (!prev.provider) next.provider = prod.defaultDistributor || '';
             if (!prev.licenseTerm) next.licenseTerm = prod.defaultTerm || '';
             var suggested = suggestRenewalDate(next.startDate, next.licenseTerm);
@@ -1826,7 +1907,8 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
           var prod = getProductByName(value);
           if (prod) {
             next.brand = prod.brand;
-            if (!prev.distributor) next.distributor = prod.defaultDistributor || '';
+            // Core-2: License uses key `provider` in both MSP and Internal IT.
+            if (!prev.provider) next.provider = prod.defaultDistributor || '';
             if (!prev.licenseTerm) next.licenseTerm = prod.defaultTerm || '';
             var suggested = suggestRenewalDate(next.startDate, next.licenseTerm);
             if (suggested && !prev.renewalDate) next.renewalDate = suggested;
@@ -2042,6 +2124,24 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
               </label>
               {f.multi
                 ? <textarea value={attachDocForm[f.key]||''} onChange={function(e) { setAttachDocForm(function(p) { return Object.assign({},p,{[f.key]:e.target.value}); }); }} rows={3} style={{...fieldStyle,resize:'vertical'}}/>
+                : f.useSearchableSelect
+                  ? (function() {
+                      // Core-4b — Attach Document honors useSearchableSelect for
+                      // Uploaded by, matching the standalone Upload form.
+                      var currentValue = attachDocForm[f.key] || '';
+                      var baseOptions = f.source ? resolveFieldOptions(f.source, workspaceMode) : (f.options || []);
+                      var options = currentValue && !baseOptions.some(function(o) { return String(o) === String(currentValue); })
+                        ? [currentValue].concat(baseOptions) : baseOptions;
+                      return <SearchableSelect
+                        value={currentValue}
+                        onChange={function(val) { setAttachDocForm(function(p) { return Object.assign({},p,{[f.key]:val}); }); }}
+                        options={options}
+                        placeholder={f.placeholder || 'Search...'}
+                        ariaLabel={f.label}
+                        required={!!f.required}
+                        allowCreate={false}
+                      />;
+                    })()
                 : f.type === 'file'
                   ? <div>
                       <input type="file" id={'fpick-af-'+f.key} style={{display:'none'}} onChange={function(e) {
@@ -2098,10 +2198,26 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
       // F1c: render from getTaskFields spec instead of inline JSX. Visual layout
       // is preserved exactly via the `group` buckets (primary 1-col, grid 2-col,
       // notes after the Optional divider). Save behavior and labels unchanged.
-      var taskFields = getTaskFields(workspaceMode);
+      var taskFields = getTaskFields(workspaceMode, 'linked');
       var renderTaskField = function(f) {
         var control;
-        if (f.type === 'select') {
+        if (f.useSearchableSelect) {
+          // Core-4a — Create Task drawer honors useSearchableSelect for Owner,
+          // matching the global New Task modal. Off-catalog value preserved.
+          var currentValue = taskForm[f.key] || '';
+          var baseOptions = f.source ? resolveFieldOptions(f.source, workspaceMode) : (f.options || []);
+          var options = currentValue && !baseOptions.some(function(o) { return String(o) === String(currentValue); })
+            ? [currentValue].concat(baseOptions) : baseOptions;
+          control = <SearchableSelect
+            value={currentValue}
+            onChange={function(val) { setTaskForm(function(p) { return Object.assign({},p,{[f.key]:val}); }); }}
+            options={options}
+            placeholder={f.placeholder || 'Search...'}
+            ariaLabel={f.label}
+            required={!!f.required}
+            allowCreate={false}
+          />;
+        } else if (f.type === 'select') {
           control = <select value={taskForm[f.key]||''} onChange={function(e) { setTaskForm(function(p) { return Object.assign({},p,{[f.key]:e.target.value}); }); }} style={{...fieldStyle,cursor:'pointer',color:taskForm[f.key]?'#132033':'#94A3B8'}}>
             <option value="">{f.emptyLabel || 'Select...'}</option>
             {f.options.map(function(o) { return <option key={o} value={o}>{o}</option>; })}
@@ -2164,6 +2280,25 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
           </label>
           {f.multi
             ? <textarea value={supportForm[f.key]||''} onChange={function(e) { setSupportForm(function(p) { return Object.assign({},p,{[f.key]:e.target.value}); }); }} rows={3} style={{...fieldStyle,resize:'vertical'}}/>
+            : f.useSearchableSelect
+              ? (function() {
+                  // Core-3 — Support Coverage honors useSearchableSelect for
+                  // provider / owner. Preserve the current value as an option
+                  // when it is not in the catalog (legacy / imported values).
+                  var currentValue = supportForm[f.key] || '';
+                  var baseOptions = f.source ? resolveFieldOptions(f.source, workspaceMode) : (f.options || []);
+                  var options = currentValue && !baseOptions.some(function(o) { return String(o) === String(currentValue); })
+                    ? [currentValue].concat(baseOptions) : baseOptions;
+                  return <SearchableSelect
+                    value={currentValue}
+                    onChange={function(val) { setSupportForm(function(p) { return Object.assign({},p,{[f.key]:val}); }); }}
+                    options={options}
+                    placeholder={f.placeholder || 'Search...'}
+                    ariaLabel={f.label}
+                    required={!!f.required}
+                    allowCreate={false}
+                  />;
+                })()
             : f.type === 'select'
               ? <select value={supportForm[f.key]||''} onChange={function(e) { setSupportForm(function(p) { return Object.assign({},p,{[f.key]:e.target.value}); }); }} style={{...fieldStyle,cursor:'pointer',color:supportForm[f.key]?'#132033':'#94A3B8'}}>
                   <option value="">Select...</option>

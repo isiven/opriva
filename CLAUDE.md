@@ -142,3 +142,134 @@ no adapt approved): `emilkowalski/skill`, `pbakaus/impeccable` (Apache 2.0) and
 likely Codex target locations (`.codex/`, `.agents/`, the existing `skills/`
 directory, `AGENTS.md`) and the parity rule — lives in
 `OPRIVA_AI_DEVELOPMENT_TEAM.md` §10.1–§10.2 and §11.1. See also `AGENTS.md` §14.
+
+---
+
+# Opriva Agent Operational Rules
+
+> Operational agent rules for Claude Code / Codex sessions. Appended by the
+> agent-infrastructure setup. These complement (do not replace) the §1–§5
+> guidance-loader sections above.
+
+## Proyecto
+
+Opriva: SaaS de IT/vendor asset management para dos workspace modes:
+
+- MSP / Integrator
+- Internal IT
+
+Repo: isiven/opriva
+Stack: React + Vite, con arquitectura actual todavía concentrada principalmente en `source/App.jsx`.
+
+## Regla A1 — Leer antes de hacer
+
+Al iniciar cualquier sesión:
+
+1. Leer `CLAUDE.md`.
+2. Leer `MEMORY.md` si existe.
+3. Leer `OPRIVA_CRITICAL_TO_ADVANTAGE_ROADMAP.md` si existe.
+4. Listar `tasks/`.
+5. Ejecutar:
+   ```bash
+   git branch --show-current
+   git status --short
+   git log --oneline -8
+   ```
+
+No asumir que una tarea está pendiente solo porque exista un archivo viejo. Verificar el estado real del código y git.
+
+## Regla A2 — Flujo de trabajo
+
+Para cualquier cambio:
+
+1. Audit read-only primero.
+2. Reportar plan y riesgos.
+3. Esperar aprobación de Isaac.
+4. Implementar una sola fase pequeña.
+5. Ejecutar:
+   ```bash
+   npm run build
+   git diff --check
+   git status --short
+   ```
+6. Reportar QA.
+7. Esperar aprobación para commit.
+8. No hacer push/PR/merge salvo instrucción explícita.
+
+## Regla A3 — Scope
+
+No tocar archivos fuera de scope.
+Especialmente:
+
+- No modificar `source/App.jsx` en tareas de infraestructura.
+- No tocar import/coverage si la tarea es de forms.
+- No tocar backend inexistente.
+- No instalar dependencias sin aprobación.
+- No crear `.env`.
+
+## Regla A4 — Reviewers
+
+Aplicar reviewers relevantes:
+
+- `architecture-reviewer`
+- `backend-readiness-reviewer`
+- `enterprise-ux-reviewer`
+- `workspace-mode-reviewer`
+- `import-data-model-reviewer`
+- `accessibility-reviewer`
+- `it-procurement-vendor-management-reviewer`
+- `ciso-security-reviewer`
+
+No usar todos siempre. Usar los relevantes a la fase.
+
+## Regla A5 — Estado actual de Forms
+
+No repetir como pendientes:
+
+- CORE-3: Brand/Vendor searchable + Brand en License MSP.
+- CORE-2: License MSP provider key unificada.
+- Forms-fix-1: Edit License MSP reconstruye Vendor Cost.
+- Core-4a: Tasks context-aware.
+- Core-4b: Documents context-aware.
+
+Siguiente fase recomendada:
+
+- CORE-4c audit: Documents linked record persistence.
+
+## Regla A6 — Local sandbox
+
+Mientras no exista backend real:
+
+- No usar datos reales de clientes.
+- El banner Local Sandbox debe permanecer visible.
+- No vender esto como production-ready.
+- No hacer pilotos corporativos con datos reales.
+
+## Regla A7 — Backend foundation
+
+El siguiente gran salto del proyecto no es más UI local, sino:
+
+- Auth
+- Workspaces como tenant real
+- RBAC
+- Persistencia
+- File storage
+- Audit trail
+- Import jobs
+- Alerts/email jobs
+
+Ver `OPRIVA_CRITICAL_TO_ADVANTAGE_ROADMAP.md`.
+
+## Regla A8 — Notificación opcional
+
+Después de crear un PR, se puede ejecutar:
+
+```bash
+python scripts/notify.py \
+  --task "NOMBRE_DEL_TASK" \
+  --pr "URL_DEL_PR" \
+  --summary "Resumen corto" \
+  --status "QA pasó · build limpio"
+```
+
+Si falla la notificación, reportar error pero no bloquear el PR.

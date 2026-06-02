@@ -1862,6 +1862,15 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
       row:         selectedRecord.row,
       columns:     selectedRecord.columns,
     };
+    // REL-1b: additive standard relationship vocabulary. source* above is legacy
+    // (points to the parent record); target* is the standard naming for a future
+    // backend `relationships` table. No consumer reads these fields yet.
+    task.relationshipType      = 'task_for_record';
+    task.targetModule          = selectedRecord.moduleKey;
+    task.targetRecordId        = selectedRecord.id;
+    task.targetRecordName      = selectedRecord.row[0] || '';
+    task.direction             = 'source_to_target';
+    task.relationshipCreatedAt = today;
     RECORD_STORE.tasks.push({ id: task.id, row: taskRow, meta: task });
     addActivityEvent({
       eventType:        'task_created',
@@ -3060,6 +3069,15 @@ function TasksScreen({ workspaceMode = 'MSP / Integrator' }){
       row:         opt.row,
       columns:     opt.columns,
     };
+    // REL-1b: additive standard relationship vocabulary. source* above is legacy
+    // (points to the parent record); target* is the standard naming for a future
+    // backend `relationships` table. No consumer reads these fields yet.
+    task.relationshipType      = 'task_for_record';
+    task.targetModule          = opt.moduleKey;
+    task.targetRecordId        = opt.value;
+    task.targetRecordName      = opt.recordName;
+    task.direction             = 'source_to_target';
+    task.relationshipCreatedAt = today;
 
     var taskRow = [
       task.title,

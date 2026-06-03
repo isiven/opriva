@@ -322,3 +322,41 @@ The UI changes that enforce this rule land in the
 `cleanup/pre-backend-product-simplification` phase (subphases C1–C8); the
 table-projection vs derivation-engine alignment (C10) touches logic and is deferred
 to its own branch after the backend spike. See `MEMORY.md §25` for the full rule.
+
+## 20. Functional Completion Before Backend
+
+Permanent strategic criterion for the pre-backend phase. Extends §19. Product
+decision record lives in `MEMORY.md §26`; both must stay in sync.
+
+Before backend, Opriva must be honest (per §19) **and** functional in local/sandbox
+wherever reasonable. The pre-backend goal is not to disable or hide everything
+incomplete — it is to finish every reasonable local/sandbox capability **without
+faking production**, and reserve disabled / Coming soon / Backend required only for
+what truly needs backend.
+
+**Decision rule — apply before disabling anything.** Before marking an action as
+`disabled`, Coming soon or Backend required, answer: *"Is there a useful
+local/sandbox version we can implement now without faking production?"*
+
+- **If yes:** propose and (when safe) build the local version with honest copy.
+  Never promise persistence, real security, real scheduling, multi-user, a real
+  audit trail or real AI. Implement only if safe and architecturally non-breaking.
+- **If no:** mark Coming soon / Backend required / Preview and explain why.
+
+**Mandatory classification.** Classify every pending item as: **A** local/sandbox
+now · **B** partial local/sandbox · **C** backend required · **D** hide/remove.
+
+**Class C (do not fake locally):** auth, tenant isolation, RBAC, durable
+persistence, secure document storage, scheduled reports + delivery, append-only
+immutable audit trail, background jobs, real/autonomous AI, email notifications,
+import job history/rollback, catalog governance, persistent saved views,
+server-side search/filter at scale.
+
+**Review team.** Every important decision is reviewed with the full Opriva
+agent/reviewer team (see §13 / `MEMORY.md §26.6`).
+
+Recommended next subphases (reframed: complete-local-where-feasible, disable only
+true-backend): C4 Activity honest naming → C10 Dashboard derivation → C3b Reports
+local → C6 functional filters/columns → C1b Opriva AI rule-based local → C5
+Documents sandbox → C8 security-claims honest → C7 dead-code cleanup. See
+`MEMORY.md §26` for the full criterion.

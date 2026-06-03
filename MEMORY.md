@@ -1752,6 +1752,139 @@ branch after the backend spike. No application code is changed by recording this
 
 ---
 
+## 26. Functional Completion Before Backend
+
+**Decision date:** 2026-06-02
+**Status:** Permanent strategic criterion. Governs the pre-backend phase
+(`cleanup/pre-backend-product-simplification` and its successors). Operational
+counterpart for agents lives in `AGENTS.md §20`; both must stay in sync. Extends
+§25 (Honest Sandbox / Demo Mode Rule).
+
+### 26.1 Strategic principle
+
+Making Opriva honest is necessary but not sufficient. Before backend, Opriva must
+be left:
+
+- **honest** about what is sandbox / demo / preview (per §25),
+- **functional in local/sandbox wherever reasonable** — completing useful local
+  behavior instead of disabling it, and
+- **clear** about what genuinely requires a real backend.
+
+The goal of the pre-backend phase is not to disable, hide or mark everything
+incomplete as "backend required". It is to finish every reasonable local/sandbox
+capability **without faking production**, and reserve disabled / Coming soon /
+Backend required only for what truly needs backend.
+
+### 26.2 Decision rule (apply before disabling anything)
+
+Before marking any action as `disabled`, **Coming soon** or **Backend required**,
+answer:
+
+> **"Is there a useful local/sandbox version we can implement now without faking
+> production?"**
+
+**If yes:** propose and (when safe) build the local version, with honest copy.
+Never promise persistence, real security, real scheduling, multi-user, a real
+audit trail, or real AI. Implement only if safe and architecturally non-breaking.
+
+**If no:** mark it Coming soon / Backend required / Preview, and explain why it
+must wait for backend.
+
+### 26.3 Mandatory classification (A / B / C / D)
+
+Every pending item must be classified:
+
+| Class | Meaning |
+|---|---|
+| **A** | Local / sandbox now — a useful version can ship locally without faking production |
+| **B** | Partial local / sandbox — part works locally; the rest waits for backend |
+| **C** | Backend required — no honest local version exists |
+| **D** | Hide / remove — redundant, dead or confusing |
+
+### 26.4 Priority local functionality by module
+
+**Dashboard** — derive KPIs from `RECORD_STORE` / session data using the existing
+engine (`calcExpirationState`, `calcRiskLevel`, `calcMargin`); show sample data
+only when no local records exist. *(Class A; touches projections → its own audit + QA.)*
+
+**Reports** — local report preview; session-based report summary computed from
+`RECORD_STORE`; local CSV export of the current/visible data if safe (client-side
+Blob, honest copy "exports current session data"); templates as local
+filters/presets. Scheduling, history and delivery remain backend required. *(Class B.)*
+
+**Opriva AI** — local rule-based assistant; local risk summary; renewal
+recommendations computed from `RECORD_STORE` + engine. No real-LLM claim, no
+autonomous-action claim. *(Class B.)*
+
+**Activity** — session activity already works locally (real event log); a global
+local Activity view is a reasonable local addition. Real, immutable audit trail
+remains backend `activity_events` append-only. *(Class A/B; rename honest now.)*
+
+**Documents** — local metadata works; clarify that storage is sandbox; local
+download only if the file exists in session. Secure storage is backend required.
+*(Class B.)*
+
+**Tables / filters / columns** — real client-side filtering; show/hide columns in
+session. Persistent saved views remain backend required. *(Class A/B.)*
+
+**Search** — global local search across `RECORD_STORE`. Enterprise / server-side
+indexed search remains backend required. *(Class A/B.)*
+
+**Import Sandbox** — keep completing local staging of preview-only entities
+(Clients / Departments, Vendors / Providers, Contacts, Documents metadata, Tasks).
+Persistent import jobs, history and rollback remain backend required. *(Class B.)*
+
+**Settings** — session preferences where genuinely local. RBAC, tenant, permissions
+and real security policies remain backend required. *(Class B; security copy honest per C8.)*
+
+**Contracts / Coverage** — clarify subtypes (Warranty, Maintenance, SLA); keep
+coverage as a structured local record. Advanced multi-asset coverage may wait for
+backend / Phase 2. *(Class A/B.)*
+
+**Tasks / Relationships** — already functional locally (create / edit / link in
+session; REL-1/REL-2 read-only hub). Persistence, notifications, a real
+`relationships` table and create/unlink linking are backend. *(Class A/B.)*
+
+### 26.5 Backend-required (Class C) — do not fake locally
+
+Auth · tenant isolation · RBAC · durable persistence · secure document storage ·
+scheduled reports + delivery · append-only immutable audit trail (real actor) ·
+background jobs · real AI / autonomous AI actions · email notifications · import
+job history / rollback · catalog governance (normalization, aliases, merge) ·
+persistent saved views across sessions · server-side search/filter at scale.
+
+### 26.6 Review team
+
+Every important decision in this phase must be reviewed with the Opriva
+agent/reviewer team: Product Manager senior, Enterprise SaaS Architect, Backend
+Readiness Auditor, CIO / IT Director, CISO / Security Auditor, IT Procurement /
+Vendor Management, Enterprise UX Auditor, Data Model / Import Architect, QA /
+Regression Auditor, Accessibility Auditor and Technical Debt / Refactor Auditor.
+
+### 26.7 Recommended next subphases (suggested order)
+
+Sequenced by value/credibility, not by number. Honest-cleanup subphases are
+**reframed**: complete-local-where-feasible, disable only true-backend.
+
+1. **C4** — Activity honest naming (+ possible global session-activity view).
+2. **C10** — Dashboard derivation (highest value; touches logic → own audit + QA, ideally with utils tests behind it).
+3. **C3b** — Reports local functionality (session summary + safe local CSV + templates as local filters).
+4. **C6** — functional filters / columns (client-side, not merely disabled).
+5. **C1b** — Opriva AI rule-based local assistant.
+6. **C5** — Documents sandbox + local session behavior.
+7. **C8** — Security-claims honest cleanup (copy; module toggles stay functional locally).
+8. **C7** — dead-code cleanup (isolate/remove `VendorIntelligence*` and dead AI components).
+
+### 26.8 Cross-references
+
+- `MEMORY.md §25` — Honest Sandbox / Demo Mode Rule (this section extends it).
+- `MEMORY.md §17` Recent History (2026-06-02) — AUDIT-1 and the cleanup phase.
+- `AGENTS.md §20` — Functional Completion Before Backend (operational rule).
+
+No application code is changed by recording this criterion.
+
+---
+
 ## 17. Recent History
 
 - Repository cloned and inspected on branch `audit/opriva-healthcheck`.
@@ -1800,3 +1933,4 @@ branch after the backend spike. No application code is changed by recording this
 - 2026-06-02: Relationships Foundation REL-1 rollout — additive standard relationship vocabulary across the four relationship-bearing entities, plus the REL-1e (Activity) deferral decision. Branch `next/relationships-foundation`. Each implemented phase adds a standard, additive relationship field set alongside the existing legacy fields, never replacing them, on a single creation path, with no consumer reading the new fields yet (local-only prep for a future backend `relationships` table). The standard field set is: `relationshipType`, `sourceModule`, `sourceRecordId`, `sourceRecordName`, `targetModule`, `targetRecordId`, `targetRecordName`, `direction: 'source_to_target'`, `relationshipCreatedAt`. Implemented phases: **REL-1a Documents** (commit `1e6c49c`, `source/App.jsx` — `handleAttachDocSave` + standalone Upload/New Document path; `relationshipType: 'document_evidence'`; legacy `linkedModule/linkedRecordId/linkedRecordName` preserved). **REL-1b Tasks** (commit `37933af`, `source/App.jsx` — `handleTaskSave` + `handleGlobalTaskSave`; `relationshipType: 'task_for_record'`; legacy `source*` is inverted vs the standard, so only `target*` + the new fields were added, `source*`/`linkedRecordSnapshot` preserved). **REL-1c Support Coverage manual** (commit `b9a0237`, `source/App.jsx` — `handleSupportSave`; `relationshipType: 'coverage_covers_record'`; `sourceModule='contracts'`, `sourceRecordId=cov.id`; `target*` maps to the legacy `covered*`; `covered*`/dedup preserved). **REL-1d Coverage Import** (commit `7f35a85`, `source/utils/coverage.js` — `buildOneCoverageRecord`; same `coverage_covers_record` shape; `sourceRecordId=id`, `sourceRecordName=coverageName`, `target*=covered*`; `duplicateKeys`/`buildCoverageDuplicateKeys`/dedup/row output left intact and verified — re-import dedup still catches duplicates and the new fields do not leak into `duplicateKeys`). **REL-1e Activity — audited and DEFERRED to backend; do NOT implement relationship vocabulary on the local Activity log.** Rationale: Activity (`source/store/activityStore.js` → `addActivityEvent`, pushing to `RECORD_STORE.activity`) is a local/session mutable event log, not a relationship-bearing entity and not a real audit trail. Its `source*` is already in active use with semantics inverted vs the REL-1 standard (e.g. `document_attached` sets `sourceModule = doc.linkedModule`, i.e. the covered record, and `related*` = the document), and the drawer filters on `ev.sourceRecordId === id || ev.relatedRecordId === id`; `addActivityEvent` is a single generic writer shared by ~8 heterogeneous call sites, several of which (e.g. `import_completed`) have no target record. Stamping `relationshipType`/`target*`/`direction` onto events would create false/ambiguous relationship data, risk collision with the inverted `source*`, and be read by no consumer. The canonical relationship already lives on the records themselves (REL-1a–d). Decision: do not add `relationshipType`/`target*` to Activity local. The **future backend Activity audit trail must be designed separately as append-only**, with a real actor, workspace/tenant scope, before/after snapshots where applicable, real server timestamps, non-editable entries, and FK links to records / relationships. The **future `relationships` table must be a distinct entity from `activity_events`** — relationships belong to the relationships table, events belong to the audit trail. No application code modified in this REL-1e entry (docs-only); REL-1a–d code is already committed on this branch.
 - 2026-06-02: Contracts / Coverage Module + Relationships Tab Model product decision documented (new `MEMORY.md §24`). Contracts / Coverage is the logical home for Master Contract, Support Coverage, Maintenance Coverage, Warranty Coverage, SLA / Service Agreement and Renewal Agreement, distinguished by type / subtype rather than flattened into generic contracts. Defined what each record kind answers: Contract = which agreement, with whom, conditions, value, documents, validity; Coverage = which asset/license/hardware is covered, until when, by whom, support/SLA level, lapse risk; Maintenance = support/updates/maintenance entitlement tied to a license or asset. Support Coverage may live in Contracts / Coverage but must behave as a structured coverage record (not free text — reaffirms §15.18). Ideal future backend model separates `contracts`, `contract_lines` / `coverage_items`, `relationships`, `documents`, `tasks`, `activity_events`, with `relationships` distinct from `activity_events` (consistent with the REL-1e decision). Relationships tab rules: must NOT repeat base metadata already in the header/card or base fields — Client / Department, Brand, Product, Owner, Vendor are not primary Relationships sections; the tab focuses on Documents / evidence, Tasks, Support / Maintenance Coverage, Contracts / Agreements, Related Hardware / Assets, Related Licenses / Dependencies, Renewal Packages / Bundles and cross-record operational dependencies. Per-module expectations recorded for Licenses, Hardware, Contracts / Coverage, Documents, Tasks and Companies / Departments. UX model is hybrid: common sections (Documents, Tasks, Related records) plus module-specific sections (Support Coverage, Covered records, Related Hardware / Licenses, Packages), with the hub kept as a compact summary that does not replace the Documents tab, Tasks tab or Contracts module. Codifies the REL-2a read-only hub direction (commit `445a23f`) and sets the target for later REL-2 per-module sections and the eventual backend relationships table. No application code modified (docs-only); `source/App.jsx`, `source/utils/coverage.js` and components untouched.
 - 2026-06-02: AUDIT-1 (full product / logic / UX / architecture / backend-readiness review) completed read-only, concluding that Opriva has a solid product model but presents several local/sandbox features as more production-ready than they are. Follow-up: `cleanup/pre-backend-product-simplification` phase planned as small, reviewed subphases (C1 Opriva AI honesty, C2 sample-data labeling, C3 Reports honest states, C4 Activity rename + audit-claim copy, C5 Documents storage note, C6 decorative-button sweep, C7 isolate dead `VendorIntelligence*` code, C8 security-claim copy, C9 docs rule, C10 deferred table-projection vs derivation-engine alignment). First subphase implemented (C9, docs-only): new `MEMORY.md §25` "Honest Sandbox / Demo Mode Rule" and new `AGENTS.md §19` operational rule. The rule: while there is no backend (auth, tenant/workspaces, RBAC, persistence, secure file storage, `relationships` table, append-only `activity_events`, import jobs, alert jobs), every local feature is presented as sandbox/demo/preview; mock/sample/hardcoded data on visible surfaces (dashboards, Attention Center, Reports, KPIs) must be labeled sample/demo; future/unimplemented actions must be `disabled` or marked Coming soon / Backend required / Preview (reusing the REL-2b honest pattern); enterprise claims (audit log, RBAC, permissions, workspace-scoped access, secure document storage, AI approval workflows, encrypted storage, tenant isolation, automated alerts, scheduled reports) wait for backend or are marked backend-required; Opriva AI while scripted is labeled Preview / Demo Assistant and not presented as a real LLM or autonomous agent; local Activity is session/sandbox activity, not a real audit trail (real audit trail = append-only `activity_events` in backend); document upload is local/metadata-only, not secure storage; confirmed imports are not persistent (real import = persistent import jobs with history/audit); the rule applies to all future audits, PRs, demos and product decisions before backend; and every important change keeps using the Opriva agent/reviewer team. No application code modified (docs-only); `source/App.jsx`, `source/utils/coverage.js` and components untouched.
+- 2026-06-02: Strategic criterion "Functional Completion Before Backend" documented (new `MEMORY.md §26` + new `AGENTS.md §20`). Reframes the pre-backend cleanup phase: making Opriva honest (§25) is necessary but not sufficient — before backend, Opriva must also be completed in local/sandbox wherever reasonable, without faking production, and only what genuinely needs backend stays disabled / Coming soon / Backend required. New decision rule: before marking any action disabled/Coming soon/Backend required, ask "Is there a useful local/sandbox version we can implement now without faking production?" — if yes, build the local version with honest copy (never promising persistence, real security, scheduling, multi-user, real audit trail or real AI); if no, mark backend-required and explain. Mandatory A/B/C/D classification per pending item (A local now, B partial local, C backend required, D hide/remove). Priority local functionality documented per module (Dashboard KPI derivation from RECORD_STORE via calcExpirationState/calcRiskLevel/calcMargin with sample-only fallback; Reports local summary + safe client-side CSV + templates as local filters; Opriva AI local rule-based assistant with no LLM/autonomous claim; Activity session log + possible global view; Documents local metadata + session download; Tables client-side filters + show/hide columns; Search local over RECORD_STORE; Import Sandbox finish preview-only entity staging; Settings session prefs; Contracts/Coverage subtype clarity). Backend-required (Class C) list reaffirmed. Recommended reframed subphase order: C4 Activity honest naming → C10 Dashboard derivation → C3b Reports local → C6 functional filters/columns → C1b Opriva AI rule-based → C5 Documents sandbox → C8 security-claims honest → C7 dead-code cleanup. Follows AUDIT-1 and the C9/C1/C2/C3 honest-cleanup commits. No application code modified (docs-only); `source/App.jsx` and components untouched.

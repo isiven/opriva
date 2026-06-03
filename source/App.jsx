@@ -255,7 +255,7 @@ const settingsAdminGroups = [
     ['Operator behavior', 'Living-agent motion, cursor following and helper messages.', 'Balanced', 'Review']
   ]},
   { id: 'governance', label: 'Governance', title: 'Governance', description: 'Auditability, import history, retention and controlled exports.', items: [
-    ['Audit log', 'Immutable activity history for records and settings.', 'On', 'Open'],
+    ['Session activity', 'Local session events — real audit log requires backend.', 'Backend required', 'Open'],
     ['Import history', 'Past imports, mapping decisions and validation outcomes.', '23 imports', 'Open'],
     ['Data retention', 'Archive, deletion and evidence-retention policies.', '7 years', 'Configure'],
     ['Export history', 'Track generated exports for compliance review.', '12 exports', 'Open']
@@ -2954,7 +2954,7 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
                   <div style={{padding:'12px 14px',borderBottom:'1px solid #EEF2F7',background:'#FAFCFF',display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
                     <div>
                       <h3 style={{margin:'0 0 2px',fontSize:14,color:'#0B1F3A',letterSpacing:'-.01em'}}>Activity</h3>
-                      <p style={{margin:0,color:'#64748B',fontSize:12,lineHeight:1.4}}>Audit trail for this record.</p>
+                      <p style={{margin:0,color:'#64748B',fontSize:12,lineHeight:1.4}}>Session activity (sandbox) for this record.</p>
                     </div>
                     {actEvents.length > 0 && <span style={{fontSize:11,fontWeight:800,background:'#EFF6FF',color:'#1D4ED8',border:'1px solid #BFDBFE',borderRadius:999,padding:'2px 8px',flexShrink:0}}>{actEvents.length}</span>}
                   </div>
@@ -3475,7 +3475,7 @@ function TasksScreen({ workspaceMode = 'MSP / Integrator' }){
                   <div style={{padding:'12px 14px',borderBottom:'1px solid #EEF2F7',background:'#FAFCFF',display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
                     <div>
                       <h3 style={{margin:'0 0 2px',fontSize:14,color:'#0B1F3A',letterSpacing:'-.01em'}}>Activity</h3>
-                      <p style={{margin:0,color:'#64748B',fontSize:12,lineHeight:1.4}}>Audit trail for this task.</p>
+                      <p style={{margin:0,color:'#64748B',fontSize:12,lineHeight:1.4}}>Session activity (sandbox) for this task.</p>
                     </div>
                     {actEvents.length > 0 && <span style={{fontSize:11,fontWeight:800,background:'#EFF6FF',color:'#1D4ED8',border:'1px solid #BFDBFE',borderRadius:999,padding:'2px 8px',flexShrink:0}}>{actEvents.length}</span>}
                   </div>

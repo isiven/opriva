@@ -360,3 +360,46 @@ true-backend): C4 Activity honest naming → C10 Dashboard derivation → C3b Re
 local → C6 functional filters/columns → C1b Opriva AI rule-based local → C5
 Documents sandbox → C8 security-claims honest → C7 dead-code cleanup. See
 `MEMORY.md §26` for the full criterion.
+
+## 21. Mandatory Agent-Review Section
+
+Every important Opriva audit, product/architecture/backend decision, or relevant
+implementation report must explicitly include a **"Revisión por agentes"** section.
+Reaffirms and operationalizes §13 (AI Development Team) and `MEMORY.md §26.6` — the
+review must be *visible in the report*, not just implied.
+
+**When the full 11-reviewer table is required** (audits; product, architecture,
+backend, security, data-model and enterprise-UX decisions; imports; documents;
+relationships; permissions; dashboards; reports; AI assistant; any change to
+product architecture or business logic):
+
+```
+Revisión por agentes
+
+| Revisor | Aprueba | Preocupa | Recomienda | ¿Bloquea? |
+|---|---|---|---|---|
+| Product Manager senior | ... | ... | ... | Sí/No |
+| Enterprise SaaS Architect | ... | ... | ... | Sí/No |
+| Backend Readiness Auditor | ... | ... | ... | Sí/No |
+| CIO / IT Director | ... | ... | ... | Sí/No |
+| CISO / Security Auditor | ... | ... | ... | Sí/No |
+| IT Procurement / Vendor Management | ... | ... | ... | Sí/No |
+| Enterprise UX Auditor | ... | ... | ... | Sí/No |
+| Data Model / Import Architect | ... | ... | ... | Sí/No |
+| QA / Regression Auditor | ... | ... | ... | Sí/No |
+| Accessibility Auditor | ... | ... | ... | Sí/No |
+| Technical Debt / Refactor Auditor | ... | ... | ... | Sí/No |
+
+Veredicto del panel: Procede / Procede con condiciones / Bloqueado
+```
+
+**When a proportional review is acceptable** (mechanical / low-risk tasks: push,
+commit, PR-readiness, simple housekeeping, minor docs-only changes): use a
+condensed review (only the relevant reviewers + panel verdict) or state
+**"No aplica revisión completa por ser tarea mecánica."**
+
+**Blocking rule.** If any reviewer blocks (`¿Bloquea? = Sí`), do not implement until
+the block is resolved or Isaac explicitly approves. Record the block and the
+resolution in the report.
+
+See `MEMORY.md §26.6` and `AGENTS.md §13` for the reviewer roster and operating model.

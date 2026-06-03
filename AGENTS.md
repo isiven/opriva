@@ -276,3 +276,49 @@ Do not unify: Client vs Department; Renewal / commercial Owner vs IT Owner / Bud
 F1a document architecture (this rule + `MEMORY.md §23`); F1b remove dead `NEW_RECORD_FIELDS` code where safe; F1c refactor Tasks into field specs; F2 continue SearchableSelect rollout in New Record forms; F3 extend SearchableSelect to Edit / Preview renderers; F4 future backend / catalog integration.
 
 See `MEMORY.md §23` for the full Form Field Architecture / Form Consistency Model, including shared vs module-specific fields and detailed rationale. Both documents must stay in sync.
+
+## 19. Honest Sandbox / Demo Mode Rule
+
+Permanent operational rule for Claude Code, Codex and all Opriva reviewers. Applies
+to all UI, copy, audits, PRs, demos and product decisions until the corporate
+backend exists. Product decision record lives in `MEMORY.md §25`; both must stay in
+sync. Grounded in AUDIT-1.
+
+Opriva must never generate a false sense of production while it is local/sandbox.
+
+- **Sandbox framing.** Until real backend (auth, tenant/workspaces, RBAC,
+  persistence, secure file storage, `relationships` table, append-only
+  `activity_events`, import jobs, alert jobs), present every local feature as
+  sandbox / demo / preview where applicable. Never sell or demo local/session
+  state as production.
+- **Label mock data.** Mock/sample/hardcoded data on visible surfaces (dashboards,
+  Attention Center, Reports, KPI cards, forecasts) must be labeled **sample / demo
+  data** and must not read as live metrics.
+- **Future actions must not look functional.** Unimplemented actions must be
+  `disabled` or marked **Coming soon / Backend required / Preview**. Reuse the
+  honest pattern (`disabled` + `aria-disabled` + tooltip) from the REL-2b
+  Relationships buttons and the "Rollback (backend)" import control.
+- **Enterprise claims wait for backend.** Audit log, RBAC, permissions,
+  workspace-scoped access, secure document storage, AI approval workflows,
+  encrypted file storage, tenant isolation, automated alerts and scheduled reports
+  must wait for backend or be marked backend-required. Do not state them as active.
+- **Opriva AI is Preview while scripted.** Label it Preview / Demo Assistant /
+  scripted sample responses. Do not present it as a real LLM or autonomous agent;
+  its quick actions must not appear to execute real autonomous work.
+- **Activity is session activity.** Local Activity is session / sandbox activity,
+  not a real audit trail. The real audit trail is append-only `activity_events` in
+  the backend, distinct from the `relationships` table.
+- **Documents upload is not secure storage.** Sandbox upload/attach is
+  local/metadata-only; make clear that secure storage requires backend.
+- **Confirmed imports are not persistent.** Real import becomes persistent import
+  jobs with history and audit trail in the backend.
+- **Keep using the review team.** Every important change keeps using the Opriva
+  agent/reviewer team (Product Manager senior, Enterprise SaaS Architect, Backend
+  Readiness Auditor, CIO / IT Director, CISO / Security Auditor, IT Procurement /
+  Vendor Management, Enterprise UX Auditor, Data Model / Import Architect, QA /
+  Regression Auditor, Accessibility Auditor, Technical Debt / Refactor Auditor).
+
+The UI changes that enforce this rule land in the
+`cleanup/pre-backend-product-simplification` phase (subphases C1–C8); the
+table-projection vs derivation-engine alignment (C10) touches logic and is deferred
+to its own branch after the backend spike. See `MEMORY.md §25` for the full rule.

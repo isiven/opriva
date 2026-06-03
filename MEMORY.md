@@ -1658,6 +1658,100 @@ Hardware / Licenses, Renewal Packages) and the eventual backend relationships ta
 
 ---
 
+## 25. Honest Sandbox / Demo Mode Rule
+
+**Decision date:** 2026-06-02
+**Status:** Permanent product rule. Applies to all Opriva UI, copy, audits, PRs,
+demos and product decisions until the corporate backend exists. Grounded in
+AUDIT-1 (full product / logic / UX / architecture / backend-readiness review).
+Operational counterpart for agents lives in `AGENTS.md §19`; both must stay in sync.
+
+**Why:** AUDIT-1 found that several local/sandbox features present as more
+production-ready than they are (scripted "Opriva AI" shown as real AI, mock KPIs
+shown as live metrics, an "immutable audit log" that does not exist, document
+"upload" with no real storage, security/permission claims with no enforcement,
+and many decorative buttons). This rule prevents a corporate prospect from being
+misled and keeps the prototype honest for design and controlled demos.
+
+### 25.1 Sandbox framing while there is no backend
+
+Until Opriva has a real backend — auth, tenant/workspaces, RBAC, persistence,
+secure file storage, a `relationships` table, append-only `activity_events`,
+import jobs and alert jobs — every local feature must be presented as
+sandbox / demo / preview where applicable. Local/session state is for UX and
+product-logic validation only, never sold or demonstrated as production behavior.
+
+### 25.2 Mock / sample data must be labeled
+
+Any mock, sample or hardcoded data shown on visible surfaces (dashboards,
+Attention Center, Reports, KPI cards, forecasts) must be clearly labeled as
+**sample / demo data**. It must not read as live metrics.
+
+### 25.3 Future / unimplemented functions must not look functional
+
+Every future or not-yet-implemented action must be `disabled` or clearly marked
+**Coming soon / Backend required / Preview** (or equivalent). A control that does
+not perform a real action must not look like it does. Reuse the existing honest
+pattern (`disabled` + `aria-disabled` + tooltip, e.g. the REL-2b Relationships
+buttons and the "Rollback (backend)" import control).
+
+### 25.4 Enterprise claims wait for backend
+
+Any enterprise claim must wait for the real backend or be explicitly marked
+**backend required**. This includes: audit log, RBAC, permissions, workspace-scoped
+access, secure document storage, AI approval workflows, encrypted file storage,
+tenant isolation, automated alerts and scheduled reports.
+
+### 25.5 Opriva AI is Preview while scripted
+
+While Opriva AI returns scripted/static responses, it must be labeled
+**Preview / Demo Assistant / scripted sample responses**. It must not be presented
+as a real LLM or an autonomous agent, and its quick actions must not appear to
+execute real autonomous work.
+
+### 25.6 Activity is session activity, not an audit trail
+
+Local Activity must not be named or sold as a real audit trail. Until backend it
+is **session activity / sandbox activity**. The real audit trail will be
+append-only `activity_events` in the backend (distinct from the `relationships`
+table — see §24.3).
+
+### 25.7 Documents upload is not secure storage
+
+Document upload/attach in the sandbox must not be presented as secure file
+storage. It must be clear that the file is local/metadata-only and that secure
+storage requires the backend.
+
+### 25.8 Confirmed imports are not persistent
+
+Imports confirmed in the sandbox must not be presented as persistent. Real import
+becomes persistent **import jobs** with history and audit trail in the backend.
+
+### 25.9 Applies to all future work
+
+This rule applies to all future audits, PRs, demos and product decisions before
+backend. Reviewers must check copy and controls against it.
+
+### 25.10 Keep using the Opriva review team
+
+Every important change must keep using the Opriva agent/reviewer team:
+Product Manager senior, Enterprise SaaS Architect, Backend Readiness Auditor,
+CIO / IT Director, CISO / Security Auditor, IT Procurement / Vendor Management,
+Enterprise UX Auditor, Data Model / Import Architect, QA / Regression Auditor,
+Accessibility Auditor and Technical Debt / Refactor Auditor.
+
+### 25.11 Implementation phase (cleanup, separate from this docs rule)
+
+This section is the rule. The UI changes that enforce it land in the
+`cleanup/pre-backend-product-simplification` phase as small, reviewed subphases
+(C1 Opriva AI honesty, C2 sample-data labeling, C3 Reports honest states,
+C4 Activity rename + audit-claim copy, C5 Documents storage note, C6 decorative-
+button sweep, C7 isolate dead code, C8 security-claim copy). The table-projection
+vs derivation-engine alignment (C10) touches logic and is deferred to its own
+branch after the backend spike. No application code is changed by recording this rule.
+
+---
+
 ## 17. Recent History
 
 - Repository cloned and inspected on branch `audit/opriva-healthcheck`.
@@ -1705,3 +1799,4 @@ Hardware / Licenses, Renewal Packages) and the eventual backend relationships ta
 - 2026-05-30: Form Field Architecture / Form Consistency Model documented (F1a). New `MEMORY.md §23` and `AGENTS.md §18` define the standard field order (Name / Identity → Type → Client / Department → Brand / Manufacturer → Provider / Distributor → Owner → Quantity / Serial / File → Money / Value / Cost → Key Dates → Alert Policy → Optional / Advanced → Notes), the shared vs module-specific fields across Licenses, Hardware, Contracts, Documents, Support Coverage and Tasks, the SearchableSelect vs simple `<select>` categorisation, required/optional policy, computed-field rules (Margin, Days to Expiration, System Status never manual; Risk Level a derivation candidate), the MSP / Integrator vs Internal IT differences that must be preserved (Client vs Department; Renewal vs IT / Budget Owner / Custodian; Sale + Vendor Cost + Margin vs Annual Cost + Cost Center + Approval + Criticality; Distributor / Provider vs Provider), and renderer/label safety rules (no new one-off renderers; future renderers must respect `useSearchableSelect`; no casual label/key renames because `buildNewRow`, import mapping, drawers, prefill and filters depend on them). Phased plan recorded: F1a docs (this entry), F1b remove dead `NEW_RECORD_FIELDS` code where safe, F1c refactor Tasks into field specs, F2 continue SearchableSelect rollout in New Record forms, F3 extend to Edit/Preview renderers, F4 backend/catalog integration. Follows the SearchableSelect rollout S1a (primitive, commit `76e7675`), S1b (License Owner pilot, `ebc37e9`) and S1c (License catalog fields, `e30755e`). No application code modified.
 - 2026-06-02: Relationships Foundation REL-1 rollout — additive standard relationship vocabulary across the four relationship-bearing entities, plus the REL-1e (Activity) deferral decision. Branch `next/relationships-foundation`. Each implemented phase adds a standard, additive relationship field set alongside the existing legacy fields, never replacing them, on a single creation path, with no consumer reading the new fields yet (local-only prep for a future backend `relationships` table). The standard field set is: `relationshipType`, `sourceModule`, `sourceRecordId`, `sourceRecordName`, `targetModule`, `targetRecordId`, `targetRecordName`, `direction: 'source_to_target'`, `relationshipCreatedAt`. Implemented phases: **REL-1a Documents** (commit `1e6c49c`, `source/App.jsx` — `handleAttachDocSave` + standalone Upload/New Document path; `relationshipType: 'document_evidence'`; legacy `linkedModule/linkedRecordId/linkedRecordName` preserved). **REL-1b Tasks** (commit `37933af`, `source/App.jsx` — `handleTaskSave` + `handleGlobalTaskSave`; `relationshipType: 'task_for_record'`; legacy `source*` is inverted vs the standard, so only `target*` + the new fields were added, `source*`/`linkedRecordSnapshot` preserved). **REL-1c Support Coverage manual** (commit `b9a0237`, `source/App.jsx` — `handleSupportSave`; `relationshipType: 'coverage_covers_record'`; `sourceModule='contracts'`, `sourceRecordId=cov.id`; `target*` maps to the legacy `covered*`; `covered*`/dedup preserved). **REL-1d Coverage Import** (commit `7f35a85`, `source/utils/coverage.js` — `buildOneCoverageRecord`; same `coverage_covers_record` shape; `sourceRecordId=id`, `sourceRecordName=coverageName`, `target*=covered*`; `duplicateKeys`/`buildCoverageDuplicateKeys`/dedup/row output left intact and verified — re-import dedup still catches duplicates and the new fields do not leak into `duplicateKeys`). **REL-1e Activity — audited and DEFERRED to backend; do NOT implement relationship vocabulary on the local Activity log.** Rationale: Activity (`source/store/activityStore.js` → `addActivityEvent`, pushing to `RECORD_STORE.activity`) is a local/session mutable event log, not a relationship-bearing entity and not a real audit trail. Its `source*` is already in active use with semantics inverted vs the REL-1 standard (e.g. `document_attached` sets `sourceModule = doc.linkedModule`, i.e. the covered record, and `related*` = the document), and the drawer filters on `ev.sourceRecordId === id || ev.relatedRecordId === id`; `addActivityEvent` is a single generic writer shared by ~8 heterogeneous call sites, several of which (e.g. `import_completed`) have no target record. Stamping `relationshipType`/`target*`/`direction` onto events would create false/ambiguous relationship data, risk collision with the inverted `source*`, and be read by no consumer. The canonical relationship already lives on the records themselves (REL-1a–d). Decision: do not add `relationshipType`/`target*` to Activity local. The **future backend Activity audit trail must be designed separately as append-only**, with a real actor, workspace/tenant scope, before/after snapshots where applicable, real server timestamps, non-editable entries, and FK links to records / relationships. The **future `relationships` table must be a distinct entity from `activity_events`** — relationships belong to the relationships table, events belong to the audit trail. No application code modified in this REL-1e entry (docs-only); REL-1a–d code is already committed on this branch.
 - 2026-06-02: Contracts / Coverage Module + Relationships Tab Model product decision documented (new `MEMORY.md §24`). Contracts / Coverage is the logical home for Master Contract, Support Coverage, Maintenance Coverage, Warranty Coverage, SLA / Service Agreement and Renewal Agreement, distinguished by type / subtype rather than flattened into generic contracts. Defined what each record kind answers: Contract = which agreement, with whom, conditions, value, documents, validity; Coverage = which asset/license/hardware is covered, until when, by whom, support/SLA level, lapse risk; Maintenance = support/updates/maintenance entitlement tied to a license or asset. Support Coverage may live in Contracts / Coverage but must behave as a structured coverage record (not free text — reaffirms §15.18). Ideal future backend model separates `contracts`, `contract_lines` / `coverage_items`, `relationships`, `documents`, `tasks`, `activity_events`, with `relationships` distinct from `activity_events` (consistent with the REL-1e decision). Relationships tab rules: must NOT repeat base metadata already in the header/card or base fields — Client / Department, Brand, Product, Owner, Vendor are not primary Relationships sections; the tab focuses on Documents / evidence, Tasks, Support / Maintenance Coverage, Contracts / Agreements, Related Hardware / Assets, Related Licenses / Dependencies, Renewal Packages / Bundles and cross-record operational dependencies. Per-module expectations recorded for Licenses, Hardware, Contracts / Coverage, Documents, Tasks and Companies / Departments. UX model is hybrid: common sections (Documents, Tasks, Related records) plus module-specific sections (Support Coverage, Covered records, Related Hardware / Licenses, Packages), with the hub kept as a compact summary that does not replace the Documents tab, Tasks tab or Contracts module. Codifies the REL-2a read-only hub direction (commit `445a23f`) and sets the target for later REL-2 per-module sections and the eventual backend relationships table. No application code modified (docs-only); `source/App.jsx`, `source/utils/coverage.js` and components untouched.
+- 2026-06-02: AUDIT-1 (full product / logic / UX / architecture / backend-readiness review) completed read-only, concluding that Opriva has a solid product model but presents several local/sandbox features as more production-ready than they are. Follow-up: `cleanup/pre-backend-product-simplification` phase planned as small, reviewed subphases (C1 Opriva AI honesty, C2 sample-data labeling, C3 Reports honest states, C4 Activity rename + audit-claim copy, C5 Documents storage note, C6 decorative-button sweep, C7 isolate dead `VendorIntelligence*` code, C8 security-claim copy, C9 docs rule, C10 deferred table-projection vs derivation-engine alignment). First subphase implemented (C9, docs-only): new `MEMORY.md §25` "Honest Sandbox / Demo Mode Rule" and new `AGENTS.md §19` operational rule. The rule: while there is no backend (auth, tenant/workspaces, RBAC, persistence, secure file storage, `relationships` table, append-only `activity_events`, import jobs, alert jobs), every local feature is presented as sandbox/demo/preview; mock/sample/hardcoded data on visible surfaces (dashboards, Attention Center, Reports, KPIs) must be labeled sample/demo; future/unimplemented actions must be `disabled` or marked Coming soon / Backend required / Preview (reusing the REL-2b honest pattern); enterprise claims (audit log, RBAC, permissions, workspace-scoped access, secure document storage, AI approval workflows, encrypted storage, tenant isolation, automated alerts, scheduled reports) wait for backend or are marked backend-required; Opriva AI while scripted is labeled Preview / Demo Assistant and not presented as a real LLM or autonomous agent; local Activity is session/sandbox activity, not a real audit trail (real audit trail = append-only `activity_events` in backend); document upload is local/metadata-only, not secure storage; confirmed imports are not persistent (real import = persistent import jobs with history/audit); the rule applies to all future audits, PRs, demos and product decisions before backend; and every important change keeps using the Opriva agent/reviewer team. No application code modified (docs-only); `source/App.jsx`, `source/utils/coverage.js` and components untouched.

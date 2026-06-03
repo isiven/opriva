@@ -24,11 +24,18 @@ test('calcMargin returns empty when annual value is zero', () => {
   assert.deepEqual(calcMargin(0, 60), { marginDollar: '', margin: '' });
 });
 
-// FINDING (flagged for product review, NOT a test failure): a $0 vendor cost
-// (i.e. a legitimately 100%-margin item) currently returns empty because of the
-// `!cost` guard treating 0 as "missing". This test documents current behavior.
-test('calcMargin: zero cost is treated as missing (current behavior — see report)', () => {
-  assert.deepEqual(calcMargin(100, 0), { marginDollar: '', margin: '' });
+// C10a-fix: a $0 vendor cost with a valid sale value is a legitimate
+// 100%-margin item and must produce a real margin (previously returned empty
+// because the `!cost` guard treated 0 as missing).
+test('calcMargin: zero cost with a valid value yields 100% margin', () => {
+  assert.deepEqual(calcMargin(100, 0), { marginDollar: '100.00', margin: '100.0' });
+});
+
+// Missing cost (not zero) must still return empty.
+test('calcMargin: missing cost (empty/null/undefined) still returns empty', () => {
+  assert.deepEqual(calcMargin(100, ''), { marginDollar: '', margin: '' });
+  assert.deepEqual(calcMargin(100, null), { marginDollar: '', margin: '' });
+  assert.deepEqual(calcMargin(100, undefined), { marginDollar: '', margin: '' });
 });
 
 // calcMargin uses parseFloat and does NOT strip "$" or thousands separators.

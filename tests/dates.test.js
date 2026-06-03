@@ -10,6 +10,7 @@ import {
   calcRiskLevel,
   suggestRenewalDate,
   inferLicenseTerm,
+  daysUntil,
 } from '../source/utils/dates.js';
 
 // Deterministic YYYY-MM-DD relative to today (local midnight), so date-relative
@@ -112,4 +113,13 @@ test('inferLicenseTerm: non-standard -> Custom, invalid -> empty', () => {
   assert.equal(inferLicenseTerm('2025-01-15', '2024-01-15'), '');       // exp before start
   assert.equal(inferLicenseTerm('', '2026-01-15'), '');
   assert.equal(inferLicenseTerm('2025-01-15', ''), '');
+});
+
+test('daysUntil: numeric days, negative when overdue, null when missing/invalid', () => {
+  assert.equal(daysUntil(dateOffset(10)), 10);
+  assert.equal(daysUntil(dateOffset(0)), 0);
+  assert.equal(daysUntil(dateOffset(-3)), -3);
+  assert.equal(daysUntil(''), null);
+  assert.equal(daysUntil('not-a-date'), null);
+  assert.equal(daysUntil(undefined), null);
 });

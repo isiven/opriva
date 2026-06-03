@@ -84,3 +84,17 @@ export function inferLicenseTerm(startDate, expirationDate) {
   if (Math.abs(months - 60) <= 1) return '5 years';
   return 'Custom';
 }
+
+// Numeric days from today (local midnight) until expirationDate.
+// Returns a number (negative when overdue) or null when the date is
+// missing/invalid. Mirrors the day computation in calcExpirationState, exposed
+// separately so aggregations (e.g. "expiring within 30 days") can count without
+// parsing the human-readable daysToExpiration label.
+export function daysUntil(expirationDate) {
+  if (!expirationDate) return null;
+  var exp = new Date(expirationDate + 'T00:00:00');
+  if (isNaN(exp.getTime())) return null;
+  var today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.ceil((exp.getTime() - today.getTime()) / 86400000);
+}

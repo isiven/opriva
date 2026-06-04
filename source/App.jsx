@@ -43,6 +43,7 @@ import { getImportSandboxRecords, getLocalStoreRecords, getModuleClientDeptIndex
 import { createRecordId, RECORD_STORE, toRecords } from './store/recordStore.js';
 import { addActivityEvent } from './store/activityStore.js';
 import { getImportedClientRows, getImportedDashboardPriorityRows, getImportedRenewalRows } from './store/recordProjections.js';
+import { getDashboardMetrics } from './store/dashboardMetrics.js';
 
 // Reusable dialog focus manager (A11y-1). When `active` becomes true it:
 //  - remembers the element that had focus (the trigger),
@@ -338,20 +339,39 @@ function ScreenHeader({ active, subtitle, eyebrow, title, children }){
 
 function StatCards({ workspaceMode = 'MSP / Integrator' }){
   const isInternalIt = workspaceMode === 'Internal IT';
-  const cards = isInternalIt ? [
-    ['90-day renewal forecast', '$487K', 'Next-quarter Regency IT renewal exposure', 'High exposure'],
-    ['Department budget impact', '$214K', 'Finance and Retail Operations carry the largest impact', 'Review'],
-    ['Brand/provider concentration', '42%', 'Microsoft, Oracle and security providers drive spend', 'Monitor'],
-    ['Approval blockers', '5', 'Budget owner or CIO approval required', 'Urgent']
+  // C10b-2: wire-only. All aggregation/arithmetic lives in dashboardMetrics.js;
+  // here we only select metrics.* and format with formatImportMoney. When there
+  // are no local/session records, fall back to clearly-labeled sample cards.
+  const m = getDashboardMetrics(workspaceMode);
+  // Sample IT labels are aligned to the derived labels so switching sample<->local
+  // does not move the card slots.
+  const sampleCards = isInternalIt ? [
+    ['90-day renewal forecast', '$487,000', 'Next-quarter renewal exposure', 'High exposure'],
+    ['Annual exposure', '$214,000', 'Total annual IT spend in scope', 'Review'],
+    ['Critical systems count', '6', 'Systems at critical risk', 'Urgent'],
+    ['Missing owners', '8', 'Records without an owner', 'Needs assignment']
   ] : [
     ['90-day exposure', '$284,000', '47 managed records', 'High exposure'],
     ['30-day critical expirations', '12', '3 above $25,000 impact', 'Urgent'],
     ['Missing owners', '18', '14% of active portfolio', 'Needs assignment'],
-    ['Pending actions', '9', 'Emails, tasks and documents', 'Review']
+    ['Margin at risk', '$18,400', 'Estimated gross margin exposure', 'Review']
   ];
+  const derivedCards = isInternalIt ? [
+    ['90-day renewal forecast', formatImportMoney(m.exposure90d), m.recordCount + ' records', 'Local'],
+    ['Annual exposure', formatImportMoney(m.totalExposure), 'Across local IT records', 'Local'],
+    ['Critical systems count', String(m.criticalCount), 'Derived risk: Critical', 'Local'],
+    ['Missing owners', String(m.missingOwners), 'Records without an owner', 'Local']
+  ] : [
+    ['90-day exposure', formatImportMoney(m.exposure90d), m.recordCount + ' managed records', 'Local'],
+    ['30-day critical expirations', String(m.expiringSoon30), 'Expiring within 30 days', 'Local'],
+    ['Missing owners', String(m.missingOwners), 'Records without an owner', 'Local'],
+    ['Margin at risk', formatImportMoney(m.marginAtRisk), 'On renewals within 90 days', 'Local']
+  ];
+  const cards = m.hasLocalData ? derivedCards : sampleCards;
+  const caption = m.hasLocalData ? 'Local session metrics — not persisted.' : 'Sample data — not live metrics.';
   return <><section className="statsGrid" aria-label="Workspace summary">
     {cards.map(([label, value, note, badge]) => <article className="statCard" key={label}><span>{label}</span><strong>{value}</strong><p>{note}</p><Badge tone={badge}>{badge}</Badge></article>)}
-  </section><p style={{margin:'2px 0 0',fontSize:11,color:'#94A3B8'}}>Sample data — not live metrics.</p></>;
+  </section><p style={{margin:'2px 0 0',fontSize:11,color:'#94A3B8'}}>{caption}</p></>;
 }
 
 function MobileDashboard(){

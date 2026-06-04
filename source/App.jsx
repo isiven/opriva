@@ -378,7 +378,7 @@ function MobileDashboard({ workspaceMode = 'MSP / Integrator' }){
   const [chip, setChip] = React.useState('All');
   const [showLater, setShowLater] = React.useState(false);
   const attentionFeed = [
-    { type: 'ai', title: '18 records have no assigned owner', desc: 'Want me to draft assignment proposals based on workload?', action: 'Show me' },
+    { type: 'ai', title: '18 records have no assigned owner', desc: 'AI proposals run on the backend — preview only in this sandbox.', action: 'Show me' },
     { type: 'expiration', severity: 'critical', badge: 'Expired', title: 'Dell R750 Warranty', context: 'Metro Retail · Expired 5 days ago', owner: 'Ana Ríos', ownerInitials: 'AR', action: 'Approve coverage' },
     { type: 'expiration', severity: 'critical', badge: '12 days', title: 'Wildcard SSL Certificate', context: 'Grupo Regency · Needs owner', owner: null, ownerInitials: '?', action: 'Assign owner' },
     { type: 'approval', severity: 'warning', badge: 'Pending', title: 'Microsoft 365 true-up', context: 'Canal Bank · $63K · 480 seats', owner: 'Elena Ruiz', ownerInitials: 'ER', action: 'Approve' },
@@ -403,7 +403,8 @@ function MobileDashboard({ workspaceMode = 'MSP / Integrator' }){
     task: { label: 'TASK', color: '#D97706', bg: '#FFFBEB' },
     approval: { label: 'APPROVAL', color: '#6D28D9', bg: '#F5F3FF' },
     contract: { label: 'CONTRACT', color: '#1D4ED8', bg: '#EFF6FF' },
-    ai: { label: 'AI · OPRIVA', color: '#0D9488', bg: '#F0FDFA' }
+    ai: { label: 'Opriva AI · Preview', color: '#0D9488', bg: '#F0FDFA' },
+    local: { label: 'LOCAL', color: '#0B1F3A', bg: '#EEF2F7' }
   };
   const renderCard = (item, idx) => {
     const meta = typeMeta[item.type] || typeMeta.expiration;
@@ -414,8 +415,23 @@ function MobileDashboard({ workspaceMode = 'MSP / Integrator' }){
         <h3 className="mdCardTitle">{item.title}</h3>
         <p className="mdCardDesc">{item.desc}</p>
         <div className="mdCardFooter mdCardFooterAi">
-          <button className="mdAction mdActionAi" type="button">{item.action} →</button>
+          <button className="mdAction mdActionAi" type="button" disabled aria-disabled="true" title="Preview only — Opriva AI runs on the backend, not in the sandbox.">{item.action} →</button>
         </div>
+      </div>;
+    }
+    if(item.type === 'local'){
+      // C10b-4: derived local-session summary card (built from m.* only).
+      // No owner row, no AI claim; action is disabled (Honest Sandbox).
+      return <div className="mdFeedCard" key={idx}>
+        <div className="mdCardTop">
+          <span className="mdTypeChip" style={{color: meta.color, background: meta.bg}}>{meta.label}</span>
+          {item.badge && <span className="mdBadge">{item.badge}</span>}
+        </div>
+        <h3 className="mdCardTitle">{item.title}</h3>
+        <p className="mdCardContext">{item.desc}</p>
+        {item.action && <div className="mdCardFooter mdCardFooterAi">
+          <button className="mdAction" type="button" disabled aria-disabled="true" title="Preview only — local feed actions are not wired yet.">{item.action} →</button>
+        </div>}
       </div>;
     }
     return <div className={`mdFeedCard ${sevClass}`} key={idx}>
@@ -463,10 +479,23 @@ function MobileDashboard({ workspaceMode = 'MSP / Integrator' }){
   ];
   const heroStats = m.hasLocalData ? derivedHero : sampleHero;
   const metricsCaption = m.hasLocalData ? 'Local session metrics — not persisted.' : 'Sample data — not live metrics.';
+  // C10b-4: when local records exist, replace the mock feed with a small derived
+  // summary built ONLY from m.* (no row[i], no getImported*, no fabricated counts).
+  // Mirrors the desktop pattern (local -> derived, else sample). Card actions are
+  // disabled (Honest Sandbox); margin is shown for MSP only and only when positive.
+  const plural = (n, noun) => n + ' ' + noun + (n === 1 ? '' : 's');
+  const localFeed = [];
+  if (m.missingOwners > 0) localFeed.push({ type: 'local', badge: 'Owners', title: plural(m.missingOwners, 'record') + ' missing an owner', desc: 'Assign owners to keep renewal accountability clear.', action: 'Assign owners' });
+  if (m.expiringSoon30 > 0) localFeed.push({ type: 'local', badge: '30 days', title: plural(m.expiringSoon30, 'record') + ' expiring within 30 days', desc: 'Review upcoming expirations before they lapse.', action: 'Review renewals' });
+  if (m.criticalCount > 0) localFeed.push({ type: 'local', badge: 'Critical', title: plural(m.criticalCount, 'record') + ' at critical risk', desc: 'Derived risk: Critical (overdue, ≤7 days, or critical record).', action: 'Review risk' });
+  if (m.exposure90d > 0) localFeed.push({ type: 'local', badge: '90 days', title: formatImportMoney(m.exposure90d) + ' exposure in the next 90 days', desc: plural(m.recordCount, 'local record') + ' in scope.', action: 'Review exposure' });
+  if (!isInternalIt && m.marginAtRisk > 0) localFeed.push({ type: 'local', badge: 'Margin', title: formatImportMoney(m.marginAtRisk) + ' margin at risk', desc: 'Gross margin exposure on renewals within 90 days.', action: 'Review margin' });
+  if (localFeed.length === 0) localFeed.push({ type: 'local', badge: 'Local', title: 'No renewal signals in the next 90 days', desc: 'Local records show no owner gaps, upcoming expirations or critical risk.', action: null });
+  const activeFeed = m.hasLocalData ? localFeed : attentionFeed;
   return <main className="content mobileDashboard">
     <div className="mdGreeting">
       <span className="mdSalute">Good morning</span>
-      <h1>4 things need you</h1>
+      <h1>{m.hasLocalData ? 'Local session feed' : '4 things need you'}</h1>
     </div>
     <div className="mdHeroStats">
       {heroStats.map(([label, value, sub, cls]) => <div className={cx('mdHeroStat', cls)} key={label}>
@@ -481,19 +510,22 @@ function MobileDashboard({ workspaceMode = 'MSP / Integrator' }){
         <button key={c} type="button" role="tab" aria-selected={chip===c} className={`mdChip ${chip===c?'active':''}`} onClick={()=>setChip(c)}>{c}</button>
       ))}
     </div>
+    {!m.hasLocalData && <p style={{margin:'0 0 6px',fontSize:11,color:'#94A3B8'}}>Sample feed — not live items.</p>}
     <div className="mdSectionHeader">
       <span className="mdIndicator" aria-hidden="true"></span>
-      <strong>Needs action now</strong>
-      <em>{attentionFeed.length}</em>
+      <strong>{m.hasLocalData ? 'Local session signals' : 'Needs action now'}</strong>
+      <em>{activeFeed.length}</em>
     </div>
-    <div className="mdFeedList">{attentionFeed.map(renderCard)}</div>
-    <div className="mdSectionHeader mdSectionWarning">
-      <span className="mdIndicator" aria-hidden="true"></span>
-      <strong>Upcoming this week</strong>
-      <em>{upcomingFeed.length}</em>
-    </div>
-    <div className="mdFeedList">{upcomingFeed.map(renderCard)}</div>
-    {!showLater && <button type="button" className="mdLaterToggle" onClick={()=>setShowLater(true)}>Show 14 more later this quarter ▾</button>}
+    <div className="mdFeedList">{activeFeed.map(renderCard)}</div>
+    {!m.hasLocalData && <>
+      <div className="mdSectionHeader mdSectionWarning">
+        <span className="mdIndicator" aria-hidden="true"></span>
+        <strong>Upcoming this week</strong>
+        <em>{upcomingFeed.length}</em>
+      </div>
+      <div className="mdFeedList">{upcomingFeed.map(renderCard)}</div>
+      {!showLater && <button type="button" className="mdLaterToggle" onClick={()=>setShowLater(true)}>Show 14 more later this quarter ▾</button>}
+    </>}
     <div className="mdBrowseSection">
       <div className="mdSectionHeader mdSectionNeutral">
         <span className="mdIndicator" aria-hidden="true"></span>
@@ -503,7 +535,7 @@ function MobileDashboard({ workspaceMode = 'MSP / Integrator' }){
         {browseShortcuts.map(s => (
           <button key={s.label} type="button" className="mdBrowseCard">
             <strong>{s.label}</strong>
-            <span>{s.count}</span>
+            {!m.hasLocalData && <span>{s.count}</span>}
           </button>
         ))}
       </div>

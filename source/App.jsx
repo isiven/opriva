@@ -374,7 +374,7 @@ function StatCards({ workspaceMode = 'MSP / Integrator' }){
   </section><p style={{margin:'2px 0 0',fontSize:11,color:'#94A3B8'}}>{caption}</p></>;
 }
 
-function MobileDashboard(){
+function MobileDashboard({ workspaceMode = 'MSP / Integrator' }){
   const [chip, setChip] = React.useState('All');
   const [showLater, setShowLater] = React.useState(false);
   const attentionFeed = [
@@ -434,24 +434,48 @@ function MobileDashboard(){
       </div>
     </div>;
   };
+  // C10b-3: wire-only mobile hero metrics. Reuses getDashboardMetrics; selects
+  // m.* and formats with formatImportMoney/String only (no inline arithmetic).
+  // Trend deltas (e.g. "+8% vs last week") are dropped — they need backend history.
+  const isInternalIt = workspaceMode === 'Internal IT';
+  const m = getDashboardMetrics(workspaceMode);
+  const sampleHero = isInternalIt ? [
+    ['90-day renewal forecast', '$487,000', 'Next-quarter exposure', 'urgent'],
+    ['Annual exposure', '$214,000', 'Total IT spend in scope', ''],
+    ['Critical systems count', '6', 'Systems at critical risk', ''],
+    ['Missing owners', '8', 'Records without an owner', '']
+  ] : [
+    ['90-day exposure', '$284,000', '47 managed records', 'urgent'],
+    ['30-day critical expirations', '12', 'Expiring within 30 days', ''],
+    ['Missing owners', '18', 'Records without an owner', ''],
+    ['Margin at risk', '$18,400', 'Gross margin exposure', '']
+  ];
+  const derivedHero = isInternalIt ? [
+    ['90-day renewal forecast', formatImportMoney(m.exposure90d), m.recordCount + ' records', 'urgent'],
+    ['Annual exposure', formatImportMoney(m.totalExposure), 'Across local IT records', ''],
+    ['Critical systems count', String(m.criticalCount), 'Derived risk: Critical', ''],
+    ['Missing owners', String(m.missingOwners), 'Records without an owner', '']
+  ] : [
+    ['90-day exposure', formatImportMoney(m.exposure90d), m.recordCount + ' managed records', 'urgent'],
+    ['30-day critical expirations', String(m.expiringSoon30), 'Expiring within 30 days', 'urgent'],
+    ['Missing owners', String(m.missingOwners), 'Records without an owner', ''],
+    ['Margin at risk', formatImportMoney(m.marginAtRisk), 'On renewals within 90 days', '']
+  ];
+  const heroStats = m.hasLocalData ? derivedHero : sampleHero;
+  const metricsCaption = m.hasLocalData ? 'Local session metrics — not persisted.' : 'Sample data — not live metrics.';
   return <main className="content mobileDashboard">
     <div className="mdGreeting">
       <span className="mdSalute">Good morning</span>
       <h1>4 things need you</h1>
     </div>
     <div className="mdHeroStats">
-      <div className="mdHeroStat urgent">
-        <span className="mdStLbl">Critical now</span>
-        <span className="mdStVal">4</span>
-        <span className="mdStDelta">2 overdue</span>
-      </div>
-      <div className="mdHeroStat">
-        <span className="mdStLbl">At risk</span>
-        <span className="mdStVal">$214K</span>
-        <span className="mdStDelta">+8% vs last week</span>
-      </div>
+      {heroStats.map(([label, value, sub, cls]) => <div className={cx('mdHeroStat', cls)} key={label}>
+        <span className="mdStLbl">{label}</span>
+        <span className="mdStVal">{value}</span>
+        <span className="mdStDelta">{sub}</span>
+      </div>)}
     </div>
-    <p style={{margin:'-2px 0 2px',fontSize:11,color:'#94A3B8'}}>Sample data — not live metrics.</p>
+    <p style={{margin:'-2px 0 2px',fontSize:11,color:'#94A3B8'}}>{metricsCaption}</p>
     <div className="mdChips" role="tablist" aria-label="Filter feed">
       {['All','Mine','Critical','Today','This week'].map(c => (
         <button key={c} type="button" role="tab" aria-selected={chip===c} className={`mdChip ${chip===c?'active':''}`} onClick={()=>setChip(c)}>{c}</button>
@@ -489,7 +513,7 @@ function MobileDashboard(){
 
 function Dashboard({ workspaceMode = 'MSP / Integrator', setWorkspaceMode = function(){} }){
   const vp = useViewport();
-  if(vp === 'mobile') return <MobileDashboard />;
+  if(vp === 'mobile') return <MobileDashboard workspaceMode={workspaceMode} />;
   const isInternalIt = workspaceMode === 'Internal IT';
 
   const importedPriorityRows = getImportedDashboardPriorityRows(workspaceMode);

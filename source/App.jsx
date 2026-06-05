@@ -44,6 +44,7 @@ import { createRecordId, RECORD_STORE, toRecords } from './store/recordStore.js'
 import { addActivityEvent } from './store/activityStore.js';
 import { getImportedClientRows, getImportedDashboardPriorityRows, getImportedRenewalRows } from './store/recordProjections.js';
 import { getDashboardMetrics } from './store/dashboardMetrics.js';
+import { rowPassesTab } from './utils/tabFilters.js';
 
 // Reusable dialog focus manager (A11y-1). When `active` becomes true it:
 //  - remembers the element that had focus (the trigger),
@@ -1504,6 +1505,8 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
   const [filterOpen, setFilterOpen] = React.useState(false);
   const [filters, setFilters] = React.useState({});
   const [search, setSearch] = React.useState('');
+  // S2a: active filter tab (local, sandbox). tabs[0] is always 'All' (no filter).
+  const [activeTab, setActiveTab] = React.useState(tabs[0] || 'All');
   const [detailOpen, setDetailOpen] = React.useState(false);
   const [selectedRecord, setSelectedRecord] = React.useState(null);
   const [editMode, setEditMode] = React.useState(false);
@@ -1544,6 +1547,7 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
     setSessionTasks([]);
     setFilters({});
     setSearch('');
+    setActiveTab(tabs[0] || 'All');
   }, [rows]);
 
   const module = active.includes('Hardware') ? 'Hardware'
@@ -1554,9 +1558,9 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
   const fieldSpecs = formFields; // Edit Record uses same workspace-aware fields as New Record
   const filterSpecs = FILTER_SPECS[module] || [];
   const filterCount = Object.values(filters).filter(Boolean).length;
-  const hasActiveFilter = filterCount > 0 || search.trim().length > 0;
+  const hasActiveFilter = filterCount > 0 || search.trim().length > 0 || (activeTab && activeTab !== (tabs[0] || 'All'));
 
-  function clearFilters() { setFilters({}); setSearch(''); }
+  function clearFilters() { setFilters({}); setSearch(''); setActiveTab(tabs[0] || 'All'); }
 
   const toggleCol = (col) => {
     setVisibleSet(prev => {
@@ -2076,6 +2080,7 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
 
   const displayRows = localRows.filter(function(record) {
     return rowPassesSearch(record.row, search) &&
+      rowPassesTab(record.row, activeTab, module, safeColumns) &&
       filterSpecs.every(function(spec) { return rowPassesFilter(record.row, spec, filters[spec.key] || '', safeColumns); });
   });
 
@@ -2502,7 +2507,7 @@ function OperationalList({ active, columns, rows, note, tabs=['All','Critical','
     })()}
 
     <section className="panel worklistPanel">
-      <div className="tabs">{tabs.map((tab,i)=><button key={tab} className={i===0?'active':''}>{tab}</button>)}</div>
+      <div className="tabs" role="tablist" aria-label={active + ' filters'}>{tabs.map(tab=><button key={tab} type="button" role="tab" aria-selected={tab===activeTab} className={tab===activeTab?'active':''} onClick={()=>setActiveTab(tab)}>{tab}</button>)}</div>
       <div className="toolbar">
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder={inputPlaceholder}/>
         <button>Saved view: Operational risk</button>

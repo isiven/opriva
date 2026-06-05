@@ -7242,15 +7242,29 @@ function AssetsRenewalsScreen({ workspaceMode = 'MSP / Integrator' }){
   const rows = importedRenewalRows.length ? importedRenewalRows : baseRows;
   const tabs = isInternalIT ? ['All','Approval required','Next 30 days','Next 90 days','By department','Consolidation candidates'] : ['All','Critical','30 days','60 days','Missing owner','Expired'];
   const filters = isInternalIT ? ['Type','Department','Provider','Approval','Saved view: CIO forecast'] : ['Type','Owner','Vendor','Status','Saved view: Operational risk'];
-  const stats = isInternalIT ? [
+  // C10c-4: binary swap of the Internal IT Renewals Forecast stat-grid (sample <-> derived),
+  // mirroring C10c-2/C10c-3. Derived cards read ONLY existing getDashboardMetrics fields
+  // (no inline arithmetic, no dashboardMetrics changes). Worklist, tabs, toolbar, AI insight
+  // bar and MSP mode are untouched. Approval-required / departments-impacted / consolidation
+  // are NOT honestly derivable locally yet, so they are replaced by honest local metrics.
+  const m = getDashboardMetrics(workspaceMode);
+  const sampleForecastStats = [
     ['90-day forecast', '$487K', 'Upcoming IT renewal exposure'],
     ['Approval required', '5 renewals', 'Budget or CIO decision pending'],
     ['Departments impacted', '8', 'Business areas in forecast window'],
     ['Consolidation candidates', '3', 'Endpoint security overlap detected']
-  ] : null;
+  ];
+  const derivedForecastStats = [
+    ['90-day forecast', formatImportMoney(m.exposure90d), 'Upcoming local renewal exposure'],
+    ['Records tracked', String(m.recordCount), 'Local IT records in scope'],
+    ['Expiring ≤30d', String(m.expiringSoon30), 'Expiring within 30 days'],
+    ['Missing owners', String(m.missingOwners), 'Records without an owner']
+  ];
+  const stats = isInternalIT ? (m.hasLocalData ? derivedForecastStats : sampleForecastStats) : null;
+  const forecastCaption = m.hasLocalData ? 'Local session metrics — not persisted.' : 'Sample data — not live metrics.';
   return <main className="content assetsRenewalsPage">
     <ScreenHeader active={isInternalIT ? 'Renewals Forecast' : 'Assets & Renewals'} eyebrow={isInternalIT ? 'RENEWALS FORECAST' : 'RENEWAL WORKLIST'} subtitle={isInternalIT ? 'Forecast upcoming IT renewals, department impact, brand/provider concentration and approval risk before spend becomes urgent.' : 'Manage tracked assets, licenses, contracts, warranties, SaaS subscriptions and certificates by urgency, value and ownership.'}>{isInternalIT ? <><button>Import records</button><button>Configure forecast</button><button className="primary">New renewal</button></> : <><button>Import records</button><button>Configure columns</button><button className="primary">New record</button></>}</ScreenHeader>
-    {isInternalIT && <><section className="statsGrid renewalForecastStats">{stats.map(stat => <div className="statCard" key={stat[0]}><span>{stat[0]}</span><strong>{stat[1]}</strong><p>{stat[2]}</p></div>)}</section><p style={{margin:'2px 0 0',fontSize:11,color:'#94A3B8'}}>Sample data — not live metrics.</p></>}
+    {isInternalIT && <><section className="statsGrid renewalForecastStats">{stats.map(stat => <div className="statCard" key={stat[0]}><span>{stat[0]}</span><strong>{stat[1]}</strong><p>{stat[2]}</p></div>)}</section><p style={{margin:'2px 0 0',fontSize:11,color:'#94A3B8'}}>{forecastCaption}</p></>}
     <div className="tabs assetsTabs" role="tablist" aria-label="Renewal worklist filters">{tabs.map((tab,index)=><button key={tab} className={index===0?'active':''}>{tab}</button>)}</div>
     <section className="panel renewalControlsPanel">
       <div className="toolbar assetsFilterRow"><input aria-label="Filter renewal records" placeholder={isInternalIT ? 'Filter renewals by record, provider, department, approval status or risk...' : 'Filter by record, vendor, owner, type or status...'} />{filters.map(filter=><button key={filter}>{filter}</button>)}</div>

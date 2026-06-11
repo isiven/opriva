@@ -3774,6 +3774,11 @@ function ReportsScreen({ workspaceMode = 'MSP / Integrator' }){
   const [moduleType, setModuleType] = React.useState('');
   const [selected, setSelected] = React.useState({});
   const [history, setHistory] = React.useState(REPORT_SESSION.history);
+  const [scheduled, setScheduled] = React.useState(REPORT_SESSION.scheduled);
+  const [scheduleOpen, setScheduleOpen] = React.useState(false);
+  const [emailOpen, setEmailOpen] = React.useState(false);
+  const [cadence, setCadence] = React.useState('Monthly');
+  const [recipients, setRecipients] = React.useState('');
 
   const filters = { windowDays: windowDays, owner: owner, risk: risk, module: moduleType };
   const report = buildReport(reportKey, workspaceMode, filters);
@@ -3783,7 +3788,14 @@ function ReportsScreen({ workspaceMode = 'MSP / Integrator' }){
 
   const ctrl = { border:'1px solid #DDE6F1', borderRadius:10, padding:'8px 10px', fontSize:13, background:'#FAFCFF', color:'#132033', font:'inherit', outline:0 };
   const simNote = { margin:'8px 0 0', fontSize:12, color:'#92400E', background:'#FFFBEB', border:'1px solid #FDE68A', borderRadius:8, padding:'8px 10px', lineHeight:1.4 };
+  const modalWrap = { position:'fixed', inset:0, background:'rgba(11,31,58,.42)', zIndex:60, display:'flex', alignItems:'center', justifyContent:'center', padding:16 };
+  const modalBox = { background:'#fff', border:'1px solid #E5E7EB', borderRadius:18, padding:20, width:'min(520px,100%)', maxHeight:'calc(100vh - 64px)', overflowY:'auto', boxShadow:'0 24px 80px rgba(11,31,58,.22)', display:'grid', gap:14 };
 
+  function saveSchedule(){
+    const entry = { id:'sch-'+Date.now(), title: report.title, cadence: cadence, recipients: (recipients||'').trim()||'(no recipients)', mode: workspaceMode, when: reportTimestamp() };
+    const next = [entry].concat(REPORT_SESSION.scheduled);
+    REPORT_SESSION.scheduled = next; setScheduled(next); setScheduleOpen(false);
+  }
   function fileBase(){ return report.key + '-' + workspaceMode.replace(/[^a-z0-9]+/gi,'-').toLowerCase(); }
   function pushHistory(kind){
     const entry = { id:'rep-'+Date.now()+'-'+Math.random().toString(36).slice(2,6), title: report.title, kind: kind, rows: report.count, mode: workspaceMode, when: reportTimestamp() };
@@ -3819,18 +3831,42 @@ function ReportsScreen({ workspaceMode = 'MSP / Integrator' }){
     </section>
     <section className="panel">
       <div className="panelTitle"><h2>{report.title}</h2><span>{report.count} {report.count===1?'row':'rows'} · {workspaceMode}</span></div>
-      <div className="toolbar"><button type="button" onClick={onExportCsv}>Export CSV</button><button type="button" onClick={onExportSelected}>{selectedCount?('Export selected ('+selectedCount+')'):'Export selected rows'}</button></div>
+      <div className="toolbar"><button type="button" onClick={onExportCsv}>Export CSV</button><button type="button" onClick={onExportSelected}>{selectedCount?('Export selected ('+selectedCount+')'):'Export selected rows'}</button><button type="button" onClick={function(){ setScheduleOpen(true); }}>Schedule report</button><button type="button" onClick={function(){ setEmailOpen(true); }}>Email preview</button></div>
       <div className="tableWrap"><table>
         <thead><tr><th style={{width:34}}><input type="checkbox" aria-label="Select all rows" checked={allSelected} onChange={function(e){ selectAll(e.target.checked); }}/></th>{report.columns.map(function(c){ return <th key={c}>{c}</th>; })}</tr></thead>
         <tbody>{report.rows.length===0 ? <tr><td colSpan={report.columns.length+1} style={{textAlign:'center',color:'#64748B',padding:'22px'}}>No rows for this report and filters.</td></tr> : report.rows.map(function(row, i){ return <tr key={i} className={selected[i]?'selectedRow':''}><td><input type="checkbox" aria-label={'Select row '+(i+1)} checked={!!selected[i]} onChange={function(){ toggleRow(i); }}/></td>{row.map(function(cell, j){ return <td key={j}>{String(cell)}</td>; })}</tr>; })}</tbody>
       </table></div>
       <p style={{margin:'8px 0 0',fontSize:11,color:'#94A3B8'}}>{report.caption}</p>
     </section>
-    <section className="panel">
-      <div className="panelTitle"><h2>Report history (session)</h2><span>Generated and exported this session</span></div>
-      {history.length===0 ? <div className="stateBox emptyState"><span>No reports generated yet. Use “Generate report” or “Export CSV”.</span></div> : <div className="tableWrap"><table><thead><tr>{['Report','Action','Rows','When'].map(function(c){ return <th key={c}>{c}</th>; })}</tr></thead><tbody>{history.map(function(h){ return <tr key={h.id}><td>{h.title}</td><td>{h.kind}</td><td>{h.rows}</td><td>{h.when}</td></tr>; })}</tbody></table></div>}
-      <p style={simNote}>{SANDBOX_SIM_COPY}</p>
+    <section className="split">
+      <article className="panel">
+        <div className="panelTitle"><h2>Scheduled reports (sandbox)</h2><span>Session simulation</span></div>
+        {scheduled.length===0 ? <div className="stateBox emptyState"><span>No scheduled reports this session. Use “Schedule report”.</span></div> : <div className="tableWrap"><table><thead><tr>{['Report','Cadence','Recipients','Mode','Scheduled'].map(function(c){ return <th key={c}>{c}</th>; })}</tr></thead><tbody>{scheduled.map(function(s){ return <tr key={s.id}><td>{s.title}</td><td>{s.cadence}</td><td>{s.recipients}</td><td>{s.mode}</td><td>{s.when}</td></tr>; })}</tbody></table></div>}
+        <p style={simNote}>{SANDBOX_SIM_COPY}</p>
+      </article>
+      <article className="panel">
+        <div className="panelTitle"><h2>Report history (session)</h2><span>Generated and exported this session</span></div>
+        {history.length===0 ? <div className="stateBox emptyState"><span>No reports generated yet. Use “Generate report” or “Export CSV”.</span></div> : <div className="tableWrap"><table><thead><tr>{['Report','Action','Rows','When'].map(function(c){ return <th key={c}>{c}</th>; })}</tr></thead><tbody>{history.map(function(h){ return <tr key={h.id}><td>{h.title}</td><td>{h.kind}</td><td>{h.rows}</td><td>{h.when}</td></tr>; })}</tbody></table></div>}
+        <p style={simNote}>{SANDBOX_SIM_COPY}</p>
+      </article>
     </section>
+    {scheduleOpen && <div style={modalWrap} onClick={function(){ setScheduleOpen(false); }}>
+      <div style={modalBox} role="dialog" aria-modal="true" aria-label="Schedule report" onClick={function(e){ e.stopPropagation(); }}>
+        <h2 style={{margin:0,fontSize:18,color:'#0B1F3A'}}>Schedule “{report.title}”</h2>
+        <label style={{display:'grid',gap:6,fontSize:13,color:'#334155'}}>Cadence<select style={ctrl} value={cadence} onChange={function(e){ setCadence(e.target.value); }}><option>Daily</option><option>Weekly</option><option>Monthly</option><option>Quarterly</option></select></label>
+        <label style={{display:'grid',gap:6,fontSize:13,color:'#334155'}}>Recipients<input style={ctrl} placeholder="finance@, cio@…" value={recipients} onChange={function(e){ setRecipients(e.target.value); }}/></label>
+        <p style={simNote}>{SANDBOX_SIM_COPY}</p>
+        <div style={{display:'flex',justifyContent:'flex-end',gap:8}}><button type="button" onClick={function(){ setScheduleOpen(false); }}>Cancel</button><button type="button" className="primary" onClick={saveSchedule}>Save schedule (session)</button></div>
+      </div>
+    </div>}
+    {emailOpen && <div style={modalWrap} onClick={function(){ setEmailOpen(false); }}>
+      <div style={modalBox} role="dialog" aria-modal="true" aria-label="Email preview" onClick={function(e){ e.stopPropagation(); }}>
+        <h2 style={{margin:0,fontSize:18,color:'#0B1F3A'}}>Email preview (draft)</h2>
+        <div style={{display:'grid',gap:8,fontSize:13,color:'#132033',border:'1px solid #EEF2F7',borderRadius:12,padding:12,background:'#FAFCFF'}}><div><b>To:</b> {(recipients||'').trim()||'finance@example.com'}</div><div><b>Subject:</b> {report.title} — {workspaceMode}</div><div><b>Body:</b> {report.title} for {workspaceMode}. {report.count} {report.count===1?'record':'records'}. {report.hasLocalData?'Local session data.':'Sample data.'}</div><div><b>Attachment:</b> {fileBase()}.csv</div></div>
+        <p style={simNote}>{SANDBOX_SIM_COPY}</p>
+        <div style={{display:'flex',justifyContent:'flex-end',gap:8}}><button type="button" onClick={function(){ setEmailOpen(false); }}>Close</button><button type="button" className="primary" onClick={function(){ onExportCsv(); setEmailOpen(false); }}>Download attachment</button></div>
+      </div>
+    </div>}
   </main>;
 }
 

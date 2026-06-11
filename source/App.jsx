@@ -45,6 +45,8 @@ import { addActivityEvent } from './store/activityStore.js';
 import { getImportedClientRows, getImportedDashboardPriorityRows, getImportedRenewalRows } from './store/recordProjections.js';
 import { getDashboardMetrics } from './store/dashboardMetrics.js';
 import { rowPassesTab } from './utils/tabFilters.js';
+import { REPORT_DEFS, buildReport } from './store/reports.js';
+import { downloadCsv } from './utils/exportCsv.js';
 
 // Reusable dialog focus manager (A11y-1). When `active` becomes true it:
 //  - remembers the element that had focus (the trigger),
@@ -3758,22 +3760,78 @@ function TasksScreen({ workspaceMode = 'MSP / Integrator' }){
   </>;
 }
 
+// F1c/F1d — session-local report history + scheduled simulations. Module-level so
+// they survive in-session navigation (lost on refresh, like RECORD_STORE).
+const REPORT_SESSION = { scheduled: [], history: [] };
+const SANDBOX_SIM_COPY = 'Sandbox simulation — delivery and persistent history require backend.';
+function reportTimestamp(){ try { return new Date().toISOString().slice(0,16).replace('T',' '); } catch(e){ return 'session'; } }
+
 function ReportsScreen({ workspaceMode = 'MSP / Integrator' }){
-  const isInternalIT = workspaceMode === 'Internal IT';
-  const importedReportCount = getLocalStoreRecords('licenses', workspaceMode).length + getLocalStoreRecords('hardware', workspaceMode).length + getLocalStoreRecords('contracts', workspaceMode).length;
-  const reportsSubtitle = isInternalIT
-    ? 'Executive and operational reporting across IT budget, approvals and renewal risk.'
-    : workspaceMode === 'MSP / Integrator'
-    ? 'Executive and operational reporting across your client renewal portfolio.'
-    : 'Reports center for templates, schedules, generated reports, governance and exports.';
-  const reportRows = importedReportCount > 0 ? [['Imported Session Records', 'Sandbox validation', 'Operators', 'Current user', 'Session', importedReportCount + ' records ready']] : (isInternalIT ? reportsInternalIT : reportsMsp);
-  const exportButtons = isInternalIT
-    ? ['Department renewal exposure CSV', 'CIO renewal brief', 'Governance evidence export']
-    : ['Client renewal exposure CSV', 'Executive renewal brief', 'Governance evidence export'];
-  const scheduledRows = isInternalIT
-    ? [['Monthly renewal budget exposure','Monthly','May 1, 2026','Finance, IT Leadership','Jun 1, 2026','Approved'],['CIO risk brief','Weekly','May 6, 2026','CIO, Executive team','May 13, 2026','Draft ready'],['Audit evidence package','On demand','Apr 28, 2026','Compliance','Not scheduled','Export logged']]
-    : [['Monthly client renewal exposure','Monthly','May 1, 2026','Finance, Account management','Jun 1, 2026','Approved'],['Board risk brief','Weekly','May 6, 2026','Executive team','May 13, 2026','Draft ready'],['Audit evidence package','On demand','Apr 28, 2026','Compliance','Not scheduled','Export logged']];
-  return <main className="content"><ScreenHeader active="Reports" subtitle={reportsSubtitle}><button type="button" disabled aria-disabled="true" title="Coming soon — requires backend reporting" style={{opacity:0.55,cursor:'not-allowed'}}>Schedule report</button><button type="button" className="primary" disabled aria-disabled="true" title="Coming soon — requires backend reporting" style={{opacity:0.55,cursor:'not-allowed'}}>Generate report</button></ScreenHeader><section className="split"><article className="panel wide"><div className="panelTitle"><h2>Report templates</h2><span>{importedReportCount > 0 ? 'Showing local sandbox records. Demo data is used only when no local records exist.' : 'Operational, executive and governance-ready templates'}</span></div><Table columns={['Template','Type','Audience','Owner','Cadence','Status']} rows={reportRows}/><p style={{margin:'8px 0 0',fontSize:11,color:'#94A3B8'}}>Sample data — not live reports.</p></article><aside className="panel"><div className="panelTitle"><h2>Export center</h2><span>Export layout reference — backend required</span></div><div className="actionStack">{exportButtons.map(label=><button key={label} type="button" disabled aria-disabled="true" title="Coming soon — requires backend reporting" style={{opacity:0.55,cursor:'not-allowed'}}>{label}</button>)}<button type="button" disabled aria-disabled="true" title="Coming soon — requires backend reporting" style={{opacity:0.55,cursor:'not-allowed'}}>Export selected rows</button></div><p style={{margin:'10px 0 0',fontSize:12,color:'#92400E',background:'#FFFBEB',border:'1px solid #FDE68A',borderRadius:8,padding:'8px 10px',lineHeight:1.4}}>Report generation, scheduling and export run on the backend reporting engine (backend required).</p></aside></section><section className="panel"><div className="panelTitle"><h2>Scheduled and generated reports</h2><span>Recurring packs and recent outputs</span></div><Table columns={['Report','Schedule','Last generated','Recipients','Next run','Governance status']} rows={scheduledRows}/><p style={{margin:'8px 0 0',fontSize:11,color:'#94A3B8'}}>Sample data — not live reports.</p></section></main>;
+  const [reportKey, setReportKey] = React.useState('renewal-exposure');
+  const [windowDays, setWindowDays] = React.useState('90');
+  const [owner, setOwner] = React.useState('');
+  const [risk, setRisk] = React.useState('');
+  const [moduleType, setModuleType] = React.useState('');
+  const [selected, setSelected] = React.useState({});
+  const [history, setHistory] = React.useState(REPORT_SESSION.history);
+
+  const filters = { windowDays: windowDays, owner: owner, risk: risk, module: moduleType };
+  const report = buildReport(reportKey, workspaceMode, filters);
+  const showWindow = reportKey === 'expiring-soon';
+  const selKey = [reportKey, windowDays, owner, risk, moduleType, workspaceMode].join('|');
+  React.useEffect(function(){ setSelected({}); }, [selKey]);
+
+  const ctrl = { border:'1px solid #DDE6F1', borderRadius:10, padding:'8px 10px', fontSize:13, background:'#FAFCFF', color:'#132033', font:'inherit', outline:0 };
+  const simNote = { margin:'8px 0 0', fontSize:12, color:'#92400E', background:'#FFFBEB', border:'1px solid #FDE68A', borderRadius:8, padding:'8px 10px', lineHeight:1.4 };
+
+  function fileBase(){ return report.key + '-' + workspaceMode.replace(/[^a-z0-9]+/gi,'-').toLowerCase(); }
+  function pushHistory(kind){
+    const entry = { id:'rep-'+Date.now()+'-'+Math.random().toString(36).slice(2,6), title: report.title, kind: kind, rows: report.count, mode: workspaceMode, when: reportTimestamp() };
+    const next = [entry].concat(REPORT_SESSION.history).slice(0,50);
+    REPORT_SESSION.history = next; setHistory(next);
+  }
+  function onGenerate(){ pushHistory('Generated'); }
+  function onExportCsv(){ downloadCsv(fileBase()+'.csv', report.columns, report.rows); pushHistory('Exported CSV'); }
+  function onExportSelected(){
+    const idxs = Object.keys(selected).filter(function(k){ return selected[k]; });
+    const rows = idxs.length ? report.rows.filter(function(_, i){ return selected[i]; }) : report.rows;
+    downloadCsv(fileBase()+(idxs.length?'-selected':'-all')+'.csv', report.columns, rows);
+    pushHistory(idxs.length ? ('Exported '+idxs.length+' selected') : 'Exported CSV');
+  }
+  function toggleRow(i){ setSelected(function(prev){ const n = Object.assign({}, prev); if (n[i]) { delete n[i]; } else { n[i] = true; } return n; }); }
+  function selectAll(on){ if (!on) { setSelected({}); return; } const n = {}; report.rows.forEach(function(_, i){ n[i] = true; }); setSelected(n); }
+  const selectedCount = Object.keys(selected).filter(function(k){ return selected[k]; }).length;
+  const allSelected = report.rows.length > 0 && selectedCount === report.rows.length;
+  const hasFilters = !!(owner || risk || moduleType || (showWindow && windowDays !== '90'));
+
+  return <main className="content">
+    <ScreenHeader active="Reports" subtitle="Generate, preview and export local sandbox reports from your session records."><button type="button" className="primary" onClick={onGenerate}>Generate report</button></ScreenHeader>
+    <section className="panel">
+      <div className="panelTitle"><h2>Report</h2><span>Pick a report — preview updates live from local session records.</span></div>
+      <div className="tabs" role="tablist" aria-label="Report type">{REPORT_DEFS.map(function(d){ return <button key={d.key} type="button" role="tab" aria-selected={d.key===reportKey} className={d.key===reportKey?'active':''} onClick={function(){ setReportKey(d.key); }}>{d.title.replace(' Report','')}</button>; })}</div>
+      <div className="toolbar" role="group" aria-label="Report filters">
+        <input style={ctrl} aria-label="Filter by owner" placeholder="Owner contains…" value={owner} onChange={function(e){ setOwner(e.target.value); }}/>
+        <select style={ctrl} aria-label="Risk filter" value={risk} onChange={function(e){ setRisk(e.target.value); }}><option value="">Any risk</option><option>Critical</option><option>High</option><option>Medium</option><option>Low</option></select>
+        <select style={ctrl} aria-label="Type filter" value={moduleType} onChange={function(e){ setModuleType(e.target.value); }}><option value="">Any type</option><option value="license">License</option><option value="hardware">Hardware</option><option value="contract">Contract</option></select>
+        {showWindow && <select style={ctrl} aria-label="Window filter" value={windowDays} onChange={function(e){ setWindowDays(e.target.value); }}><option value="30">Next 30 days</option><option value="60">Next 60 days</option><option value="90">Next 90 days</option><option value="all">All upcoming</option></select>}
+        {hasFilters && <button type="button" onClick={function(){ setOwner(''); setRisk(''); setModuleType(''); setWindowDays('90'); }}>Clear filters</button>}
+      </div>
+    </section>
+    <section className="panel">
+      <div className="panelTitle"><h2>{report.title}</h2><span>{report.count} {report.count===1?'row':'rows'} · {workspaceMode}</span></div>
+      <div className="toolbar"><button type="button" onClick={onExportCsv}>Export CSV</button><button type="button" onClick={onExportSelected}>{selectedCount?('Export selected ('+selectedCount+')'):'Export selected rows'}</button></div>
+      <div className="tableWrap"><table>
+        <thead><tr><th style={{width:34}}><input type="checkbox" aria-label="Select all rows" checked={allSelected} onChange={function(e){ selectAll(e.target.checked); }}/></th>{report.columns.map(function(c){ return <th key={c}>{c}</th>; })}</tr></thead>
+        <tbody>{report.rows.length===0 ? <tr><td colSpan={report.columns.length+1} style={{textAlign:'center',color:'#64748B',padding:'22px'}}>No rows for this report and filters.</td></tr> : report.rows.map(function(row, i){ return <tr key={i} className={selected[i]?'selectedRow':''}><td><input type="checkbox" aria-label={'Select row '+(i+1)} checked={!!selected[i]} onChange={function(){ toggleRow(i); }}/></td>{row.map(function(cell, j){ return <td key={j}>{String(cell)}</td>; })}</tr>; })}</tbody>
+      </table></div>
+      <p style={{margin:'8px 0 0',fontSize:11,color:'#94A3B8'}}>{report.caption}</p>
+    </section>
+    <section className="panel">
+      <div className="panelTitle"><h2>Report history (session)</h2><span>Generated and exported this session</span></div>
+      {history.length===0 ? <div className="stateBox emptyState"><span>No reports generated yet. Use “Generate report” or “Export CSV”.</span></div> : <div className="tableWrap"><table><thead><tr>{['Report','Action','Rows','When'].map(function(c){ return <th key={c}>{c}</th>; })}</tr></thead><tbody>{history.map(function(h){ return <tr key={h.id}><td>{h.title}</td><td>{h.kind}</td><td>{h.rows}</td><td>{h.when}</td></tr>; })}</tbody></table></div>}
+      <p style={simNote}>{SANDBOX_SIM_COPY}</p>
+    </section>
+  </main>;
 }
 
 function inferBrandFromProduct(product, fallbackBrand) {

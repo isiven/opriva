@@ -48,7 +48,7 @@ import { rowPassesTab } from './utils/tabFilters.js';
 import { REPORT_DEFS, buildReport } from './store/reports.js';
 import { downloadCsv } from './utils/exportCsv.js';
 import { getAlertBadgeCount, getOpenAlerts, getResolvedAlerts, markSeen, resolveAlert, snoozeAlert, reopenAlert } from './store/alerts.js';
-import { TASK_FIELD, TASK_STATUS_COLUMNS, filterTasks, groupTasksByStatus, distinctTaskValues } from './utils/taskFilters.js';
+import { TASK_FIELD, TASK_STATUS_COLUMNS, filterTasks, groupTasksByStatus, distinctTaskValues, isOverdue } from './utils/taskFilters.js';
 
 // Reusable dialog focus manager (A11y-1). When `active` becomes true it:
 //  - remembers the element that had focus (the trigger),
@@ -3381,6 +3381,56 @@ function TasksScreen({ workspaceMode = 'MSP / Integrator' }){
   }
   function openTask(idx) { openTaskRec(allRecords[idx]); }
 
+  // F3c — status updates + toolbar actions (session/local).
+  const [statusOverrides, setStatusOverrides] = React.useState({}); // id -> status (session)
+  const [bulkOpen, setBulkOpen] = React.useState(false);
+  const [bulkStatus, setBulkStatus] = React.useState('In progress');
+  const [groupByOwner, setGroupByOwner] = React.useState(false);
+  const [configOpen, setConfigOpen] = React.useState(false);
+  const [hiddenCols, setHiddenCols] = React.useState({});           // colName -> true (hidden)
+  const [aiSummaryOpen, setAiSummaryOpen] = React.useState(false);
+  const [savedTick, setSavedTick] = React.useState(0);
+  const TASKS_VIEW_KEY = 'opriva.tasks.savedView';
+
+  function refreshSessionTasks() {
+    var stored = Array.isArray(RECORD_STORE.tasks) ? RECORD_STORE.tasks.filter(function(r){ return r.id && r.id.indexOf('task-') === 0; }) : [];
+    setSessionRecords(stored);
+  }
+  function changeTaskStatus(rec, newStatus) {
+    if (!rec || !newStatus) return;
+    setStatusOverrides(function(prev){ var n = Object.assign({}, prev); n[rec.id] = newStatus; return n; });
+    if (rec.meta && Array.isArray(RECORD_STORE.tasks)) {
+      var stored = RECORD_STORE.tasks.find(function(t){ return t.id === rec.id; });
+      if (stored) {
+        if (stored.meta) stored.meta.status = newStatus;
+        if (Array.isArray(stored.row)) stored.row[TASK_FIELD.status] = newStatus;
+        addActivityEvent({ eventType: 'task_status_changed', title: 'Task status changed', description: (stored.meta && stored.meta.title ? stored.meta.title : 'Task') + ' → ' + newStatus, sourceModule: stored.meta && stored.meta.sourceModule, sourceRecordId: stored.meta && stored.meta.sourceRecordId, sourceRecordName: stored.meta && stored.meta.sourceRecordName, relatedModule: 'tasks', relatedRecordId: rec.id, workspaceMode: workspaceMode });
+        refreshSessionTasks();
+      }
+    }
+  }
+  function saveTaskView() {
+    try { window.localStorage.setItem(TASKS_VIEW_KEY, JSON.stringify({ view: view, search: search, filters: filters, groupByOwner: groupByOwner, hiddenCols: hiddenCols })); } catch (e) {}
+    setSavedTick(function(t){ return t + 1; });
+  }
+  function resetTaskView() {
+    try { window.localStorage.removeItem(TASKS_VIEW_KEY); } catch (e) {}
+    setView('list'); setSearch(''); setFilters({}); setGroupByOwner(false); setHiddenCols({}); setSavedTick(function(t){ return t + 1; });
+  }
+  React.useEffect(function() {
+    try {
+      var raw = window.localStorage.getItem(TASKS_VIEW_KEY);
+      if (!raw) return;
+      var v = JSON.parse(raw);
+      if (v.view) setView(v.view);
+      if (typeof v.search === 'string') setSearch(v.search);
+      if (v.filters) setFilters(v.filters);
+      if (typeof v.groupByOwner === 'boolean') setGroupByOwner(v.groupByOwner);
+      if (v.hiddenCols) setHiddenCols(v.hiddenCols);
+    } catch (e) {}
+  }, []);
+  var hasSavedTaskView = (savedTick, (function(){ try { return !!window.localStorage.getItem(TASKS_VIEW_KEY); } catch (e) { return false; } })());
+
   // Style constants — local copies matching OperationalList values
   var tCloseBtn = { border: '1px solid #EEF2F7', background: '#fff', color: '#94A3B8', fontSize: 12, width: 26, height: 26, borderRadius: 7, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, boxShadow: 'none' };
 
@@ -3416,13 +3466,24 @@ function TasksScreen({ workspaceMode = 'MSP / Integrator' }){
   var typeOpts = getTaskTypeOptions(workspaceMode);
   var userOpts = resolveFieldOptions('users', workspaceMode);
 
-  // ── F3b: filtered display pipeline ────────────────────────────────────────
+  // ── F3b/F3c: filtered display pipeline (status overrides + column visibility) ──
   const totalTasks = allRecords.length;
-  const filteredTasks = filterTasks(allRecords, { search: search, filters: filters, view: view, sessionOwner: sessionOwner });
-  const listRows = filteredTasks.map(function(r) { return r.row; });
+  const displayRecords = allRecords.map(function(rec) {
+    var ov = statusOverrides[rec.id];
+    if (ov == null) return rec;
+    var row = rec.row.slice(); row[TASK_FIELD.status] = ov;
+    return Object.assign({}, rec, { row: row });
+  });
+  const filteredTasks = filterTasks(displayRecords, { search: search, filters: filters, view: view, sessionOwner: sessionOwner });
+  const visibleColIdx = taskColumns.map(function(_, i){ return i; }).filter(function(i){ return !hiddenCols[taskColumns[i]]; });
+  const visibleColumns = visibleColIdx.map(function(i){ return taskColumns[i]; });
+  const listRows = filteredTasks.map(function(r){ return visibleColIdx.map(function(i){ return r.row[i]; }); });
   const boardGroups = groupTasksByStatus(filteredTasks);
-  const ownerOptions = distinctTaskValues(allRecords, TASK_FIELD.owner);
-  const priorityOptions = distinctTaskValues(allRecords, TASK_FIELD.priority);
+  const ownerOptions = distinctTaskValues(displayRecords, TASK_FIELD.owner);
+  const priorityOptions = distinctTaskValues(displayRecords, TASK_FIELD.priority);
+  const filteredOwners = distinctTaskValues(filteredTasks, TASK_FIELD.owner);
+  const summaryByStatus = groupTasksByStatus(displayRecords);
+  const summaryOverdue = displayRecords.filter(isOverdue).length;
   const hasTaskFilters = !!(filters.status || filters.priority || filters.owner || filters.linkedRecord || filters.due);
   const hasAnyFilter = hasTaskFilters || search.trim().length > 0;
   function clearTaskFilters() { setSearch(''); setFilters({}); }
@@ -3445,15 +3506,24 @@ function TasksScreen({ workspaceMode = 'MSP / Integrator' }){
           <input value={search} onChange={function(e){ setSearch(e.target.value); }} placeholder={taskPlaceholder} aria-label="Search tasks"/>
           <button type="button" onClick={function(){ setAdvOpen(true); }} style={hasTaskFilters?{background:'#EFF6FF',borderColor:'#BFDBFE',color:'#1D4ED8'}:{}}>Advanced filters</button>
           {hasAnyFilter && <button type="button" onClick={clearTaskFilters}>Clear filters</button>}
+          <button type="button" aria-pressed={groupByOwner} onClick={function(){ setGroupByOwner(function(g){ return !g; }); }} style={groupByOwner?{background:'#EFF6FF',borderColor:'#BFDBFE',color:'#1D4ED8'}:{}}>Group by owner</button>
+          <button type="button" onClick={function(){ setBulkOpen(true); }}>Bulk update</button>
+          <button type="button" onClick={function(){ setConfigOpen(true); }}>Configure columns</button>
+          <button type="button" aria-pressed={aiSummaryOpen} onClick={function(){ setAiSummaryOpen(function(s){ return !s; }); }} style={aiSummaryOpen?{background:'#EFF6FF',borderColor:'#BFDBFE',color:'#1D4ED8'}:{}}>AI summary</button>
+          <button type="button" onClick={saveTaskView}>Save view</button>
+          {hasSavedTaskView && <button type="button" onClick={resetTaskView}>Reset view</button>}
         </div>
+        {aiSummaryOpen && <div className="aiInsightBar" style={{marginBottom:12}}><div className="aiInsightBarLeft"><span className="aiInsightBarLabel">Summary · rule-based · local</span><p className="aiInsightBarText" style={{whiteSpace:'normal'}}>{totalTasks} tasks · {(summaryByStatus['To do']||[]).length} to do · {(summaryByStatus['In progress']||[]).length} in progress · {(summaryByStatus['Blocked']||[]).length} blocked · {(summaryByStatus['Done']||[]).length} done · {summaryOverdue} overdue. Computed locally from session tasks — no AI inference.</p></div></div>}
         <p style={{margin:'0 0 10px',fontSize:11,color:'#94A3B8'}}>{filteredTasks.length} of {totalTasks} tasks · Local session tasks — not persisted.</p>
         {view === 'board'
           ? (totalTasks === 0
               ? <div className="stateBox emptyState" style={{textAlign:'center',padding:'28px'}}><strong style={{display:'block',color:'#132033',marginBottom:6}}>No tasks yet.</strong><span style={{color:'#64748B',fontSize:13}}>Use “New task” to create one.</span></div>
-              : <div className="kanban">{TASK_STATUS_COLUMNS.map(function(col){ var items=boardGroups[col]||[]; return <div className="kanbanCol" key={col}><h3>{col} · {items.length}</h3>{items.length===0 ? <span style={{fontSize:12,color:'#94A3B8'}}>—</span> : items.map(function(rec){ return <article className="taskCard" key={rec.id} onClick={function(){ openTaskRec(rec); }} style={{cursor:'pointer'}}><strong>{rec.row[TASK_FIELD.title]}</strong><span>{rec.row[TASK_FIELD.record]}{rec.row[TASK_FIELD.owner]?' · '+rec.row[TASK_FIELD.owner]:''}</span><Badge tone={rec.row[TASK_FIELD.priority]}>{rec.row[TASK_FIELD.priority]}</Badge></article>; })}</div>; })}</div>)
+              : <div className="kanban">{TASK_STATUS_COLUMNS.map(function(col){ var items=boardGroups[col]||[]; return <div className="kanbanCol" key={col}><h3>{col} · {items.length}</h3>{items.length===0 ? <span style={{fontSize:12,color:'#94A3B8'}}>—</span> : items.map(function(rec){ return <article className="taskCard" key={rec.id}><strong style={{cursor:'pointer'}} onClick={function(){ openTaskRec(rec); }}>{rec.row[TASK_FIELD.title]}</strong><span>{rec.row[TASK_FIELD.record]}{rec.row[TASK_FIELD.owner]?' · '+rec.row[TASK_FIELD.owner]:''}</span><div style={{display:'flex',gap:8,alignItems:'center',justifyContent:'space-between',marginTop:2}}><Badge tone={rec.row[TASK_FIELD.priority]}>{rec.row[TASK_FIELD.priority]}</Badge><select aria-label={'Change status of ' + rec.row[TASK_FIELD.title]} value={col} onClick={function(e){ e.stopPropagation(); }} onChange={function(e){ changeTaskStatus(rec, e.target.value); }} style={{fontSize:11,border:'1px solid #DDE6F1',borderRadius:8,padding:'3px 6px',background:'#fff',color:'#334155',fontFamily:'inherit',cursor:'pointer'}}>{TASK_STATUS_COLUMNS.map(function(s){ return <option key={s} value={s}>{s}</option>; })}</select></div></article>; })}</div>; })}</div>)
           : (filteredTasks.length === 0
               ? <div className="stateBox emptyState" style={{textAlign:'center',padding:'28px'}}><strong style={{display:'block',color:'#132033',marginBottom:6}}>{emptyTitle}</strong><span style={{color:'#64748B',fontSize:13}}>{emptyHint}</span>{hasAnyFilter && <div style={{marginTop:12}}><button type="button" onClick={clearTaskFilters}>Clear filters</button></div>}</div>
-              : <Table columns={taskColumns} rows={listRows} onRowOpen={function(idx){ openTaskRec(filteredTasks[idx]); }}/>)}
+              : (groupByOwner
+                  ? <div style={{display:'grid',gap:16}}>{filteredOwners.map(function(own){ var rows=filteredTasks.filter(function(r){ return r.row[TASK_FIELD.owner]===own; }); return <div key={own}><div style={{fontSize:13,fontWeight:800,color:'#0B1F3A',margin:'4px 0 8px'}}>{own} · {rows.length}</div><Table columns={visibleColumns} rows={rows.map(function(r){ return visibleColIdx.map(function(i){ return r.row[i]; }); })} onRowOpen={function(idx){ openTaskRec(rows[idx]); }}/></div>; })}</div>
+                  : <Table columns={visibleColumns} rows={listRows} onRowOpen={function(idx){ openTaskRec(filteredTasks[idx]); }}/>))}
       </section>
     </main>
     {advOpen && <div style={tModalWrap} onClick={function(){ setAdvOpen(false); }}>
@@ -3465,6 +3535,23 @@ function TasksScreen({ workspaceMode = 'MSP / Integrator' }){
         <label style={tLabel}>Due<select style={tFieldStyle} value={filters.due||''} onChange={function(e){ var v=e.target.value; setFilters(function(p){ return Object.assign({}, p, { due: v }); }); }}><option value="">Any due date</option><option value="overdue">Overdue</option><option value="upcoming">Upcoming</option></select></label>
         <label style={tLabel}>Linked record<input style={tFieldStyle} value={filters.linkedRecord||''} placeholder="Record contains…" onChange={function(e){ var v=e.target.value; setFilters(function(p){ return Object.assign({}, p, { linkedRecord: v }); }); }}/></label>
         <div style={tModalFoot}><button type="button" onClick={clearTaskFilters}>Clear</button><button type="button" className="primary" onClick={function(){ setAdvOpen(false); }}>Apply</button></div>
+      </div>
+    </div>}
+    {bulkOpen && <div style={tModalWrap} onClick={function(){ setBulkOpen(false); }}>
+      <div style={Object.assign({}, tModalBox, { width: 420 })} role="dialog" aria-modal="true" aria-label="Bulk update tasks" onClick={function(e){ e.stopPropagation(); }}>
+        <h2 style={{margin:0,fontSize:18,color:'#0B1F3A'}}>Bulk update</h2>
+        <p style={{margin:0,fontSize:13,color:'#475569'}}>Set status for the {filteredTasks.length} filtered task{filteredTasks.length===1?'':'s'} (session).</p>
+        <label style={tLabel}>New status<select style={tFieldStyle} value={bulkStatus} onChange={function(e){ setBulkStatus(e.target.value); }}>{TASK_STATUS_COLUMNS.map(function(s){ return <option key={s} value={s}>{s}</option>; })}</select></label>
+        <p style={{margin:0,fontSize:11,color:'#94A3B8'}}>Local session change — not persisted.</p>
+        <div style={tModalFoot}><button type="button" onClick={function(){ setBulkOpen(false); }}>Cancel</button><button type="button" className="primary" disabled={filteredTasks.length===0} onClick={function(){ filteredTasks.forEach(function(r){ changeTaskStatus(r, bulkStatus); }); setBulkOpen(false); }}>Apply to {filteredTasks.length}</button></div>
+      </div>
+    </div>}
+    {configOpen && <div style={tModalWrap} onClick={function(){ setConfigOpen(false); }}>
+      <div style={Object.assign({}, tModalBox, { width: 380 })} role="dialog" aria-modal="true" aria-label="Configure task columns" onClick={function(e){ e.stopPropagation(); }}>
+        <h2 style={{margin:0,fontSize:18,color:'#0B1F3A'}}>Configure columns</h2>
+        <div style={{display:'grid',gap:8}}>{taskColumns.map(function(col){ return <label key={col} style={{display:'flex',alignItems:'center',gap:8,fontSize:13,color:'#334155'}}><input type="checkbox" checked={!hiddenCols[col]} onChange={function(e){ var on=e.target.checked; setHiddenCols(function(p){ var n=Object.assign({}, p); if (on) { delete n[col]; } else { n[col]=true; } return n; }); }}/>{col}</label>; })}</div>
+        <p style={{margin:0,fontSize:11,color:'#94A3B8'}}>Column visibility is session-only.</p>
+        <div style={tModalFoot}><button type="button" onClick={function(){ setHiddenCols({}); }}>Show all</button><button type="button" className="primary" onClick={function(){ setConfigOpen(false); }}>Done</button></div>
       </div>
     </div>}
 

@@ -116,9 +116,9 @@ test('Missing Evidence: excludes records that have a linked document', () => {
   assert.equal(r.rows[0][4], 'No');
 });
 
-test('Tasks: rows from RECORD_STORE.tasks-shaped objects', () => {
+test('Tasks: reads the real { id, row, meta } task shape (F2a hotfix)', () => {
   const ctx = ctxOf({
-    tasks: [{ title: 'Send quote', status: 'Open', dueDate: '2026-05-20', owner: 'María Chen', sourceRecordName: 'Trend Micro' }],
+    tasks: [{ id: 'task-1', row: ['Send quote'], meta: { title: 'Send quote', status: 'Open', dueDate: '2026-05-20', owner: 'María Chen', sourceRecordName: 'Trend Micro' } }],
   });
   const r = computeReport('tasks', ctx, {});
   assert.equal(r.hasLocalData, true);
@@ -177,8 +177,8 @@ test('buildReport reads RECORD_STORE (tasks) and is workspace-scoped', () => {
   const savedTasks = RECORD_STORE.tasks;
   try {
     RECORD_STORE.tasks = [
-      { title: 'WS task', status: 'Open', dueDate: '2026-05-20', owner: 'Maria', sourceRecordName: 'Lic', workspaceMode: 'MSP / Integrator' },
-      { title: 'Other WS', status: 'Open', workspaceMode: 'Internal IT' },
+      { id: 'task-a', row: ['WS task'], meta: { title: 'WS task', status: 'Open', dueDate: '2026-05-20', owner: 'Maria', sourceRecordName: 'Lic', workspaceMode: 'MSP / Integrator' } },
+      { id: 'task-b', row: ['Other WS'], meta: { title: 'Other WS', status: 'Open', workspaceMode: 'Internal IT' } },
     ];
     const r = buildReport('tasks', 'MSP / Integrator', {});
     assert.equal(r.hasLocalData, true);

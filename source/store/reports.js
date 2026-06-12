@@ -166,14 +166,17 @@ export const REPORT_DEFS = [
     columns: ['Task', 'Status', 'Due date', 'Owner', 'Linked record'],
     hasData: function (ctx) { return (ctx.tasks || []).length > 0; },
     build: function (ctx, filters) {
+      // RECORD_STORE.tasks is shaped { id, row, meta }; read t.meta.* (fallback to
+      // flat shape for robustness).
       return (ctx.tasks || [])
-        .filter(function (t) {
-          if (filters.owner && str(t.owner).toLowerCase().indexOf(str(filters.owner).toLowerCase()) === -1) return false;
-          if (filters.status && str(t.status).toLowerCase() !== str(filters.status).toLowerCase()) return false;
+        .map(function (t) { return (t && t.meta) || t || {}; })
+        .filter(function (tm) {
+          if (filters.owner && str(tm.owner).toLowerCase().indexOf(str(filters.owner).toLowerCase()) === -1) return false;
+          if (filters.status && str(tm.status).toLowerCase() !== str(filters.status).toLowerCase()) return false;
           return true;
         })
-        .map(function (t) {
-          return [dash(t.title), dash(t.status), dash(t.dueDate), dash(t.owner), dash(t.sourceRecordName || t.linkedRecordName)];
+        .map(function (tm) {
+          return [dash(tm.title), dash(tm.status), dash(tm.dueDate), dash(tm.owner), dash(tm.sourceRecordName || tm.linkedRecordName)];
         });
     },
     sample: [
@@ -273,7 +276,10 @@ function gather(workspaceMode) {
     hardware: getLocalStoreRecords('hardware', workspaceMode),
     contracts: getLocalStoreRecords('contracts', workspaceMode),
     documents: getLocalStoreRecords('documents', workspaceMode),
-    tasks: byWorkspace(RECORD_STORE.tasks),
+    tasks: (Array.isArray(RECORD_STORE.tasks) ? RECORD_STORE.tasks : []).filter(function (t) {
+      var wm = t && t.meta && t.meta.workspaceMode;
+      return !wm || wm === workspaceMode;
+    }),
     activity: byWorkspace(RECORD_STORE.activity),
   };
 }

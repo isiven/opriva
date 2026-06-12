@@ -47,6 +47,7 @@ import { getDashboardMetrics } from './store/dashboardMetrics.js';
 import { rowPassesTab } from './utils/tabFilters.js';
 import { REPORT_DEFS, buildReport } from './store/reports.js';
 import { downloadCsv } from './utils/exportCsv.js';
+import { getAlertBadgeCount, getOpenAlerts, getResolvedAlerts, markSeen, resolveAlert, snoozeAlert, reopenAlert } from './store/alerts.js';
 
 // Reusable dialog focus manager (A11y-1). When `active` becomes true it:
 //  - remembers the element that had focus (the trigger),
@@ -6970,7 +6971,7 @@ function LocalSandboxBanner(){
   </div>;
 }
 
-function TopbarShell({ active, onAlerts, onOpenCommand, onMenuToggle, onNavigate, workspaceMode = 'MSP / Integrator', setWorkspaceMode = function(){} }){
+function TopbarShell({ active, onAlerts, onOpenCommand, onMenuToggle, onNavigate, workspaceMode = 'MSP / Integrator', setWorkspaceMode = function(){}, alertCount = 0 }){
   const [workspaceMenuOpen, setWorkspaceMenuOpen] = React.useState(false);
   const [newMenuOpen, setNewMenuOpen] = React.useState(false);
   const workspaceWrapRef = React.useRef(null);
@@ -7098,12 +7099,12 @@ function TopbarShell({ active, onAlerts, onOpenCommand, onMenuToggle, onNavigate
       </div>}
     </div>
 
-    <button type="button" className="topActionBtn topActionAlerts" onClick={onAlerts} aria-label="9 alerts">
+    <button type="button" className="topActionBtn topActionAlerts" onClick={onAlerts} aria-label={(alertCount || 0) + ' session alerts'}>
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/>
         <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
       </svg>
-      <span className="topActionAlertsBadge" aria-hidden="true">9</span>
+      {alertCount > 0 && <span className="topActionAlertsBadge" aria-hidden="true">{alertCount}</span>}
     </button>
 
     <span className="topRightDivider" aria-hidden="true"></span>
@@ -7405,6 +7406,73 @@ const sidebarCollapseStyles = `
 @media (max-width: 1050px){.sidebarCollapseBtn{display:none}.navIcon{display:none}}
 `;
 
+// F2c — Local alerts drawer. Reads getOpenAlerts/getResolvedAlerts and applies
+// session state actions (seen/resolve/snooze/reopen). onChange bumps the parent so
+// the bell badge + this drawer recompute. onNavigate/onCreateTask are wired in F2d.
+const ALERT_SEV_COLOR = { critical: '#DC2626', high: '#D97706', medium: '#2563EB', low: '#64748B' };
+function AlertsDrawer({ open, workspaceMode, onClose, onChange, onNavigate, onCreateTask }){
+  const [filter, setFilter] = React.useState('All');
+  if (!open) return null;
+  const openAlerts = getOpenAlerts(workspaceMode);
+  const resolvedAlerts = getResolvedAlerts(workspaceMode);
+  const badge = getAlertBadgeCount(workspaceMode);
+  const tabs = ['All', 'Critical', 'Due soon', 'Missing owner', 'Overdue tasks', 'Resolved'];
+  const list = filter === 'Resolved' ? resolvedAlerts
+    : filter === 'Critical' ? openAlerts.filter(function(a){ return a.severity === 'critical'; })
+    : filter === 'Due soon' ? openAlerts.filter(function(a){ return a.type === 'expiring30' || a.type === 'dueSoon'; })
+    : filter === 'Missing owner' ? openAlerts.filter(function(a){ return a.type === 'missingOwner'; })
+    : filter === 'Overdue tasks' ? openAlerts.filter(function(a){ return a.type === 'overdueTask'; })
+    : openAlerts;
+  function act(fn, id){ fn(id); if (onChange) onChange(); }
+
+  const overlay = { position:'fixed', inset:0, background:'rgba(11,31,58,.28)', zIndex:86 };
+  const drawer = { position:'fixed', top:0, right:0, bottom:0, width:'min(420px,100vw)', background:'#fff', borderLeft:'1px solid #E5E7EB', boxShadow:'-8px 0 40px rgba(11,31,58,.16)', zIndex:87, display:'flex', flexDirection:'column', overflow:'hidden' };
+  const head = { padding:'16px 18px 10px', borderBottom:'1px solid #EEF2F7' };
+  const closeBtn = { border:'1px solid #E5E7EB', background:'#F8FAFC', color:'#64748B', fontSize:16, width:30, height:30, borderRadius:8, padding:0, cursor:'pointer' };
+  const body = { flex:1, overflowY:'auto', padding:'12px 16px', display:'grid', gap:10, alignContent:'start' };
+  const actBtn = { fontSize:12, padding:'5px 9px', borderRadius:8, border:'1px solid #E1E8F0', background:'#F8FAFC', color:'#334155', cursor:'pointer', fontFamily:'inherit' };
+
+  return <>
+    <div style={overlay} onClick={onClose} aria-hidden="true"/>
+    <aside role="dialog" aria-modal="true" aria-label="Alerts" style={drawer}>
+      <div style={head}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10}}>
+          <h2 style={{margin:0,fontSize:18,color:'#0B1F3A'}}>Alerts{badge > 0 ? ' · ' + badge : ''}</h2>
+          <button type="button" style={closeBtn} onClick={onClose} aria-label="Close alerts">×</button>
+        </div>
+        <p style={{margin:'4px 0 0',fontSize:12,color:'#94A3B8'}}>Session alerts — not persisted.</p>
+      </div>
+      <div className="tabs" role="tablist" aria-label="Alert filters" style={{padding:'10px 16px 0',flexWrap:'wrap'}}>
+        {tabs.map(function(t){ return <button key={t} type="button" role="tab" aria-selected={t===filter} className={t===filter?'active':''} onClick={function(){ setFilter(t); }}>{t}</button>; })}
+      </div>
+      <div style={body}>
+        {list.length === 0
+          ? <div className="stateBox emptyState" style={{textAlign:'center',padding:'26px 18px'}}><strong style={{display:'block',color:'#132033',marginBottom:6}}>{filter==='Resolved'?'No resolved alerts this session.':'No session alerts yet — import or create records.'}</strong><span style={{color:'#64748B',fontSize:13}}>Alerts are computed from your local records (expirations, owners, risk, overdue tasks).</span></div>
+          : list.map(function(a){
+              return <article key={a.id} style={{border:'1px solid #EEF2F7',borderLeft:'3px solid '+(ALERT_SEV_COLOR[a.severity]||'#64748B'),borderRadius:12,padding:'12px 14px',display:'grid',gap:5,background:a.seen?'#FBFCFE':'#fff'}}>
+                <div style={{display:'flex',justifyContent:'space-between',gap:8,alignItems:'center'}}>
+                  <span style={{fontSize:11,fontWeight:800,textTransform:'uppercase',letterSpacing:'.04em',color:ALERT_SEV_COLOR[a.severity]||'#64748B'}}>{a.severity}{a.daysLeft!=null ? ' · ' + (a.daysLeft<0 ? Math.abs(a.daysLeft)+'d overdue' : a.daysLeft+'d left') : ''}</span>
+                  {a.seen && <span style={{fontSize:11,color:'#94A3B8'}}>seen</span>}
+                </div>
+                <strong style={{fontSize:14,color:'#0B1F3A',lineHeight:1.3}}>{a.title}</strong>
+                <span style={{fontSize:12,color:'#64748B'}}>{a.detail}</span>
+                <span style={{fontSize:12,color:'#475569'}}>{a.recordType} · {a.recordName}{a.owner ? ' · ' + a.owner : ''}</span>
+                <div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:4}}>
+                  {filter === 'Resolved'
+                    ? <button type="button" style={actBtn} onClick={function(){ act(reopenAlert, a.id); }}>Reopen</button>
+                    : <>
+                        {!a.seen && <button type="button" style={actBtn} onClick={function(){ act(markSeen, a.id); }}>Mark seen</button>}
+                        <button type="button" style={actBtn} onClick={function(){ act(resolveAlert, a.id); }}>Resolve</button>
+                        <button type="button" style={actBtn} onClick={function(){ act(snoozeAlert, a.id); }}>Snooze</button>
+                      </>}
+                </div>
+              </article>;
+            })}
+      </div>
+    </aside>
+  </>;
+}
+
 function App(){
   const [active, setActive] = React.useState('Dashboard');
   const [aiOpen, setAiOpen] = React.useState(false);
@@ -7413,6 +7481,9 @@ function App(){
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
   const [commandOpen, setCommandOpen] = React.useState(false);
+  const [alertsOpen, setAlertsOpen] = React.useState(false);
+  const [alertsTick, setAlertsTick] = React.useState(0);
+  const bumpAlerts = () => setAlertsTick(function(t){ return t + 1; });
   const handleSelect = (item) => { setActive(item); setSidebarOpen(false); };
   React.useEffect(() => {
     const handler = (e) => {
@@ -7429,9 +7500,10 @@ function App(){
     <style>{styles + aiStyles + livingAgentStyles + oprivaUpgradeStyles + assetsRenewalsStyles + sidebarCollapseStyles + aiSettingsFixStyles + settingsAdminOverrideStyles + settingsDirectoryOverrideStyles + settingsHubDirectoryStyles + responsiveStyles + commandPaletteStyles}</style>
     <SidebarShell active={active} onSelect={handleSelect} open={sidebarOpen} onClose={() => setSidebarOpen(false)} workspaceMode={workspaceMode} collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed(value => !value)} />
     <div className={cx('sidebarBackdrop', sidebarOpen && 'sidebarBackdropOpen')} onClick={() => setSidebarOpen(false)} aria-hidden="true"></div>
-    <section className="workspace"><TopbarShell active={active} onAlerts={() => setActive('Attention Center')} onOpenCommand={() => setCommandOpen(true)} onMenuToggle={() => setSidebarOpen(true)} onNavigate={setActive} workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode} /><LocalSandboxBanner />{route}</section>
+    <section className="workspace"><TopbarShell active={active} onAlerts={() => setAlertsOpen(true)} onOpenCommand={() => setCommandOpen(true)} onMenuToggle={() => setSidebarOpen(true)} onNavigate={setActive} workspaceMode={workspaceMode} setWorkspaceMode={setWorkspaceMode} alertCount={(alertsTick, getAlertBadgeCount(workspaceMode))} /><LocalSandboxBanner />{route}</section>
     <FloatingOprivaAgentButton isOpen={aiOpen} onClick={() => setAiOpen(true)} eyeFollowsCursor={eyeFollowsCursor} />
     {aiOpen && <OprivaDrawer active={active} onClose={() => setAiOpen(false)} eyeFollowsCursor={eyeFollowsCursor} setEyeFollowsCursor={setEyeFollowsCursor} />}
+    <AlertsDrawer open={alertsOpen} workspaceMode={workspaceMode} onClose={() => setAlertsOpen(false)} onChange={bumpAlerts} onNavigate={(id) => { setActive(id); setAlertsOpen(false); }} />
     <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} onNavigate={(id) => setActive(id)} onOpenAi={() => setAiOpen(true)} workspaceMode={workspaceMode} />
     <ToastStack />
   </div>;

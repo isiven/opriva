@@ -48,6 +48,7 @@ import { rowPassesTab } from './utils/tabFilters.js';
 import { REPORT_DEFS, buildReport } from './store/reports.js';
 import { downloadCsv } from './utils/exportCsv.js';
 import { getAlertBadgeCount, getOpenAlerts, getResolvedAlerts, markSeen, resolveAlert, snoozeAlert, reopenAlert } from './store/alerts.js';
+import { TASK_FIELD, TASK_STATUS_COLUMNS, filterTasks, groupTasksByStatus, distinctTaskValues } from './utils/taskFilters.js';
 
 // Reusable dialog focus manager (A11y-1). When `active` becomes true it:
 //  - remembers the element that had focus (the trigger),
@@ -3365,14 +3366,20 @@ function TasksScreen({ workspaceMode = 'MSP / Integrator' }){
   const [selectedTask, setSelectedTask] = React.useState(null);
   const [detailOpen, setDetailOpen] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState('Overview');
+  // F3b — functional views / search / filters.
+  const [view, setView] = React.useState('list');     // list | board | mine | overdue
+  const [search, setSearch] = React.useState('');
+  const [filters, setFilters] = React.useState({});    // { status, priority, owner, linkedRecord, due }
+  const [advOpen, setAdvOpen] = React.useState(false);
+  const sessionOwner = 'María Chen';
 
-  function openTask(idx) {
-    var rec = allRecords[idx];
+  function openTaskRec(rec) {
     if (!rec) return;
     setSelectedTask(rec);
     setActiveTab('Overview');
     setDetailOpen(true);
   }
+  function openTask(idx) { openTaskRec(allRecords[idx]); }
 
   // Style constants — local copies matching OperationalList values
   var tCloseBtn = { border: '1px solid #EEF2F7', background: '#fff', color: '#94A3B8', fontSize: 12, width: 26, height: 26, borderRadius: 7, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, boxShadow: 'none' };
@@ -3409,16 +3416,57 @@ function TasksScreen({ workspaceMode = 'MSP / Integrator' }){
   var typeOpts = getTaskTypeOptions(workspaceMode);
   var userOpts = resolveFieldOptions('users', workspaceMode);
 
+  // ── F3b: filtered display pipeline ────────────────────────────────────────
+  const totalTasks = allRecords.length;
+  const filteredTasks = filterTasks(allRecords, { search: search, filters: filters, view: view, sessionOwner: sessionOwner });
+  const listRows = filteredTasks.map(function(r) { return r.row; });
+  const boardGroups = groupTasksByStatus(filteredTasks);
+  const ownerOptions = distinctTaskValues(allRecords, TASK_FIELD.owner);
+  const priorityOptions = distinctTaskValues(allRecords, TASK_FIELD.priority);
+  const hasTaskFilters = !!(filters.status || filters.priority || filters.owner || filters.linkedRecord || filters.due);
+  const hasAnyFilter = hasTaskFilters || search.trim().length > 0;
+  function clearTaskFilters() { setSearch(''); setFilters({}); }
+  const emptyTitle = totalTasks === 0 ? 'No tasks yet.'
+    : view === 'overdue' ? 'No overdue tasks.'
+    : view === 'mine' ? 'No tasks assigned to you.'
+    : hasAnyFilter ? 'No tasks match your filters.' : 'No tasks.';
+  const emptyHint = totalTasks === 0 ? 'Use “New task” to create one.'
+    : view === 'mine' ? ('Showing tasks owned by ' + sessionOwner + '.')
+    : view === 'overdue' ? 'Nothing is past its due date.'
+    : 'Adjust or clear your filters to see all tasks.';
+  const tLabel = { display: 'grid', gap: 6, fontSize: 13, color: '#334155' };
+
   return <>
     <main className="content">
-      <ScreenHeader active="Tasks" subtitle={taskSubtitle}><button>Saved view</button><button className="primary" onClick={openNewTaskModal}>New task</button></ScreenHeader>
+      <ScreenHeader active="Tasks" subtitle={taskSubtitle}><button className="primary" onClick={openNewTaskModal}>New task</button></ScreenHeader>
       <section className="panel">
-        <div className="tabs"><button className="active">List view</button><button>Board view</button><button>My tasks</button><button>Overdue</button></div>
-        <div className="toolbar"><input placeholder={taskPlaceholder}/><button>Bulk update</button><button>Group by owner</button><button>Configure columns</button><button>Advanced filters</button><button>AI summary</button></div>
-        <Table columns={taskColumns} rows={taskRows} onRowOpen={openTask}/>
+        <div className="tabs" role="tablist" aria-label="Task views">{[['list','List view'],['board','Board view'],['mine','My tasks'],['overdue','Overdue']].map(function(v){ return <button key={v[0]} type="button" role="tab" aria-selected={view===v[0]} className={view===v[0]?'active':''} onClick={function(){ setView(v[0]); }}>{v[1]}</button>; })}</div>
+        <div className="toolbar">
+          <input value={search} onChange={function(e){ setSearch(e.target.value); }} placeholder={taskPlaceholder} aria-label="Search tasks"/>
+          <button type="button" onClick={function(){ setAdvOpen(true); }} style={hasTaskFilters?{background:'#EFF6FF',borderColor:'#BFDBFE',color:'#1D4ED8'}:{}}>Advanced filters</button>
+          {hasAnyFilter && <button type="button" onClick={clearTaskFilters}>Clear filters</button>}
+        </div>
+        <p style={{margin:'0 0 10px',fontSize:11,color:'#94A3B8'}}>{filteredTasks.length} of {totalTasks} tasks · Local session tasks — not persisted.</p>
+        {view === 'board'
+          ? (totalTasks === 0
+              ? <div className="stateBox emptyState" style={{textAlign:'center',padding:'28px'}}><strong style={{display:'block',color:'#132033',marginBottom:6}}>No tasks yet.</strong><span style={{color:'#64748B',fontSize:13}}>Use “New task” to create one.</span></div>
+              : <div className="kanban">{TASK_STATUS_COLUMNS.map(function(col){ var items=boardGroups[col]||[]; return <div className="kanbanCol" key={col}><h3>{col} · {items.length}</h3>{items.length===0 ? <span style={{fontSize:12,color:'#94A3B8'}}>—</span> : items.map(function(rec){ return <article className="taskCard" key={rec.id} onClick={function(){ openTaskRec(rec); }} style={{cursor:'pointer'}}><strong>{rec.row[TASK_FIELD.title]}</strong><span>{rec.row[TASK_FIELD.record]}{rec.row[TASK_FIELD.owner]?' · '+rec.row[TASK_FIELD.owner]:''}</span><Badge tone={rec.row[TASK_FIELD.priority]}>{rec.row[TASK_FIELD.priority]}</Badge></article>; })}</div>; })}</div>)
+          : (filteredTasks.length === 0
+              ? <div className="stateBox emptyState" style={{textAlign:'center',padding:'28px'}}><strong style={{display:'block',color:'#132033',marginBottom:6}}>{emptyTitle}</strong><span style={{color:'#64748B',fontSize:13}}>{emptyHint}</span>{hasAnyFilter && <div style={{marginTop:12}}><button type="button" onClick={clearTaskFilters}>Clear filters</button></div>}</div>
+              : <Table columns={taskColumns} rows={listRows} onRowOpen={function(idx){ openTaskRec(filteredTasks[idx]); }}/>)}
       </section>
-      <section className="panel"><div className="panelTitle"><h2>Kanban board snapshot</h2><span>Board view for execution without losing list precision</span></div><div className="kanban">{['To do','In progress','Blocked'].map(status=><div className="kanbanCol" key={status}><h3>{status}</h3>{board.filter(card=>card[0]===status).map(card=><article className="taskCard" key={card[1]}><strong>{card[1]}</strong><span>{card[2]} · {card[4]}</span><Badge tone={card[3]}>{card[3]}</Badge></article>)}</div>)}</div></section>
     </main>
+    {advOpen && <div style={tModalWrap} onClick={function(){ setAdvOpen(false); }}>
+      <div style={Object.assign({}, tModalBox, { width: 460 })} role="dialog" aria-modal="true" aria-label="Advanced task filters" onClick={function(e){ e.stopPropagation(); }}>
+        <h2 style={{margin:0,fontSize:18,color:'#0B1F3A'}}>Advanced filters</h2>
+        <label style={tLabel}>Status<select style={tFieldStyle} value={filters.status||''} onChange={function(e){ var v=e.target.value; setFilters(function(p){ return Object.assign({}, p, { status: v }); }); }}><option value="">Any status</option>{TASK_STATUS_COLUMNS.map(function(s){ return <option key={s} value={s}>{s}</option>; })}</select></label>
+        <label style={tLabel}>Priority<select style={tFieldStyle} value={filters.priority||''} onChange={function(e){ var v=e.target.value; setFilters(function(p){ return Object.assign({}, p, { priority: v }); }); }}><option value="">Any priority</option>{priorityOptions.map(function(s){ return <option key={s} value={s}>{s}</option>; })}</select></label>
+        <label style={tLabel}>Owner<select style={tFieldStyle} value={filters.owner||''} onChange={function(e){ var v=e.target.value; setFilters(function(p){ return Object.assign({}, p, { owner: v }); }); }}><option value="">Any owner</option>{ownerOptions.map(function(s){ return <option key={s} value={s}>{s}</option>; })}</select></label>
+        <label style={tLabel}>Due<select style={tFieldStyle} value={filters.due||''} onChange={function(e){ var v=e.target.value; setFilters(function(p){ return Object.assign({}, p, { due: v }); }); }}><option value="">Any due date</option><option value="overdue">Overdue</option><option value="upcoming">Upcoming</option></select></label>
+        <label style={tLabel}>Linked record<input style={tFieldStyle} value={filters.linkedRecord||''} placeholder="Record contains…" onChange={function(e){ var v=e.target.value; setFilters(function(p){ return Object.assign({}, p, { linkedRecord: v }); }); }}/></label>
+        <div style={tModalFoot}><button type="button" onClick={clearTaskFilters}>Clear</button><button type="button" className="primary" onClick={function(){ setAdvOpen(false); }}>Apply</button></div>
+      </div>
+    </div>}
 
     {detailOpen && selectedTask && <>
       <style>{`.agentWrap,.floatingAgentWrap{display:none!important}`}</style>
